@@ -1,0 +1,70 @@
+.gridWrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+
+.grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(9rem, 1fr);
+  gap: 10px;
+}
+
+.tile {
+  border: 0;
+  border-radius: var(--radius-tile);
+  padding: 16px;
+  outline-offset: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.tileTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.tileName {
+  font-size: min(1.588rem, 7.6vw); /* 27px, a little smaller on narrow phones */
+  line-height: 0.98;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pinAnother {
+  border: 2px dashed rgba(234, 223, 200, 0.6);
+  color: var(--sand);
+}
+
+.plus {
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  background: var(--forest);
+  color: var(--sand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Big iPhone text on a narrow phone: one tile per row so whole words fit. */
+@container (max-width: 16rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(6rem, auto);
+  }
+  .tileName {
+    font-size: 1.588rem;
+  }
+}

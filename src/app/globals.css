@@ -1,0 +1,362 @@
+/* ---------- Design tokens ---------- */
+:root {
+  --ink: #16130f;
+  --sand: #eadfc8;
+  --lime: #c8e03a;
+  --orange: #e8571e;
+  --lilac: #a99bf5;
+  --forest: #1f3d2b;
+  --muted-on-sand: #4a4238;
+
+  --font-sans: var(--font-bricolage), "Helvetica Neue", -apple-system, system-ui, sans-serif;
+  --font-mono: var(--font-space-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --radius-tile: 22px;
+  --radius-pill: 999px;
+  --tap: 44px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --gutter: 20px;
+
+  color-scheme: dark;
+}
+
+/*
+ * Text size. 1rem = 17px, the iPhone's default body size.
+ * On iPhone, follow the Settings > Display > Text Size choice so text grows with it.
+ */
+html {
+  font-size: 17px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--ink);
+}
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html {
+    font: -apple-system-body;
+  }
+}
+
+/* The page behind the column (and the iOS bounce area) matches the screen colour. */
+html:has(.screen--sand) { background: var(--sand); }
+html:has(.screen--lilac) { background: var(--lilac); }
+html:has(.screen--forest) { background: var(--forest); }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--ink);
+  color: var(--sand);
+  font-family: var(--font-sans);
+  line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Layout ---------- */
+
+/* One screen: fills the phone, never wider than 480px on iPad or desktop. */
+.screen {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: calc(28px + var(--safe-top)) calc(var(--gutter) + var(--safe-right))
+    calc(24px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+  background: var(--ink);
+  color: var(--sand);
+  overflow-wrap: break-word;
+}
+.screen--sand { background: var(--sand); color: var(--ink); }
+.screen--lilac { background: var(--lilac); color: var(--ink); }
+.screen--forest { background: var(--forest); color: var(--sand); }
+.screen--flush { padding: 0; gap: 0; }
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- Type ---------- */
+
+.headline {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  hyphens: manual;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.647rem; /* 11px */
+  line-height: 1.35;
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.765rem; /* 13px */
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.beta-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--lime);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.588rem; /* 10px */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.tag {
+  display: inline-block;
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+}
+
+/* ---------- Buttons ---------- */
+
+.cta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: left;
+}
+.cta--large { min-height: 60px; font-size: 1.118rem; /* 19px */ }
+.cta--medium { min-height: 56px; font-size: 1rem; }
+
+.icon-btn {
+  width: var(--tap);
+  height: var(--tap);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chip {
+  min-height: var(--tap);
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  border: 2px solid rgba(234, 223, 200, 0.55);
+  background: transparent;
+  color: var(--sand);
+  font-weight: 700;
+  font-size: 0.941rem; /* 16px */
+  line-height: 1.1;
+}
+
+.feedback-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 8px 18px;
+  border: 2px solid var(--lime);
+  border-radius: var(--radius-pill);
+  color: var(--lime);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.706rem; /* 12px */
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* ---------- Credit ---------- */
+
+.credit {
+  font-family: var(--font-mono);
+  font-size: 0.647rem; /* 11px */
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.credit a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 6px;
+}
+
+/* ---------- Track list (The mix and shared page) ---------- */
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.phase-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.phase-note {
+  font-family: var(--font-mono);
+  font-size: 0.647rem;
+  color: var(--muted-on-sand);
+}
+.track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(22, 19, 15, 0.15);
+  color: var(--ink);
+  text-decoration: none;
+}
+.track-n {
+  font-family: var(--font-mono);
+  font-size: 0.706rem;
+  font-weight: 700;
+  min-width: 22px;
+  flex: 0 0 auto;
+}
+.track-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.track-title {
+  font-size: 0.941rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.track-artist {
+  font-family: var(--font-mono);
+  font-size: 0.647rem;
+  color: var(--muted-on-sand);
+}
+
+/* ---------- Home: library link ---------- */
+
+.library-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 6px 16px;
+  border: 2px solid var(--sand);
+  border-radius: var(--radius-pill);
+  color: var(--sand);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.706rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.library-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--lime);
+}
+
+/* ---------- Routine tag ---------- */
+
+.routine-tag {
+  display: inline-block;
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  font-size: 0.706rem;
+  letter-spacing: 0.12em;
+}
+
+/* Read out by screen readers, not shown on screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}

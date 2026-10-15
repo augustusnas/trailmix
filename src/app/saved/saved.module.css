@@ -1,0 +1,71 @@
+.cardWrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+}
+
+.card {
+  width: 100%;
+  background: var(--ink);
+  color: var(--sand);
+  border-radius: var(--radius-tile);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transform: rotate(-2deg);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardName {
+  font-size: 1.882rem; /* 32px */
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.bars {
+  display: flex;
+  gap: 6px;
+}
+.bars span {
+  height: 10px;
+  border-radius: var(--radius-pill);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.back {
+  align-self: center;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.706rem;
+}

@@ -2,25 +2,51 @@
 
 Personal iPhone web app (invite-only beta) that turns a gym routine plus a mood into a YouTube Music playlist.
 
-## Milestone 0: prove the save works
+Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main`.
 
-`make_playlist.py` is a small throwaway script that signs in to Google, finds 11 test tracks on YouTube and saves them, in order, to a new **unlisted** playlist in your account. It uses only Python's built-in libraries (macOS ships with `python3`), so there's nothing to install.
+## Where things live
 
-### One-time setup
+| What | Where |
+| --- | --- |
+| Screens | `src/app/` (one folder per screen: `listen`, `home`, `library`, `vibe`, `mix`, `saved`, `m/[id]`) |
+| The 17 routines | `src/data/routines.ts` |
+| Category colours | `src/data/categories.ts` |
+| Genres, energy levels, lengths | `src/data/vibe.ts` |
+| Fake mixes (Milestone 1 only) | `src/data/fakeMix.ts` |
+| Beta label on/off, live URL, credit | `src/config/site.ts` |
+| Colours, fonts, shapes | `src/app/globals.css` (top of file) |
+| App icon (one source for every size) | `src/brand/AppIcon.tsx` |
+| Offline helper (service worker) | `src/app/sw.js/route.ts` |
+| Security headers | `next.config.ts` |
+| Design mockups | `design/reference/` |
+| Milestone 0 playlist script | `scripts/milestone-0/` |
 
-1. In [Google Cloud Console](https://console.cloud.google.com), create a project called **Trailmix**.
-2. Enable **YouTube Data API v3**.
-3. Set up the OAuth consent screen: External, Testing mode, app name Trailmix, and add your own Google account as a test user.
-4. Create an OAuth client of type **Desktop app**, download its JSON and put it in this folder. Keep the name it downloads with, which starts with `client_secret`.
-
-### Run it
+## Running it on the Mac
 
 ```
-python3 make_playlist.py
+npm install          # first time only
+npm run dev          # then open http://localhost:3000
 ```
 
-Your browser opens for Google sign-in. Afterwards the script prints the playlist link, any tracks it couldn't find and roughly how much of the 10,000-unit daily YouTube quota it used (about 1,700).
+## Tests
 
-### Secrets
+```
+npm test             # quick checks (routine data, feedback button, playlist title)
+npm run build        # the browser tests run against a real build
+npm run test:e2e     # every screen in Safari's engine: navigation, F21, labels, security, offline, accessibility
+npm run screenshots  # just the screenshot checks; images land in screenshots/
+```
 
-The client JSON (`client_secret*.json`), the saved sign-in (`token.json`) and any `.env*` files are listed in `.gitignore` and never get committed.
+GitHub Actions runs all of these on every push.
+
+## Settings (environment variables)
+
+| Name | What it does | If missing |
+| --- | --- | --- |
+| `FEEDBACK_EMAIL` | Address the Library's "Send beta feedback" button emails | The button is hidden |
+
+Set them in Vercel → Project → Settings → Environment Variables, or in `.env.local` on the Mac. Never commit them.
+
+## Secrets
+
+The Google client JSON (`client_secret*.json`), saved sign-ins (`token*.json`) and every `.env*` file are listed in `.gitignore` and never get committed.

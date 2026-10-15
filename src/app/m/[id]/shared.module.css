@@ -1,0 +1,60 @@
+/* The dark header and "Play it in" panel are one rounded block. */
+.head {
+  background: var(--ink);
+  color: var(--sand);
+  padding: calc(28px + var(--safe-top)) calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.playIn {
+  background: var(--ink);
+  color: var(--sand);
+  padding: 20px calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+  border-radius: 0 0 32px 32px;
+}
+.playInInner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.apps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.app {
+  min-height: 56px;
+  border-radius: 16px;
+  border: 2px solid rgba(234, 223, 200, 0.55);
+  background: transparent;
+  color: var(--sand);
+  font-size: min(0.882rem, 4.2vw);
+  font-weight: 800;
+  line-height: 1.05;
+  padding: 6px;
+}
+
+.phases {
+  padding: 18px calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.foot {
+  margin-top: auto;
+  padding: 20px calc(var(--gutter) + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.647rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}

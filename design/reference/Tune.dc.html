@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trailmix: set the vibe</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8E03A}a:hover{color:#EADFC8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #1F3D2B; color: #EADFC8; font-family: 'Bricolage Grotesque', 'Helvetica Neue', sans-serif; padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; overflow: hidden">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <a href="Main.dc.html" aria-label="Back to routines" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #EADFC8; color: #EADFC8; display: flex; align-items: center; justify-content: center; box-sizing: border-box">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+    </a>
+    <span style="background: #C8E03A; color: #16130F; border-radius: 999px; padding: 8px 14px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em">01 · INDOOR WALK</span>
+  </div>
+  <h1 style="margin: 0; font-size: 50px; line-height: 0.92; font-weight: 800; letter-spacing: -0.035em">Set the vibe.</h1>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em">SOUNDS LIKE · PICK A FEW</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <sc-for list="{{genres}}" as="g" hint-placeholder-count="12">
+        <button type="button" onClick="{{g.toggle}}" aria-pressed="{{g.pressed}}" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 2px solid {{g.border}}; background: {{g.bg}}; color: {{g.fg}}; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer">{{g.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em">ENERGY</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+      <sc-for list="{{moods}}" as="m" hint-placeholder-count="4">
+        <button type="button" onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="min-height: 52px; border-radius: 14px; border: 2px solid {{m.border}}; background: {{m.bg}}; color: {{m.fg}}; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer">{{m.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em">LENGTH · MINUTES</div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+      <sc-for list="{{lengths}}" as="l" hint-placeholder-count="4">
+        <button type="button" onClick="{{l.pick}}" aria-pressed="{{l.pressed}}" style="min-height: 52px; border-radius: 14px; border: 2px solid {{l.border}}; background: {{l.bg}}; color: {{l.fg}}; font-family: inherit; font-size: 22px; font-weight: 800; cursor: pointer">{{l.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1 1 auto"></div>
+  <a href="Mix.dc.html" style="display: flex; justify-content: space-between; align-items: center; min-height: 60px; padding: 0 24px; background: #E8571E; color: #16130F; text-decoration: none; border-radius: 999px; font-weight: 800; font-size: 19px">
+    <span>Make the mix</span>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+  </a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { genres: ['house'], mood: 'steady', len: '45' };
+  }
+  renderVals() {
+    const s = this.state;
+    const genreList = [
+      ['hiphop', 'Hip-hop'], ['afro', 'Afrobeats'], ['house', 'House'], ['dnb', 'Drum & bass'],
+      ['rnb', '90s R&B'], ['rock', 'Rock'], ['grime', 'Grime'], ['amapiano', 'Amapiano'],
+      ['soul', 'Soul'], ['disco', 'Disco'], ['pop', 'Pop'], ['funk', 'Jazz-funk']
+    ];
+    const seg = (on, onBg) => ({
+      bg: on ? onBg : 'transparent',
+      fg: on ? '#16130F' : '#EADFC8',
+      border: on ? onBg : 'rgba(234,223,200,0.55)',
+      pressed: on ? 'true' : 'false'
+    });
+    return {
+      genres: genreList.map(([id, label]) => {
+        const on = s.genres.includes(id);
+        return {
+          label,
+          ...seg(on, '#C8E03A'),
+          toggle: () => this.setState({ genres: on ? s.genres.filter((x) => x !== id) : [...s.genres, id] })
+        };
+      }),
+      moods: ['Easy', 'Steady', 'Driven', 'Feral'].map((label) => {
+        const id = label.toLowerCase();
+        return { label, ...seg(s.mood === id, '#A99BF5'), pick: () => this.setState({ mood: id }) };
+      }),
+      lengths: ['30', '45', '60', '90'].map((label) => ({
+        label, ...seg(s.len === label, '#EADFC8'), pick: () => this.setState({ len: label })
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

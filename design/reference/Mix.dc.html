@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trailmix: your mix</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#16130F}a:hover{color:#1F3D2B}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #EADFC8; color: #16130F; font-family: 'Bricolage Grotesque', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <div style="background: #C8E03A; padding: 24px 20px 22px; border-radius: 0 0 32px 32px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <a href="Tune.dc.html" aria-label="Back to vibe settings" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #16130F; color: #16130F; display: flex; align-items: center; justify-content: center; box-sizing: border-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+      </a>
+      <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em">INDOOR WALK · 45 MIN · STEADY</span>
+    </div>
+    <h1 style="margin: 0; font-size: 52px; line-height: 0.9; font-weight: 800; letter-spacing: -0.035em">Groove Miles</h1>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.08em">
+      <span style="background: #16130F; color: #C8E03A; border-radius: 999px; padding: 5px 10px">HOUSE</span>
+    </div>
+  </div>
+
+  <div style="flex: 1 1 auto; min-height: 0; padding: 14px 20px 0; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{phases}}" as="p" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 4px">
+          <span style="background: {{p.color}}; color: {{p.fg}}; border-radius: 999px; padding: 4px 10px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.1em">{{p.name}}</span>
+          <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; color: #4A4238">{{p.meta}}</span>
+        </div>
+        <sc-for list="{{p.tracks}}" as="t" hint-placeholder-count="2">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; border-bottom: 1px solid rgba(22,19,15,0.15)">
+            <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; width: 22px">{{t.n}}</span>
+            <span style="flex: 1 1 auto; display: flex; flex-direction: column">
+              <span style="font-size: 16px; font-weight: 700; line-height: 1.1">{{t.title}}</span>
+              <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; color: #4A4238">{{t.artist}}</span>
+            </span>
+            <button type="button" aria-label="Swap this track" style="width: 44px; height: 44px; border: 0; background: transparent; color: #16130F; display: flex; align-items: center; justify-content: center; cursor: pointer">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 4L4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3"></path></svg>
+            </button>
+          </div>
+        </sc-for>
+        <sc-if value="{{p.hasMore}}" hint-placeholder-val="{{ false }}">
+          <div style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; padding-top: 6px; letter-spacing: 0.08em">{{p.more}}</div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; gap: 10px; padding: 12px 20px 22px">
+    <button type="button" style="min-height: 58px; padding: 0 20px; border-radius: 999px; border: 2px solid #16130F; background: transparent; color: #16130F; font-family: inherit; font-size: 17px; font-weight: 800; cursor: pointer; flex: 0 0 auto">Remix</button>
+    <a href="Saved.dc.html" style="flex: 1 1 auto; min-height: 58px; padding: 0 16px; border-radius: 999px; background: #16130F; color: #C8E03A; text-decoration: none; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 17px; font-weight: 800; line-height: 1.1">Keep it in YouTube Music</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const all = [
+      ['Can You Feel It', 'Mr. Fingers'], ['Rain', 'Kerri Chandler'],
+      ['When a Fire Starts to Burn', 'Disclosure'], ['Gypsy Woman (She’s Homeless)', 'Crystal Waters'],
+      ['Show Me Love', 'Robin S'], ['Music Sounds Better with You', 'Stardust'],
+      ['Hypnotized', 'Purple Disco Machine'], ['(It Goes Like) Nanana', 'Peggy Gou'],
+      ['Jungle', 'Fred again..'], ['Shades of Jae', 'Moodymann'], ['Glue', 'Bicep']
+    ];
+    const rows = (from, count) => Array.from({ length: count }, (_, i) => ({ n: String(from + i).padStart(2, '0'), title: all[from + i - 1][0], artist: all[from + i - 1][1] }));
+    return {
+      phases: [
+        { name: 'WARM-UP', meta: 'easing in', color: '#A99BF5', fg: '#16130F', tracks: rows(1, 2), hasMore: false, more: '' },
+        { name: 'MAIN BLOCK', meta: 'settle into the stride', color: '#16130F', fg: '#C8E03A', tracks: rows(3, 3), hasMore: true, more: '+ 4 MORE TRACKS' },
+        { name: 'COOL-DOWN', meta: 'bring it home', color: '#1F3D2B', fg: '#EADFC8', tracks: rows(10, 2), hasMore: false, more: '' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

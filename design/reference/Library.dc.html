@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trailmix: routine library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#C8E03A}a:hover{color:#EADFC8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #16130F; color: #EADFC8; font-family: 'Bricolage Grotesque', 'Helvetica Neue', sans-serif; padding: 24px 20px 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <a href="Main.dc.html" aria-label="Back to home" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #EADFC8; color: #EADFC8; display: flex; align-items: center; justify-content: center; box-sizing: border-box">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+    </a>
+    <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em">{{pinCount}} OF 6 ON HOME</span>
+  </div>
+  <sc-if value="{{full}}" hint-placeholder-val="{{ false }}">
+    <div style="background: #E8571E; color: #16130F; border-radius: 14px; padding: 10px 14px; font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.08em">HOME IS FULL. UNPIN ONE TO ADD ANOTHER.</div>
+  </sc-if>
+  <h1 style="margin: 0; font-size: 50px; line-height: 0.92; font-weight: 800; letter-spacing: -0.035em">The library.</h1>
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <label for="lib-search" style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em">FIND A ROUTINE</label>
+    <input id="lib-search" type="search" placeholder="Tabata, push day, rowing…" value="{{query}}" onChange="{{onQuery}}" style="min-height: 50px; border-radius: 16px; border: 2px solid #EADFC8; background: transparent; color: #EADFC8; padding: 0 16px; font-family: inherit; font-size: 17px; box-sizing: border-box; width: 100%">
+  </div>
+
+  <div style="display: flex; gap: 8px; overflow-x: auto; flex: 0 0 auto; padding-bottom: 2px">
+    <sc-for list="{{filters}}" as="f" hint-placeholder-count="6">
+      <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="flex: 0 0 auto; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 2px solid {{f.border}}; background: {{f.bg}}; color: {{f.fg}}; font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; cursor: pointer">{{f.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 24px">
+    <sc-for list="{{routines}}" as="r" hint-placeholder-count="6">
+      <div style="background: {{r.bg}}; color: {{r.fg}}; border-radius: 20px; padding: 12px 10px 12px 18px; display: flex; align-items: center; gap: 8px">
+        <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+          <span style="font-size: 21px; font-weight: 800; line-height: 1.05; letter-spacing: -0.01em">{{r.name}}</span>
+          <span style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.08em">{{r.meta}}</span>
+        </div>
+        <button type="button" onClick="{{r.togglePin}}" aria-pressed="{{r.pressed}}" aria-label="{{r.pinLabel}}" disabled="{{r.blocked}}" style="opacity: {{r.pinOpacity}}; width: 44px; height: 44px; border-radius: 50%; border: 2px solid {{r.fg}}; background: {{r.pinBg}}; color: {{r.pinFg}}; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto">
+          <sc-if value="{{r.pinned}}" hint-placeholder-val="{{ false }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>
+          </sc-if>
+          <sc-if value="{{r.unpinned}}" hint-placeholder-val="{{ true }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+          </sc-if>
+        </button>
+        <a href="Tune.dc.html" aria-label="{{r.useLabel}}" style="width: 44px; height: 44px; border-radius: 50%; background: {{r.fg}}; color: {{r.bg}}; display: flex; align-items: center; justify-content: center; flex: 0 0 auto">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </a>
+      </div>
+    </sc-for>
+    <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+      <div style="font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: 0.08em; padding: 16px 4px">NOTHING MATCHES. TRY ANOTHER WORD.</div>
+    </sc-if>
+    <div style="padding: 20px 4px 0; display: flex; justify-content: center"><a href="mailto:?subject=Trailmix%20beta%20feedback" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 2px solid #C8E03A; border-radius: 999px; color: #C8E03A; text-decoration: none; font-family: 'Space Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.1em">SEND BETA FEEDBACK</a></div>
+    <div style="padding: 12px 4px 8px; text-align: center; font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.1em; color: #EADFC8">BUILT BY <a href="https://www.augustusnas.com" target="_blank" rel="noopener" style="color: #C8E03A; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; display: inline-block; padding: 12px 4px; margin: -12px 0">AUGUSTUS NAS</a></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all', query: '', pinned: ['walk', 'emom', 'full'] };
+  }
+  renderVals() {
+    const s = this.state;
+    const cats = {
+      cardio: { label: 'CARDIO', bg: '#C8E03A', fg: '#16130F' },
+      strength: { label: 'STRENGTH', bg: '#EADFC8', fg: '#16130F' },
+      conditioning: { label: 'CONDITIONING', bg: '#A99BF5', fg: '#16130F' },
+      combat: { label: 'COMBAT', bg: '#E8571E', fg: '#16130F' },
+      recovery: { label: 'RECOVERY', bg: '#1F3D2B', fg: '#EADFC8' }
+    };
+    const all = [
+      ['walk', 'Indoor walk', 'cardio', '30–60'],
+      ['incline', 'Incline treadmill', 'cardio', '20–40'],
+      ['spin', 'Spin / bike', 'cardio', '30–45'],
+      ['row', 'Rowing intervals', 'cardio', '20–30'],
+      ['box', 'Boxing: bag rounds', 'combat', '30–45'],
+      ['shadow', 'Shadow boxing', 'combat', '15–30'],
+      ['emom', 'EMOM', 'conditioning', '10–30'],
+      ['amrap', 'AMRAP', 'conditioning', '12–30'],
+      ['tabata', 'Tabata', 'conditioning', '4–20'],
+      ['hiit', 'HIIT circuit', 'conditioning', '20–30'],
+      ['legs', 'Free weights: legs', 'strength', '45–60'],
+      ['push', 'Push day', 'strength', '45–60'],
+      ['pull', 'Pull day', 'strength', '45–60'],
+      ['full', 'Full body', 'strength', '45–60'],
+      ['kb', 'Kettlebell flow', 'strength', '20–40'],
+      ['mobility', 'Stretch & mobility', 'recovery', '15–30'],
+      ['yoga', 'Yoga flow', 'recovery', '20–45']
+    ];
+    const q = s.query.trim().toLowerCase();
+    const shown = all.filter(([id, name, cat]) =>
+      (s.filter === 'all' || s.filter === cat) && (!q || name.toLowerCase().includes(q)));
+    const filterIds = ['all', 'cardio', 'strength', 'conditioning', 'combat', 'recovery'];
+    return {
+      query: s.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      pinCount: String(s.pinned.length),
+      full: s.pinned.length >= 6,
+      empty: shown.length === 0,
+      filters: filterIds.map((id) => {
+        const on = s.filter === id;
+        return {
+          label: id === 'all' ? 'ALL' : cats[id].label,
+          pressed: on ? 'true' : 'false',
+          bg: on ? '#EADFC8' : 'transparent',
+          fg: on ? '#16130F' : '#EADFC8',
+          border: on ? '#EADFC8' : 'rgba(234,223,200,0.55)',
+          pick: () => this.setState({ filter: id })
+        };
+      }),
+      routines: shown.map(([id, name, cat, mins]) => {
+        const c = cats[cat];
+        const pinned = s.pinned.includes(id);
+        const blocked = !pinned && s.pinned.length >= 6;
+        return {
+          blocked,
+          pinOpacity: blocked ? '0.35' : '1',
+          name,
+          meta: c.label + ' · ' + mins + ' MIN',
+          bg: c.bg,
+          fg: c.fg,
+          pinned,
+          unpinned: !pinned,
+          pressed: pinned ? 'true' : 'false',
+          pinBg: pinned ? c.fg : 'transparent',
+          pinFg: pinned ? c.bg : c.fg,
+          pinLabel: (pinned ? 'Unpin ' : 'Pin to home: ') + name,
+          useLabel: 'Use ' + name,
+          togglePin: () => {
+            if (blocked) return;
+            this.setState({ pinned: pinned ? s.pinned.filter((x) => x !== id) : [...s.pinned, id] });
+          }
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

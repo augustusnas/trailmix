@@ -1,0 +1,9 @@
+# Secrets — never commit these
+client_secret*.json
+token*.json
+.env*
+
+# Python clutter
+__pycache__/
+*.pyc
+.DS_Store

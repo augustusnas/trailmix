@@ -1,4 +1,5 @@
 import { CtaLink } from "@/components/CtaLink";
+import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
 import { SHOW_BETA } from "@/config/site";
 import styles from "./welcome.module.css";
@@ -16,7 +17,7 @@ export default function Welcome() {
             </span>
           )}
         </div>
-        <h1 className={`headline ${styles.title}`}>Pick the terrain. We’ll bring the noise.</h1>
+        <Headline text="Pick the terrain. We’ll bring the noise." size="welcome" className={styles.title} />
       </div>
 
       <div className={styles.hills} aria-hidden="true">

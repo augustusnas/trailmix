@@ -26,7 +26,8 @@ export function Icon({ name, size = 24, stroke = 2.5 }: { name: IconName; size?:
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      style={{ flex: "0 0 auto" }}
+      // Grows with the iPhone text size, like the text beside it.
+      style={{ flex: "0 0 auto", width: `calc(${size}px + var(--grow) * 0.4)`, height: `calc(${size}px + var(--grow) * 0.4)` }}
     >
       <path d={PATHS[name]} />
     </svg>

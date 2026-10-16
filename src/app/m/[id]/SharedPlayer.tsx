@@ -56,7 +56,7 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
               <Icon name="arrowUpRight" size={22} />
             </a>
           ) : (
-            <p style={{ fontSize: "0.882rem", lineHeight: 1.35, paddingTop: 4 }}>Tap any track to open it in {app.name}.</p>
+            <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35, paddingTop: 4 }}>Tap any track to open it in {app.name}.</p>
           )}
         </div>
       </div>

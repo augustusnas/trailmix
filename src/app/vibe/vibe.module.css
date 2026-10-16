@@ -20,21 +20,21 @@
 
 .segments {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(3.6rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(calc(58px + var(--grow) * 3), 1fr));
   gap: 6px;
 }
 
 .segment {
   min-height: 52px;
-  padding: 6px 4px;
+  padding: 6px 2px;
   border-radius: 14px;
   border: 2px solid rgba(234, 223, 200, 0.55);
   background: transparent;
   color: var(--sand);
-  font-size: min(0.941rem, 4.4vw);
+  font-size: var(--t-16);
   font-weight: 800;
   line-height: 1.1;
 }
 .number {
-  font-size: min(1.294rem, 6vw); /* 22px */
+  font-size: var(--t-22); /* 22px */
 }

@@ -1,5 +1,6 @@
 /* The dark header and "Play it in" panel are one rounded block. */
 .head {
+  container-type: inline-size;
   background: var(--ink);
   color: var(--sand);
   padding: calc(28px + var(--safe-top)) calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
@@ -21,18 +22,19 @@
 }
 
 .apps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .app {
+  flex: 1 1 0; /* equal widths; a button too wide for its share moves to its own row */
   min-height: 56px;
   border-radius: 16px;
   border: 2px solid rgba(234, 223, 200, 0.55);
   background: transparent;
   color: var(--sand);
-  font-size: min(0.882rem, 4.2vw);
+  font-size: var(--t-15);
   font-weight: 800;
   line-height: 1.05;
   padding: 6px;
@@ -53,7 +55,7 @@
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 0.647rem;
+  font-size: var(--t-mono-11);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-align: center;

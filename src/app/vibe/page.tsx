@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import { redirect } from "next/navigation";
 import { BackLink } from "@/components/CtaLink";
 import { RoutineTag } from "@/components/RoutineTag";
@@ -18,9 +19,7 @@ export default async function Vibe({ searchParams }: { searchParams: Promise<Sea
         <BackLink href="/home" label="Back to routines" color="var(--sand)" />
         <RoutineTag routine={vibe.routine} />
       </div>
-      <h1 className="headline" style={{ fontSize: "clamp(2.3rem, 12.8vw, 2.941rem)" }}>
-        Set the vibe.
-      </h1>
+      <Headline text="Set the vibe." size="screen" />
       <VibePicker initial={vibe} />
     </main>
   );

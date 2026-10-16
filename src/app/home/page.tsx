@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { Wordmark } from "@/components/Beta";
 import { DEFAULT_PINS, getRoutine, type Routine } from "@/data/routines";
@@ -18,9 +19,7 @@ export default function Home() {
           Library
         </Link>
       </div>
-      <h1 className="headline" style={{ fontSize: "clamp(2.2rem, 11.8vw, 2.706rem)" }}>
-        What’s the terrain today?
-      </h1>
+      <Headline text="What’s the terrain today?" size="home" />
       <RoutinePicker pins={pins} />
     </main>
   );

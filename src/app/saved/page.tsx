@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CtaLink } from "@/components/CtaLink";
@@ -20,15 +21,13 @@ export default async function Saved({ searchParams }: { searchParams: Promise<Se
 
   return (
     <main className="screen screen--lilac">
-      <div className="top-bar mono" style={{ fontSize: "0.706rem", letterSpacing: "0.14em" }}>
+      <div className="top-bar mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.14em" }}>
         <span>Saved</span>
         <span>
           {trackCount(mix)} tracks · {mix.runningMinutes} min
         </span>
       </div>
-      <h1 className="headline" style={{ fontSize: "clamp(2.5rem, 14.36vw, 3.294rem)", lineHeight: 0.9, letterSpacing: "-0.04em" }}>
-        {mix.name} is in YouTube Music.
-      </h1>
+      <Headline text={`${mix.name} is in YouTube Music.`} size="saved" style={{ lineHeight: 0.9, letterSpacing: "-0.04em" }} />
 
       <div className={styles.cardWrap}>
         <div className={styles.card}>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BackLink } from "@/components/CtaLink";
@@ -27,13 +28,11 @@ export default async function MixScreen({ searchParams }: { searchParams: Promis
       <header className={styles.band} style={{ background: cat.bg, color: cat.fg }} data-testid="mix-band" data-category={cat.id}>
         <div className="top-bar">
           <BackLink href={`/vibe?${query}`} label="Back to vibe settings" color={cat.fg} />
-          <span className="mono" style={{ fontSize: "0.706rem", letterSpacing: "0.12em" }} data-testid="routine-name">
+          <span className="mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.12em" }} data-testid="routine-name">
             {vibe.routine.name} · {mix.length} min · {energyLabel(mix.energy)}
           </span>
         </div>
-        <h1 className="headline" style={{ fontSize: "clamp(2.4rem, 13.3vw, 3.059rem)", lineHeight: 0.9 }}>
-          {mix.name}
-        </h1>
+        <Headline text={mix.name} size="mix" style={{ lineHeight: 0.9 }} />
         <p className="mono" data-testid="playlist-title" style={{ letterSpacing: "0.04em", textTransform: "none" }}>
           <PlaylistTitle mix={mix} />
         </p>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import { Wordmark } from "@/components/Beta";
 import { Credit } from "@/components/Credit";
 import { SHOW_BETA } from "@/config/site";
@@ -30,13 +31,11 @@ export default async function SharedMix({ params }: { params: Promise<{ id: stri
       <header className={styles.head}>
         <div className="top-bar">
           <Wordmark color="var(--lime)" />
-          <span className="mono" style={{ fontSize: "0.706rem", letterSpacing: "0.16em" }}>
+          <span className="mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.16em" }}>
             Shared by {FAKE_SHARER}
           </span>
         </div>
-        <h1 className="headline" style={{ fontSize: "clamp(2.6rem, 15.4vw, 3.529rem)", lineHeight: 0.88, letterSpacing: "-0.045em" }}>
-          {mix.name}
-        </h1>
+        <Headline text={mix.name} size="shared" style={{ lineHeight: 0.88, letterSpacing: "-0.045em" }} />
         <p className="mono">
           {mix.routine.name} · {energyLabel(mix.energy)} · {mix.genres.map(genreLabel).join(" · ")} · {mix.length} min
         </p>
@@ -44,7 +43,11 @@ export default async function SharedMix({ params }: { params: Promise<{ id: stri
       <SharedPlayer mix={mix} />
       <footer className={styles.foot}>
         {SHOW_BETA && <p data-testid="beta-label">Trailmix is in invite-only beta</p>}
-        <p>Track links by Songlink/Odesli</p>
+        <p>
+          Track links by Songlink/
+          <wbr />
+          Odesli
+        </p>
         <Credit linkColor="var(--ink)" />
       </footer>
     </main>

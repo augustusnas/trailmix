@@ -5,8 +5,21 @@ import { SCREENS } from "./screens";
 // N8: screenshots of every screen at 320, 390 and 430 wide, plus large iOS text,
 // with automatic checks for clipped text and sideways scrolling.
 const WIDTHS = [320, 390, 430];
-const LARGE_TEXT_PX = 23; // the biggest standard iPhone text size (default is 17)
 const OUT = "screenshots";
+
+/** Wait until the app's own fonts (not the fallbacks) are loaded and laid out. */
+async function fontsReady(page: Page) {
+  await page.evaluate(async () => {
+    const families = [getComputedStyle(document.body).fontFamily];
+    const mono = document.querySelector(".mono, .wordmark, .credit");
+    if (mono) families.push(getComputedStyle(mono).fontFamily);
+    await Promise.all(
+      families.flatMap((f) => [document.fonts.load(`800 20px ${f}`), document.fonts.load(`700 20px ${f}`)]),
+    );
+    await document.fonts.ready;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+}
 
 async function layoutProblems(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -42,9 +55,23 @@ async function layoutProblems(page: Page): Promise<string[]> {
         const pr = parent.getBoundingClientRect();
         if (r.right > pr.right + 1 || r.left < pr.left - 1) problems.push(`sticks out of its box: ${describe(el)}`);
       }
+      // Content that spills out of the bottom of its box (e.g. a tile too short for its text).
+      if (cs.overflowY === "visible" && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 6)
+        problems.push(`spills out the bottom: ${describe(el)}`);
       // Text that runs past its own box (a word too long to wrap).
       if (el.children.length === 0 && el.textContent?.trim() && el.scrollWidth > el.clientWidth + 1 && cs.display !== "inline")
         problems.push(`text overflows: ${describe(el)}`);
+    }
+
+    // A search box hint (placeholder) too long to show in full.
+    for (const input of document.querySelectorAll<HTMLInputElement>("input[placeholder]")) {
+      const ph = getComputedStyle(input, "::placeholder");
+      if (ph.color === "transparent" || ph.color === "rgba(0, 0, 0, 0)") continue;
+      const cs = getComputedStyle(input);
+      const ctx = document.createElement("canvas").getContext("2d")!;
+      ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const room = input.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (ctx.measureText(input.placeholder).width > room) problems.push(`search hint cut off: "${input.placeholder}"`);
     }
 
     // A single word split across two lines ("Indoo / r walk").
@@ -53,7 +80,7 @@ async function layoutProblems(page: Page): Promise<string[]> {
       const parentEl = node.parentElement;
       if (!parentEl || parentEl.closest("[aria-hidden=true], .sr-only, script, style")) continue;
       const text = node.textContent ?? "";
-      for (const m of text.matchAll(/[^\s\-–]+/g)) {
+      for (const m of text.matchAll(/[^\s\-–/]+/g)) {
         const range = document.createRange();
         range.setStart(node, m.index!);
         range.setEnd(node, m.index! + m[0].length);
@@ -70,37 +97,48 @@ for (const width of WIDTHS) {
     test(`${s.name} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(s.path);
-      await page.evaluate(() => document.fonts.ready);
-      expect(await layoutProblems(page)).toEqual([]);
-      const file = `${width}/${s.name}.png`;
+      await fontsReady(page);
       mkdirSync(`${OUT}/${width}`, { recursive: true });
-      await page.screenshot({ path: `${OUT}/${file}`, fullPage: true, scale: "css" });
+      await page.screenshot({ path: `${OUT}/${width}/${s.name}.png`, fullPage: true, scale: "css" });
+      expect(await layoutProblems(page)).toEqual([]);
     });
   }
 }
 
-for (const width of [320, 390]) {
-  for (const s of SCREENS) {
-    test(`${s.name} at ${width}px with large text`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 844 });
-      await page.goto(s.path);
-      await page.addStyleTag({ content: `html { font-size: ${LARGE_TEXT_PX}px !important; }` });
-      await page.evaluate(() => document.fonts.ready);
-      expect(await layoutProblems(page)).toEqual([]);
-      const file = `large-text-${width}/${s.name}.png`;
-      mkdirSync(`${OUT}/large-text-${width}`, { recursive: true });
-      await page.screenshot({ path: `${OUT}/${file}`, fullPage: true, scale: "css" });
-    });
+// Bigger iPhone text sizes (Settings > Accessibility > Display & Text Size > Larger Text).
+// iOS body text is 17px by default; 23px is the biggest standard size and 53px the biggest accessibility size.
+const TEXT_SIZES = [
+  { folder: "large-text", px: 23, widths: [320, 390] },
+  { folder: "largest-text", px: 53, widths: [320, 390, 430] },
+];
+
+for (const size of TEXT_SIZES) {
+  for (const width of size.widths) {
+    for (const s of SCREENS) {
+      test(`${s.name} at ${width}px with ${size.folder} (${size.px}px)`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        await page.goto(s.path);
+        await page.addStyleTag({ content: `html { font-size: ${size.px}px !important; }` });
+        await fontsReady(page);
+        const dir = `${OUT}/${size.folder}-${width}`;
+        mkdirSync(dir, { recursive: true });
+        await page.screenshot({ path: `${dir}/${s.name}.png`, fullPage: true, scale: "css" });
+        expect(await layoutProblems(page)).toEqual([]);
+      });
+    }
   }
 }
 
 test.afterAll(() => {
   // A simple page that lays the screenshots out side by side on GitHub.
-  const cols = ["320", "390", "430", "large-text-320", "large-text-390"];
+  const cols = [
+    ...WIDTHS.map(String),
+    ...TEXT_SIZES.flatMap((t) => t.widths.map((w) => `${t.folder}-${w}`)),
+  ];
   const lines = [
     "# Screenshots (N8)",
     "",
-    "Every screen at 320, 390 and 430px wide, plus the biggest standard iPhone text size. Regenerate with `npm run screenshots`.",
+    "Every screen at 320, 390 and 430px wide, then at the biggest standard iPhone text size (23px) and the biggest accessibility text size (53px). Regenerate with `npm run screenshots`.",
     "",
     `| Screen | ${cols.join(" | ")} |`,
     `| --- | ${cols.map(() => "---").join(" | ")} |`,

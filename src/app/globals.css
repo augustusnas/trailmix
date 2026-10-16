@@ -12,8 +12,9 @@
   --font-mono: var(--font-space-mono), ui-monospace, "SF Mono", Menlo, monospace;
 
   --radius-tile: 22px;
-  --radius-pill: 999px;
-  --tap: 44px;
+  /* Pill ends: fully round at normal sizes; softer corners once big text makes a button tall, so text isn't cut off. */
+  --radius-pill: calc(32px + var(--grow) * 0.4);
+  --tap: calc(44px + var(--grow) * 0.5); /* round buttons and tap areas: 44px by default, bigger with big text */
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -21,12 +22,33 @@
   --safe-left: env(safe-area-inset-left, 0px);
   --gutter: 20px;
 
+  /*
+   * Text sizes. Each size is the design size at the iPhone's default text setting,
+   * plus a share of however much bigger the reader has made their text.
+   * Like iOS itself: small labels and body text grow the most, big titles grow less.
+   * Nothing is ever smaller than its design size.
+   */
+  --grow: calc(1rem - 17px); /* 0 by default, 36px at the largest accessibility size */
+  --t-mono-10: calc(10px + var(--grow) * 0.5);
+  --t-mono-11: calc(11px + var(--grow) * 0.5);
+  --t-mono-12: calc(12px + var(--grow) * 0.5);
+  --t-mono-13: calc(13px + var(--grow) * 0.5);
+  --t-15: calc(15px + var(--grow) * 0.75);
+  --t-16: calc(16px + var(--grow) * 0.75);
+  --t-17: calc(17px + var(--grow) * 0.75);
+  --t-19: calc(19px + var(--grow) * 0.75);
+  --t-21: calc(21px + var(--grow) * 0.6);
+  --t-22: calc(22px + var(--grow) * 0.6);
+  --t-27: calc(27px + var(--grow) * 0.6);
+  --t-30: calc(30px + var(--grow) * 0.6);
+  --t-32: calc(32px + var(--grow) * 0.6);
+
   color-scheme: dark;
 }
 
 /*
  * Text size. 1rem = 17px, the iPhone's default body size.
- * On iPhone, follow the Settings > Display > Text Size choice so text grows with it.
+ * On iPhone, 1rem follows the Settings > Display > Text Size choice, which drives --grow above.
  */
 html {
   font-size: 17px;
@@ -108,6 +130,7 @@ a {
   background: var(--ink);
   color: var(--sand);
   overflow-wrap: break-word;
+  container-type: inline-size; /* lets headlines measure the space they have */
 }
 .screen--sand { background: var(--sand); color: var(--ink); }
 .screen--lilac { background: var(--lilac); color: var(--ink); }
@@ -128,7 +151,15 @@ a {
 
 /* ---------- Type ---------- */
 
+/*
+ * Headlines grow a little with bigger text, but stop growing once their longest word
+ * would no longer fit on one line. Never smaller than the design size (--h).
+ * The Headline component sets --h and --chars (letters in the longest word).
+ */
 .headline {
+  --h-grown: calc(var(--h) + var(--grow) * 0.5);
+  --h-fit: calc(100cqi / (var(--chars) * 0.6));
+  font-size: max(var(--h), min(var(--h-grown), var(--h-fit)));
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 0.92;
@@ -140,14 +171,14 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 0.647rem; /* 11px */
+  font-size: var(--t-mono-11); /* 11px */
   line-height: 1.35;
 }
 
 .wordmark {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.765rem; /* 13px */
+  font-size: var(--t-mono-13); /* 13px */
   letter-spacing: 0.18em;
   text-transform: uppercase;
   display: inline-flex;
@@ -164,7 +195,7 @@ a {
   color: var(--ink);
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.588rem; /* 10px */
+  font-size: var(--t-mono-10); /* 10px */
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1.4;
@@ -183,7 +214,7 @@ a {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 12px 24px;
+  padding: 12px calc(24px + var(--grow) * 0.3);
   border: 0;
   border-radius: var(--radius-pill);
   text-decoration: none;
@@ -191,8 +222,8 @@ a {
   line-height: 1.1;
   text-align: left;
 }
-.cta--large { min-height: 60px; font-size: 1.118rem; /* 19px */ }
-.cta--medium { min-height: 56px; font-size: 1rem; }
+.cta--large { min-height: 60px; font-size: var(--t-19); /* 19px */ }
+.cta--medium { min-height: 56px; font-size: var(--t-17); }
 
 .icon-btn {
   width: var(--tap);
@@ -214,7 +245,7 @@ a {
   background: transparent;
   color: var(--sand);
   font-weight: 700;
-  font-size: 0.941rem; /* 16px */
+  font-size: var(--t-16); /* 16px */
   line-height: 1.1;
 }
 
@@ -230,7 +261,7 @@ a {
   color: var(--lime);
   text-decoration: none;
   font-family: var(--font-mono);
-  font-size: 0.706rem; /* 12px */
+  font-size: var(--t-mono-12); /* 12px */
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -241,7 +272,7 @@ a {
 
 .credit {
   font-family: var(--font-mono);
-  font-size: 0.647rem; /* 11px */
+  font-size: var(--t-mono-11); /* 11px */
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-align: center;
@@ -272,11 +303,12 @@ a {
 }
 .phase-note {
   font-family: var(--font-mono);
-  font-size: 0.647rem;
+  font-size: var(--t-mono-11);
   color: var(--muted-on-sand);
 }
 .track {
   display: flex;
+  flex-wrap: wrap; /* with big text the swap button moves under the title rather than squeezing it */
   align-items: center;
   gap: 12px;
   min-height: 52px;
@@ -287,25 +319,27 @@ a {
 }
 .track-n {
   font-family: var(--font-mono);
-  font-size: 0.706rem;
+  font-size: var(--t-mono-12);
   font-weight: 700;
   min-width: 22px;
   flex: 0 0 auto;
 }
 .track-text {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
 }
 .track-title {
-  font-size: 0.941rem;
+  font-size: var(--t-16);
   font-weight: 700;
   line-height: 1.15;
 }
+.track > :last-child {
+  margin-left: auto;
+}
 .track-artist {
   font-family: var(--font-mono);
-  font-size: 0.647rem;
+  font-size: var(--t-mono-11);
   color: var(--muted-on-sand);
 }
 
@@ -322,7 +356,7 @@ a {
   color: var(--sand);
   text-decoration: none;
   font-family: var(--font-mono);
-  font-size: 0.706rem;
+  font-size: var(--t-mono-12);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -340,7 +374,7 @@ a {
   display: inline-block;
   border-radius: var(--radius-pill);
   padding: 8px 14px;
-  font-size: 0.706rem;
+  font-size: var(--t-mono-12);
   letter-spacing: 0.12em;
 }
 

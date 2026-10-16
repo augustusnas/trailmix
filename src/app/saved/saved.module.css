@@ -1,4 +1,5 @@
 .cardWrap {
+  container-type: inline-size;
   flex: 1 1 auto;
   display: flex;
   align-items: center;
@@ -15,17 +16,23 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transform: rotate(-2deg);
+}
+/* The tilt is decoration: skip it once big text makes the card tall. */
+@container (min-width: 16rem) {
+  .card {
+    transform: rotate(-2deg);
+  }
 }
 
 .cardTop {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
 }
 
 .cardName {
-  font-size: 1.882rem; /* 32px */
+  font-size: var(--t-32); /* 32px */
   line-height: 0.95;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -58,7 +65,7 @@
   color: var(--ink);
   text-decoration: none;
   font-weight: 800;
-  font-size: 1rem;
+  font-size: var(--t-17);
 }
 
 .back {
@@ -67,5 +74,5 @@
   display: flex;
   align-items: center;
   padding: 0 12px;
-  font-size: 0.706rem;
+  font-size: var(--t-mono-12);
 }

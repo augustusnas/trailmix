@@ -13,10 +13,26 @@
   color: var(--sand);
   padding: 8px 16px;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: var(--t-17);
 }
 .input::placeholder {
   color: rgba(234, 223, 200, 0.7);
+}
+
+.hint {
+  display: none;
+  font-size: var(--t-17);
+  color: rgba(234, 223, 200, 0.85);
+}
+
+/* Big text: move the hint out of the box, where it can wrap. */
+@container (max-width: 16rem) {
+  .hint {
+    display: block;
+  }
+  .input::placeholder {
+    color: transparent;
+  }
 }
 
 /* Category filters scroll sideways inside their own strip, never the page. */
@@ -41,7 +57,7 @@
   background: transparent;
   color: var(--sand);
   font-family: var(--font-mono);
-  font-size: 0.706rem;
+  font-size: var(--t-mono-12);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -65,23 +81,29 @@
   border-radius: 20px;
   padding: 12px 10px 12px 18px;
   display: flex;
+  flex-wrap: wrap; /* with big text the buttons move under the name */
   align-items: center;
   gap: 8px;
 }
 
 .rowText {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .rowName {
-  font-size: 1.235rem; /* 21px */
+  font-size: var(--t-21); /* 21px */
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.01em;
+}
+
+.rowButtons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .end {

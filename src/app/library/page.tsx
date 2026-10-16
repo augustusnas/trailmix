@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { BackLink } from "@/components/CtaLink";
 import { Credit } from "@/components/Credit";
@@ -10,6 +11,8 @@ import styles from "./library.module.css";
 
 export const metadata: Metadata = { title: "Library" };
 
+const SEARCH_HINT = "Tabata, push day, rowing…";
+
 // Library. Working pins, search, filters and the 6-pin cap arrive in Milestone 2.
 export default function Library() {
   const feedbackEmail = process.env.FEEDBACK_EMAIL || undefined;
@@ -19,19 +22,21 @@ export default function Library() {
     <main className="screen" style={{ gap: 16, paddingTop: "calc(24px + var(--safe-top))" }}>
       <div className="top-bar">
         <BackLink href="/home" label="Back to home" color="var(--sand)" />
-        <span className="mono" style={{ fontSize: "0.706rem", letterSpacing: "0.12em" }}>
+        <span className="mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.12em" }}>
           {DEFAULT_PINS.length} of {MAX_PINS} on home
         </span>
       </div>
-      <h1 className="headline" style={{ fontSize: "clamp(2.3rem, 12.8vw, 2.941rem)" }}>
-        The library.
-      </h1>
+      <Headline text="The library." size="screen" />
 
       <div className={styles.search}>
         <label htmlFor="lib-search" className="mono" style={{ letterSpacing: "0.14em" }}>
           Find a routine
         </label>
-        <input id="lib-search" type="search" placeholder="Tabata, push day, rowing…" className={styles.input} />
+        {/* With big text the hint can't fit inside the box, so it shows here instead. */}
+        <p className={styles.hint} aria-hidden="true">
+          {SEARCH_HINT}
+        </p>
+        <input id="lib-search" type="search" placeholder={SEARCH_HINT} className={styles.input} />
       </div>
 
       <div className={styles.filters} role="group" aria-label="Filter by category">
@@ -59,9 +64,10 @@ export default function Library() {
               <div className={styles.rowText}>
                 <span className={styles.rowName}>{r.name}</span>
                 <span className="mono" style={{ letterSpacing: "0.08em" }}>
-                  <span className="nowrap">{cat.label} ·</span> <span className="nowrap">{minutesLabel(r)} min</span>
+                  {cat.label} · <span className="nowrap">{minutesLabel(r)} min</span>
                 </span>
               </div>
+              <div className={styles.rowButtons}>
               <button
                 type="button"
                 aria-pressed={pinned}
@@ -83,6 +89,7 @@ export default function Library() {
               >
                 <Icon name="arrowRight" size={20} />
               </Link>
+              </div>
             </li>
           );
         })}

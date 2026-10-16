@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Headline } from "@/components/Headline";
 import { CtaLink } from "@/components/CtaLink";
 import { Wordmark } from "@/components/Beta";
 import { AppPicker } from "./AppPicker";
@@ -11,14 +12,12 @@ export default function Listen() {
     <main className="screen">
       <div className="top-bar">
         <Wordmark />
-        <span className="mono" style={{ color: "var(--lime)", fontSize: "0.706rem", letterSpacing: "0.18em" }}>
+        <span className="mono" style={{ color: "var(--lime)", fontSize: "var(--t-mono-12)", letterSpacing: "0.18em" }}>
           One quick thing
         </span>
       </div>
-      <h1 className="headline" style={{ fontSize: "clamp(2.5rem, 13.85vw, 3.176rem)" }}>
-        Where do you listen?
-      </h1>
-      <p style={{ fontSize: "1rem", lineHeight: 1.35 }}>
+      <Headline text="Where do you listen?" size="listen" />
+      <p style={{ fontSize: "var(--t-17)", lineHeight: 1.35 }}>
         Every mix goes straight there. You can change it any time in the library.
       </p>
       <AppPicker />

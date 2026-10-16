@@ -1,4 +1,5 @@
 .band {
+  container-type: inline-size;
   padding: calc(24px + var(--safe-top)) calc(var(--gutter) + var(--safe-right)) 22px calc(var(--gutter) + var(--safe-left));
   border-radius: 0 0 32px 32px;
   display: flex;
@@ -34,6 +35,7 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap; /* with big text "Keep it" moves under Remix */
   gap: 10px;
   padding: 12px calc(var(--gutter) + var(--safe-right)) calc(22px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
 }
@@ -45,7 +47,7 @@
   border: 2px solid var(--ink);
   background: transparent;
   color: var(--ink);
-  font-size: 1rem;
+  font-size: var(--t-17);
   font-weight: 800;
   flex: 0 0 auto;
 }
@@ -62,7 +64,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 1rem;
+  font-size: var(--t-17);
   font-weight: 800;
   line-height: 1.1;
 }

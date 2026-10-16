@@ -28,6 +28,7 @@ export const SCREENS: Screen[] = [
     state: onboarded(),
     setup: async (page) => {
       await page.getByLabel("Find a routine").fill("underwater basket weaving");
+      await page.getByTestId("no-match").waitFor();
     },
   },
   {
@@ -36,6 +37,7 @@ export const SCREENS: Screen[] = [
     state: onboarded({ musicApp: "spotify" }),
     setup: async (page) => {
       await page.getByRole("button", { name: "Change" }).click();
+      await page.getByRole("group", { name: "Where do you listen?" }).waitFor();
     },
   },
   { name: "vibe", path: "/vibe?routine=boxing-bag-rounds", state: onboarded() },
@@ -45,6 +47,7 @@ export const SCREENS: Screen[] = [
     state: onboarded(),
     setup: async (page) => {
       await page.getByRole("button", { name: "Make the mix" }).click();
+      await page.getByText("Pick at least one genre.").waitFor();
     },
   },
   {
@@ -53,6 +56,7 @@ export const SCREENS: Screen[] = [
     state: onboarded(),
     setup: async (page) => {
       for (const g of ["Soul", "Disco", "Jazz-funk"]) await page.getByRole("button", { name: g }).click();
+      await page.getByText("That’s 3. Untick one to swap.").waitFor();
     },
   },
   { name: "mix", path: "/mix?routine=boxing-bag-rounds", state: onboarded() },
@@ -67,4 +71,6 @@ export async function open(page: Page, s: Screen) {
   await page.goto(s.path);
   await page.locator("main").waitFor();
   if (s.setup) await s.setup(page);
+  // Let the screen finish drawing before anything measures it.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 }

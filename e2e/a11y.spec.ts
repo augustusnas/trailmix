@@ -10,7 +10,7 @@ for (const s of SCREENS) {
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
       .analyze();
     const problems = results.violations.map(
-      (v) => `${v.id}: ${v.help}\n  ${v.nodes.map((n) => n.target.join(" ")).join("\n  ")}`,
+      (v) => `${v.id}: ${v.help}\n  ${v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`).join("\n  ")}`,
     );
     expect(problems, problems.join("\n")).toEqual([]);
   });

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, record, seed, stored } from "./helpers";
+import { DAMAGED } from "../src/app/reset/ResetScreen";
+import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, record, sawWelcome, seed, stored, watchForWelcome } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -10,22 +11,7 @@ const pinIds = async (page: import("@playwright/test").Page) =>
 test.describe("F2: coming back", () => {
   test.beforeEach(async ({ page }) => {
     await seed(page, ONBOARDED);
-    // Note if Welcome or Where do you listen is ever drawn visibly.
-    await page.addInitScript(() => {
-      const check = () => {
-        const visible = document.documentElement.style.visibility !== "hidden";
-        const text = document.body?.innerText ?? "";
-        if (visible && (text.includes("Pick the terrain") || text.includes("Where do you listen?"))) {
-          sessionStorage.setItem("__sawWelcome", "1");
-        }
-      };
-      new MutationObserver(check).observe(document, { childList: true, subtree: true });
-      const tick = () => {
-        check();
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
+    await watchForWelcome(page);
   });
 
   for (const path of ["/", "/listen", "/home"]) {
@@ -33,7 +19,7 @@ test.describe("F2: coming back", () => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/home$/);
       await expect(page.getByRole("heading", { name: "What’s the terrain today?" })).toBeVisible();
-      expect(await page.evaluate(() => sessionStorage.getItem("__sawWelcome"))).toBeNull();
+      expect(await sawWelcome(page)).toBe(false);
     });
   }
 });
@@ -342,6 +328,52 @@ test.describe("E12: damaged or wrong-version data", () => {
       await expect(page.locator("li[data-routine]")).toHaveCount(17);
     });
   }
+
+  const SIX = ["tabata", "yoga-flow", "emom", "amrap", "pull-day", "spin-bike"];
+  const damage = (page: import("@playwright/test").Page) =>
+    page.evaluate(([key, text]) => localStorage.setItem(key, text), [STORAGE_KEY, DAMAGED] as const);
+
+  test("damage, then reload: Home shows Push day, Incline treadmill and HIIT circuit, with no Welcome", async ({ page }) => {
+    await seed(page, { ...ONBOARDED, pins: SIX });
+    await watchForWelcome(page);
+    await page.goto("/home");
+    await expect.poll(() => pinIds(page)).toEqual(SIX);
+
+    await damage(page);
+    await page.reload();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect.poll(() => pinIds(page)).toEqual(["push-day", "incline-treadmill", "hiit-circuit"]);
+    await expect(page.getByText(/error|went wrong/i)).toHaveCount(0);
+    expect(await sawWelcome(page)).toBe(false);
+  });
+
+  test("the reset page's Damage button reloads into Home with the defaults (the phone check)", async ({ page }) => {
+    await seed(page, { ...ONBOARDED, pins: SIX });
+    await watchForWelcome(page);
+    await page.goto("/library");
+    for (let i = 0; i < 5; i++) await page.getByRole("heading", { name: "The library." }).click();
+    await expect(page).toHaveURL(/\/reset$/);
+    await page.getByRole("button", { name: /Damage the saved data/ }).click();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect.poll(() => pinIds(page)).toEqual(["push-day", "incline-treadmill", "hiit-circuit"]);
+    expect(await sawWelcome(page)).toBe(false);
+  });
+
+  test("damage is noticed even without a reload, and the old pins are never written back over it", async ({ page }) => {
+    await seed(page, { ...ONBOARDED, pins: SIX });
+    await page.goto("/library");
+    await expect(page.getByTestId("pin-count")).toHaveText(/6 of 6/i);
+    await damage(page);
+
+    // Moving inside the app (no reload) reads the damaged data fresh.
+    await page.getByRole("link", { name: "Back to home" }).click();
+    await expect.poll(() => pinIds(page)).toEqual(["push-day", "incline-treadmill", "hiit-circuit"]);
+
+    // The next change builds on the recovered defaults, not the old in-memory six.
+    await page.getByRole("link", { name: "Library", exact: true }).click();
+    await page.getByRole("button", { name: "Pin to home: Tabata" }).click();
+    expect((await stored(page)).pins).toEqual(["push-day", "incline-treadmill", "hiit-circuit", "tabata"]);
+  });
 
   test("a phone that refuses storage (private browsing) still works without crashing", async ({ page }) => {
     const errors: string[] = [];

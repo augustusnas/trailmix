@@ -43,3 +43,26 @@ export async function seed(page: Page, state: State | string) {
 export async function stored(page: Page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "null"), STORAGE_KEY);
 }
+
+/** Notes (in sessionStorage) if Welcome or Where do you listen is ever drawn visibly. */
+export async function watchForWelcome(page: Page) {
+  await page.addInitScript(() => {
+    const check = () => {
+      const visible = document.documentElement.style.visibility !== "hidden";
+      const text = document.body?.innerText ?? "";
+      if (visible && (text.includes("Pick the terrain") || text.includes("Where do you listen?"))) {
+        sessionStorage.setItem("__sawWelcome", "1");
+      }
+    };
+    new MutationObserver(check).observe(document, { childList: true, subtree: true });
+    const tick = () => {
+      check();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+export async function sawWelcome(page: Page) {
+  return (await page.evaluate(() => sessionStorage.getItem("__sawWelcome"))) !== null;
+}

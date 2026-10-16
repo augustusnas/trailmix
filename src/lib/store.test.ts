@@ -116,6 +116,22 @@ describe("on-device storage", () => {
     });
   });
 
+  it("notices damage made after it has loaded, and never writes the old copy back over it", () => {
+    for (const id of ["tabata", "emom", "amrap"]) store.pin(id);
+    expect(store.load().pins).toHaveLength(6);
+    localStorage.setItem(STORAGE_KEY, '{"version":1,"onboarded":true,"pins":"oops", "vibes":[1,2');
+    expect(store.load()).toEqual(defaults(true));
+    store.pin("yoga-flow");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).pins).toEqual([...DEFAULT_PINS, "yoga-flow"]);
+  });
+
+  it("picks up a change made outside the app", () => {
+    const a = store.load();
+    expect(store.load()).toBe(a); // unchanged storage → the same copy
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaults(true), musicApp: "apple" }));
+    expect(store.load().musicApp).toBe("apple");
+  });
+
   it("never crashes when the phone refuses storage (e.g. private browsing)", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("SecurityError");

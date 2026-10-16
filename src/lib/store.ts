@@ -81,7 +81,12 @@ export function sanitize(raw: unknown): Saved {
 
 // ---------- reading and writing, never throwing ----------
 
+// The phone's storage is the truth. `current` is just the parsed copy of `lastText`, the exact
+// text last read from or written to storage; whenever storage holds something else, it's re-read.
+// So a change made outside the app (or damage) is always noticed, and every change is built on
+// what's actually stored, never on an old in-memory copy written back over it.
 let current: Saved | null = null;
+let lastText: string | null = null;
 const listeners = new Set<() => void>();
 
 function storage(): Storage | null {
@@ -104,30 +109,44 @@ export function parseStored(text: string | null | undefined): Saved {
   }
 }
 
-function readFromDisk(): Saved {
+/** The stored text, or undefined if the phone won't let us read storage at all. */
+function readText(): string | null | undefined {
   try {
-    return parseStored(storage()?.getItem(STORAGE_KEY));
+    const s = storage();
+    return s ? s.getItem(STORAGE_KEY) : undefined;
   } catch {
-    return defaults();
+    return undefined;
   }
 }
 
 export function load(): Saved {
-  if (!current) current = readFromDisk();
+  const text = readText();
+  // Storage unusable (e.g. private browsing): this visit's in-memory copy is all there is.
+  if (text === undefined) return (current ??= defaults());
+  if (!current || text !== lastText) {
+    current = parseStored(text);
+    lastText = text;
+  }
   return current;
 }
 
 /** Saves a new record. If the phone refuses (private browsing, full storage), it still works for this visit. */
 export function save(next: Saved): void {
   current = sanitize(next);
+  const text = JSON.stringify(current);
   try {
-    storage()?.setItem(STORAGE_KEY, JSON.stringify(current));
+    const s = storage();
+    if (s) {
+      s.setItem(STORAGE_KEY, text);
+      lastText = text;
+    }
   } catch {
-    // keep the in-memory copy
+    // keep the in-memory copy for this visit
   }
   listeners.forEach((l) => l());
 }
 
+/** Every change starts from a fresh read of storage (cleaned up if damaged), never a stale copy. */
 export function update(change: (s: Saved) => Saved): void {
   save(change(load()));
 }
@@ -135,10 +154,7 @@ export function update(change: (s: Saved) => Saved): void {
 export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY || e.key === null) {
-      current = readFromDisk();
-      listener();
-    }
+    if (e.key === STORAGE_KEY || e.key === null) listener(); // load() re-reads the changed text
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -149,13 +165,13 @@ export function subscribe(listener: () => void): () => void {
 
 /** For tests and the beta reset page. */
 export function reset(): void {
-  current = null;
   try {
     storage()?.removeItem(STORAGE_KEY);
   } catch {
     // nothing to remove
   }
   current = defaults();
+  lastText = null;
   listeners.forEach((l) => l());
 }
 

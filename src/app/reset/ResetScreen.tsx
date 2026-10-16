@@ -5,6 +5,9 @@ import { useState } from "react";
 import { Headline } from "@/components/Headline";
 import { STORAGE_KEY, reset } from "@/lib/store";
 
+/** Unreadable data that still says it finished first run. Exported for the E12 test. */
+export const DAMAGED = '{"version":1,"onboarded":true,"pins":"oops", "vibes":[1,2';
+
 export function ResetScreen() {
   const [done, setDone] = useState("");
 
@@ -18,8 +21,9 @@ export function ResetScreen() {
     try {
       // Unreadable data, but marked as onboarded: E12 says the app should quietly recover
       // to the defaults and still skip Welcome.
-      localStorage.setItem(STORAGE_KEY, '{"version":1,"onboarded":true,"pins":"oops", "vibes":[1,2');
-      setDone("Saved data is now damaged. Open Home to check the app recovers.");
+      localStorage.setItem(STORAGE_KEY, DAMAGED);
+      // Reload the whole app, so it reads the damaged data fresh, as when you next open it.
+      window.location.replace("/home");
     } catch {
       setDone("This phone won't let Trailmix save anything, so there's nothing to damage.");
     }
@@ -38,7 +42,7 @@ export function ResetScreen() {
         <span>Reset to a fresh install</span>
       </button>
       <button type="button" className="cta cta--medium" style={{ background: "var(--sand)", color: "var(--ink)" }} onClick={damage}>
-        <span>Damage the saved data (E12 test)</span>
+        <span>Damage the saved data and reload (E12 test)</span>
       </button>
       <p role="status" style={{ fontSize: "var(--t-17)" }}>
         {done}

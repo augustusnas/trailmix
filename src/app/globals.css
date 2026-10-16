@@ -92,6 +92,7 @@ p {
 button {
   font: inherit;
   color: inherit;
+  background: transparent; /* no browser-default grey behind any button */
   cursor: pointer;
 }
 

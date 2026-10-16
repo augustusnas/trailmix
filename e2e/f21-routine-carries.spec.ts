@@ -1,8 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES } from "../src/data/categories";
 import { ROUTINES, type Routine } from "../src/data/routines";
+import { ONBOARDED, seed } from "./helpers";
 
 // F21: whichever routine is picked shows its name and category colour on Set the vibe, The mix and Saved.
+
+function hexToRgb(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+}
 
 async function expectTag(page: Page, r: Routine) {
   const tag = page.getByTestId("routine-tag");
@@ -11,36 +17,32 @@ async function expectTag(page: Page, r: Routine) {
   await expect(tag).toHaveCSS("background-color", hexToRgb(CATEGORIES[r.category].bg));
 }
 
-function hexToRgb(hex: string) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
-}
-
 async function checkFlow(page: Page, r: Routine) {
-  await expect(page).toHaveURL(new RegExp(`/vibe\\?routine=${r.id}`));
+  await expect(page).toHaveURL(new RegExp(`/vibe\\?routine=${r.id}$`));
   await expectTag(page, r);
-
   await page.reload(); // survives a refresh
   await expectTag(page, r);
 
-  await page.getByRole("link", { name: "Make the mix" }).click();
-  await expect(page).toHaveURL(new RegExp(`/mix\\?routine=${r.id}`));
+  await page.getByRole("button", { name: "House" }).click();
+  await page.getByRole("button", { name: "Make the mix" }).click();
+  await expect(page).toHaveURL(new RegExp(`/mix\\?routine=${r.id}$`));
   const band = page.getByTestId("mix-band");
   await expect(band).toHaveAttribute("data-category", r.category);
   await expect(band).toHaveCSS("background-color", hexToRgb(CATEGORIES[r.category].bg));
   await expect(page.getByTestId("routine-name")).toContainText(r.name, { ignoreCase: true });
   await expect(page.getByTestId("playlist-title")).toContainText(`Trailmix · ${r.short} · `);
-
   await page.reload();
   await expect(page.getByTestId("routine-name")).toContainText(r.name, { ignoreCase: true });
 
-  await page.getByRole("link", { name: "Keep it in YouTube Music" }).click();
-  await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}`));
+  await page.getByTestId("mix-action").click();
+  await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}$`));
   await expectTag(page, r);
 }
 
+test.beforeEach(async ({ page }) => seed(page, ONBOARDED));
+
 test("from Home: each pinned tile carries through", async ({ page }) => {
-  for (const name of ["Indoor walk", "EMOM", "Full body"]) {
+  for (const name of ["Push day", "Incline treadmill", "HIIT circuit"]) {
     await page.goto("/home");
     await page.getByRole("button", { name: new RegExp(name) }).click();
     await page.getByRole("link", { name: "Set the vibe" }).click();
@@ -61,7 +63,7 @@ test("vibe choices carry through to the mix", async ({ page }) => {
   await page.getByRole("button", { name: "Grime" }).click();
   await page.getByRole("button", { name: "Feral" }).click();
   await page.getByRole("button", { name: "30 minutes" }).click();
-  await page.getByRole("link", { name: "Make the mix" }).click();
+  await page.getByRole("button", { name: "Make the mix" }).click();
   await expect(page.getByTestId("routine-name")).toContainText("Boxing bag rounds · 30 min · Feral", { ignoreCase: true });
   await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
   await expect(page.getByTestId("playlist-title")).toContainText("Trailmix · Boxing · Gloves On, Volume Up · ");

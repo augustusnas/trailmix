@@ -1,13 +1,16 @@
 import { CtaLink } from "@/components/CtaLink";
 import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
+import { Gate } from "@/components/Gate";
 import { SHOW_BETA } from "@/config/site";
 import styles from "./welcome.module.css";
 
-// Welcome (first run). Real Google sign-in arrives in Milestone 4, the hills animation in Milestone 5.
+// Welcome (first run only; returning phones go straight to Home, see lib/gate.ts).
+// "Lace up" stands in for Google sign-in until Milestone 4. The hills animation arrives in Milestone 5.
 export default function Welcome() {
   return (
     <main className={`screen screen--flush ${styles.welcome}`}>
+      <Gate mode="welcome" />
       <div className={styles.top}>
         <div className="top-bar">
           <span className="wordmark">Trailmix</span>

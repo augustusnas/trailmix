@@ -7,7 +7,7 @@ export const dynamic = "force-static";
 const VERSION = process.env.VERCEL_GIT_COMMIT_SHA ?? `local-${Date.now()}`;
 
 // Pages kept for offline use. They open instantly from the copy and refresh in the background.
-const SHELL_PAGES = ["/home", "/library", "/"];
+const SHELL_PAGES = ["/home", "/library", "/", "/listen", "/vibe", "/mix", "/saved"];
 const SHELL_FILES = ["/manifest.webmanifest", "/icons/icon-180.png", "/icons/icon-192.png"];
 
 // Minimal service-worker types (the full "webworker" types clash with the page's DOM types).

@@ -5,14 +5,16 @@ import { Credit } from "@/components/Credit";
 import { SHOW_BETA } from "@/config/site";
 import { energyLabel, fakeMix, genreLabel } from "@/data/fakeMix";
 import { getRoutine, ROUTINES } from "@/data/routines";
-import { defaultLength, DEFAULT_ENERGY, DEFAULT_GENRES } from "@/data/vibe";
+import { defaultLength, DEFAULT_ENERGY } from "@/data/vibe";
 import { SharedPlayer } from "./SharedPlayer";
 import styles from "./shared.module.css";
+
+const FAKE_GENRES = ["house"];
 
 // FAKE: any id shows a made-up mix. Real stored mixes, expiry and rate limits arrive in Milestone 3.
 function mixFor(id: string) {
   const routine = getRoutine(id) ?? ROUTINES[0];
-  return fakeMix(routine, { energy: DEFAULT_ENERGY, genres: DEFAULT_GENRES, length: defaultLength(routine.minutes) });
+  return fakeMix(routine, { energy: DEFAULT_ENERGY, genres: FAKE_GENRES, length: defaultLength(routine.minutes) });
 }
 const FAKE_SHARER = "Charles";
 

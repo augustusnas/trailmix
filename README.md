@@ -12,7 +12,10 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | The 17 routines | `src/data/routines.ts` |
 | Category colours | `src/data/categories.ts` |
 | Genres, energy levels, lengths | `src/data/vibe.ts` |
-| Fake mixes (Milestone 1 only) | `src/data/fakeMix.ts` |
+| Fake mixes (until Milestone 3) | `src/data/fakeMix.ts` |
+| What the phone remembers (pins, vibes, music app) | `src/lib/store.ts` |
+| Who sees Welcome vs Home (Milestone 4 swaps in sign-in here) | `src/lib/gate.ts` |
+| Library search rules | `src/lib/search.ts` |
 | Beta label on/off, live URL, credit | `src/config/site.ts` |
 | Colours, fonts, shapes | `src/app/globals.css` (top of file) |
 | App icon (one source for every size) | `src/brand/AppIcon.tsx` |
@@ -38,6 +41,12 @@ npm run screenshots  # just the screenshot checks; images land in screenshots/
 ```
 
 GitHub Actions runs all of these on every push.
+
+## What's stored on the phone
+
+One record in `localStorage` under the key `trailmix`: `{ version, onboarded, musicApp, pins, vibes, recentMixes }`. It holds ids only, never names, and is never sent to the server. Damaged or old data quietly resets to the defaults (E12). There are still no cookies.
+
+**Beta reset:** tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install or deliberately damage the saved data to test E12.
 
 ## Settings (environment variables)
 

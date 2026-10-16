@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { SCREENS } from "./screens";
+import { ONBOARDED, seed } from "./helpers";
+import { SCREENS, open } from "./screens";
 
 // Beta label: Home, Where do you listen, shared page (pill/footer) and Welcome (tag). Never on vibe, mix, saved.
 // Credit: only Welcome, Library and the shared page.
@@ -7,13 +8,14 @@ const BETA = ["welcome", "listen", "home", "shared"];
 const CREDIT = ["welcome", "library", "shared"];
 
 for (const s of SCREENS) {
-  test(`${s.name}: beta label ${BETA.includes(s.name) ? "shown" : "hidden"}, credit ${CREDIT.includes(s.name) ? "shown" : "hidden"}`, async ({ page }) => {
-    await page.goto(s.path);
+  const base = s.name.split("-")[0]; // "home-full" is still Home
+  test(`${s.name}: beta label ${BETA.includes(base) ? "shown" : "hidden"}, credit ${CREDIT.includes(base) ? "shown" : "hidden"}`, async ({ page }) => {
+    await open(page, s);
     const beta = page.getByTestId("beta-label");
     const credit = page.getByTestId("credit");
-    if (BETA.includes(s.name)) await expect(beta.first()).toBeVisible();
+    if (BETA.includes(base)) await expect(beta.first()).toBeVisible();
     else await expect(beta).toHaveCount(0);
-    if (CREDIT.includes(s.name)) {
+    if (CREDIT.includes(base)) {
       await expect(credit).toHaveCount(1);
       const link = credit.getByRole("link", { name: "Augustus Nas" });
       await expect(link).toHaveAttribute("href", "https://www.augustusnas.com");
@@ -37,6 +39,7 @@ test("shared page footer says it's in invite-only beta", async ({ page }) => {
 });
 
 test("feedback button is hidden when FEEDBACK_EMAIL isn't set", async ({ page }) => {
+  await seed(page, ONBOARDED);
   await page.goto("/library");
   await expect(page.getByTestId("credit")).toBeVisible();
   await expect(page.getByText(/send beta feedback/i)).toHaveCount(0);

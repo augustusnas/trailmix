@@ -1,6 +1,6 @@
 import { CATEGORIES, CATEGORY_ORDER, COLORS } from "./categories";
 import { DEFAULT_PINS, MAX_PINS, ROUTINES, getRoutine } from "./routines";
-import { ENERGIES, GENRES, LENGTHS, defaultLength } from "./vibe";
+import { ENERGIES, GENRES, LENGTHS, MAX_GENRES, defaultLength } from "./vibe";
 
 describe("routine library", () => {
   it("has all 17 routines", () => {
@@ -55,8 +55,9 @@ describe("routine library", () => {
     }
   });
 
-  it("pins Indoor walk, EMOM and Full body by default", () => {
-    expect(DEFAULT_PINS.map((id) => getRoutine(id)?.name)).toEqual(["Indoor walk", "EMOM", "Full body"]);
+  it("pins Push day, Incline treadmill and HIIT circuit by default, from three categories", () => {
+    expect(DEFAULT_PINS.map((id) => getRoutine(id)?.name)).toEqual(["Push day", "Incline treadmill", "HIIT circuit"]);
+    expect(new Set(DEFAULT_PINS.map((id) => getRoutine(id)?.category)).size).toBe(3);
     expect(DEFAULT_PINS.length).toBeLessThanOrEqual(MAX_PINS);
   });
 });
@@ -68,8 +69,19 @@ describe("vibe lists", () => {
     expect(GENRES.length).toBeGreaterThan(0);
   });
 
-  it("picks a default length near the middle of a routine's minutes", () => {
-    expect(defaultLength({ min: 30, max: 60 })).toBe(45);
-    expect(defaultLength({ min: 4, max: 20 })).toBe(30);
+  it("picks the first-time length closest to the middle of a routine's minutes, shorter on a tie", () => {
+    const len = (id: string) => defaultLength(getRoutine(id)!.minutes);
+    expect(len("tabata")).toBe(30); // 4–20, middle 12
+    expect(len("push-day")).toBe(45); // 45–60, middle 52.5: tie between 45 and 60 → shorter
+    expect(len("indoor-walk")).toBe(45); // 30–60, middle 45
+    expect(len("boxing-bag-rounds")).toBe(30); // 30–45, middle 37.5: tie → shorter
+    expect(len("yoga-flow")).toBe(30); // 20–45, middle 32.5
+    expect(defaultLength({ min: 80, max: 100 })).toBe(90);
+    expect(defaultLength({ min: 60, max: 90 })).toBe(60); // middle 75: tie → shorter
+    for (const r of ROUTINES) expect(LENGTHS).toContain(defaultLength(r.minutes));
+  });
+
+  it("allows up to 3 genres", () => {
+    expect(MAX_GENRES).toBe(3);
   });
 });

@@ -58,10 +58,37 @@
   justify-content: center;
 }
 
-/* Big iPhone text on a narrow phone: one tile per row so whole words fit. */
+/*
+ * One tile per row when two wouldn't fit whole words: big iPhone text, or the narrowest
+ * phones (a half-width tile there can't fit "treadmill" or "Kettlebell" at full size).
+ */
+@container (max-width: 300px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(100px, auto);
+  }
+}
 @container (max-width: 16rem) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: minmax(100px, auto);
   }
+}
+
+.empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  border: 2px dashed rgba(234, 223, 200, 0.6);
+  border-radius: var(--radius-tile);
+  padding: 24px 18px;
+}
+
+.emptyText {
+  font-size: var(--t-27);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }

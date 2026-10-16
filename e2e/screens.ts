@@ -1,11 +1,70 @@
-// Every screen, with a routine where one is needed.
-export const SCREENS = [
+import type { Page } from "@playwright/test";
+import { BOXING_VIBE, ONBOARDED, record, seed } from "./helpers";
+
+export type Screen = {
+  name: string;
+  path: string;
+  /** Saved data on the phone before the page opens. */
+  state?: string;
+  /** Extra taps to reach the state worth checking. */
+  setup?: (page: Page) => Promise<void>;
+};
+
+const SIX_PINS = ["push-day", "incline-treadmill", "hiit-circuit", "tabata", "yoga-flow", "boxing-bag-rounds"];
+const onboarded = (extra: object = {}) => record({ ...ONBOARDED, vibes: BOXING_VIBE, ...extra });
+
+// Every screen and every Milestone 2 state, for screenshots, labels, accessibility and security checks.
+export const SCREENS: Screen[] = [
   { name: "welcome", path: "/" },
   { name: "listen", path: "/listen" },
-  { name: "home", path: "/home" },
-  { name: "library", path: "/library" },
-  { name: "vibe", path: "/vibe?routine=boxing-bag-rounds" },
-  { name: "mix", path: "/mix?routine=boxing-bag-rounds&energy=driven&genres=grime,dnb&length=45" },
-  { name: "saved", path: "/saved?routine=boxing-bag-rounds&energy=driven&genres=grime,dnb&length=45" },
-  { name: "shared", path: "/m/demo-123" },
-] as const;
+  { name: "home", path: "/home", state: onboarded() },
+  { name: "home-full", path: "/home", state: onboarded({ pins: SIX_PINS }) },
+  { name: "home-empty", path: "/home", state: onboarded({ pins: [] }) },
+  { name: "library", path: "/library", state: onboarded() },
+  { name: "library-full", path: "/library", state: onboarded({ pins: SIX_PINS }) },
+  {
+    name: "library-no-match",
+    path: "/library",
+    state: onboarded(),
+    setup: async (page) => {
+      await page.getByLabel("Find a routine").fill("underwater basket weaving");
+    },
+  },
+  {
+    name: "library-listening-on",
+    path: "/library",
+    state: onboarded({ musicApp: "spotify" }),
+    setup: async (page) => {
+      await page.getByRole("button", { name: "Change" }).click();
+    },
+  },
+  { name: "vibe", path: "/vibe?routine=boxing-bag-rounds", state: onboarded() },
+  {
+    name: "vibe-no-genre",
+    path: "/vibe?routine=yoga-flow",
+    state: onboarded(),
+    setup: async (page) => {
+      await page.getByRole("button", { name: "Make the mix" }).click();
+    },
+  },
+  {
+    name: "vibe-genre-limit",
+    path: "/vibe?routine=yoga-flow",
+    state: onboarded(),
+    setup: async (page) => {
+      for (const g of ["Soul", "Disco", "Jazz-funk"]) await page.getByRole("button", { name: g }).click();
+    },
+  },
+  { name: "mix", path: "/mix?routine=boxing-bag-rounds", state: onboarded() },
+  { name: "saved", path: "/saved?routine=boxing-bag-rounds", state: onboarded() },
+  { name: "saved-spotify", path: "/saved?routine=boxing-bag-rounds", state: onboarded({ musicApp: "spotify" }) },
+  { name: "shared", path: "/m/demo-123", state: onboarded() },
+  { name: "shared-ask", path: "/m/demo-123" },
+];
+
+export async function open(page: Page, s: Screen) {
+  if (s.state) await seed(page, s.state);
+  await page.goto(s.path);
+  await page.locator("main").waitFor();
+  if (s.setup) await s.setup(page);
+}

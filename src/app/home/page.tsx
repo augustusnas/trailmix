@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { Wordmark } from "@/components/Beta";
-import { DEFAULT_PINS, getRoutine, type Routine } from "@/data/routines";
+import { Gate } from "@/components/Gate";
 import { RoutinePicker } from "./RoutinePicker";
 
 export const metadata: Metadata = { title: "Home" };
 
-// Home. Real pinning arrives in Milestone 2; the check-in card in Milestone 5.
+// Home: the pinned routines, remembered on this phone. The check-in card arrives in Milestone 5.
 export default function Home() {
-  const pins = DEFAULT_PINS.map((id) => getRoutine(id)).filter((r): r is Routine => Boolean(r));
   return (
     <main className="screen">
+      <Gate mode="app" />
       <div className="top-bar">
         <Wordmark />
         <Link href="/library" className="library-link">
@@ -20,7 +20,7 @@ export default function Home() {
         </Link>
       </div>
       <Headline text="What’s the terrain today?" size="home" />
-      <RoutinePicker pins={pins} />
+      <RoutinePicker />
     </main>
   );
 }

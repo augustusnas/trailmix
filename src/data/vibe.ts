@@ -26,10 +26,15 @@ export const ENERGIES: Option[] = [
 
 export const LENGTHS = [30, 45, 60, 90] as const;
 
-export const DEFAULT_GENRES = ["house"];
+/** Most genres one mix can have. */
+export const MAX_GENRES = 3;
+
 export const DEFAULT_ENERGY = "steady";
 
-/** The listed length closest to the middle of a routine's typical minutes. */
+/**
+ * First-time length for a routine: the listed length closest to the middle of its typical minutes.
+ * On a tie, the shorter one (Tabata 4–20 → 30, Push day 45–60 → 45).
+ */
 export function defaultLength(range: { min: number; max: number }): number {
   const mid = (range.min + range.max) / 2;
   return LENGTHS.reduce((best, l) => (Math.abs(l - mid) < Math.abs(best - mid) ? l : best), LENGTHS[0]);

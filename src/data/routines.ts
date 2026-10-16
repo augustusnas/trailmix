@@ -34,8 +34,8 @@ export const ROUTINES: Routine[] = [
   { id: "yoga-flow", name: "Yoga flow", short: "Yoga", category: "recovery", minutes: { min: 20, max: 45 } },
 ];
 
-/** The three routines pinned to Home by default. */
-export const DEFAULT_PINS = ["indoor-walk", "emom", "full-body"];
+/** The three routines pinned to Home on a fresh install: one from each of three categories. */
+export const DEFAULT_PINS = ["push-day", "incline-treadmill", "hiit-circuit"];
 
 /** How many routines Home can hold. */
 export const MAX_PINS = 6;

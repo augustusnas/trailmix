@@ -10,6 +10,7 @@
 }
 
 .playIn {
+  margin-top: -1px; /* no hairline seam where it meets the header */
   background: var(--ink);
   color: var(--sand);
   padding: 20px calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
@@ -59,4 +60,16 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-align: center;
+}
+
+.ask {
+  margin: 0;
+  font-size: var(--t-27);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.appSmall {
+  min-height: var(--tap);
 }

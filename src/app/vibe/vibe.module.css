@@ -38,3 +38,18 @@
 .number {
   font-size: var(--t-22); /* 22px */
 }
+
+.chips :global(.chip):disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.message {
+  min-height: 1.3em;
+  font-size: var(--t-17);
+  font-weight: 700;
+  color: var(--lime);
+}
+.message:empty {
+  min-height: 0;
+}

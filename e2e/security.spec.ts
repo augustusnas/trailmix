@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { SCREENS } from "./screens";
+import { SCREENS, open } from "./screens";
 
 for (const s of SCREENS) {
   test(`${s.name}: security headers and no cookies`, async ({ page, request }) => {
@@ -10,7 +10,7 @@ for (const s of SCREENS) {
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["set-cookie"]).toBeUndefined();
 
-    await page.goto(s.path);
+    await open(page, s);
     expect(await page.context().cookies()).toEqual([]);
   });
 }

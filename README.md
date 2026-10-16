@@ -46,13 +46,14 @@ GitHub Actions runs all of these on every push.
 
 One record in `localStorage` under the key `trailmix`: `{ version, onboarded, musicApp, pins, vibes, recentMixes }`. It holds ids only, never names, and is never sent to the server. Damaged or old data quietly resets to the defaults (E12). There are still no cookies.
 
-**Beta reset:** tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install or deliberately damage the saved data to test E12.
+**Beta reset** (only when `BETA_RESET_PAGE` is on): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install or deliberately damage the saved data to test E12.
 
 ## Settings (environment variables)
 
 | Name | What it does | If missing |
 | --- | --- | --- |
 | `FEEDBACK_EMAIL` | Address the Library's "Send beta feedback" button emails | The button is hidden |
+| `BETA_RESET_PAGE` | `on` turns on the beta reset page and its hidden 5-tap way in. Switch it off before sending beta invites | Off: `/reset` is "page not found" and the tap does nothing |
 
 Set them in Vercel → Project → Settings → Environment Variables, or in `.env.local` on the Mac. Never commit them.
 

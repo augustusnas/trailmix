@@ -347,18 +347,6 @@ test.describe("E12: damaged or wrong-version data", () => {
     expect(await sawWelcome(page)).toBe(false);
   });
 
-  test("the reset page's Damage button reloads into Home with the defaults (the phone check)", async ({ page }) => {
-    await seed(page, { ...ONBOARDED, pins: SIX });
-    await watchForWelcome(page);
-    await page.goto("/library");
-    for (let i = 0; i < 5; i++) await page.getByRole("heading", { name: "The library." }).click();
-    await expect(page).toHaveURL(/\/reset$/);
-    await page.getByRole("button", { name: /Damage the saved data/ }).click();
-    await expect(page).toHaveURL(/\/home$/);
-    await expect.poll(() => pinIds(page)).toEqual(["push-day", "incline-treadmill", "hiit-circuit"]);
-    expect(await sawWelcome(page)).toBe(false);
-  });
-
   test("damage is noticed even without a reload, and the old pins are never written back over it", async ({ page }) => {
     await seed(page, { ...ONBOARDED, pins: SIX });
     await page.goto("/library");

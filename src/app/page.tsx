@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LaceUp } from "./LaceUp";
 import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
@@ -53,6 +54,14 @@ export default function Welcome() {
         </p>
         <div className={styles.creditRow}>
           <Credit linkColor="var(--ink)" />
+          <span className="credit" aria-hidden="true">
+            ·
+          </span>
+          <p className="credit">
+            <Link href="/privacy" style={{ color: "var(--ink)" }}>
+              Privacy
+            </Link>
+          </p>
         </div>
       </div>
     </main>

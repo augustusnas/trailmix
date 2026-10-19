@@ -70,4 +70,9 @@
 .creditRow {
   border-top: 1px solid rgba(22, 19, 15, 0.2);
   padding-top: 2px;
+  display: flex;
+  flex-wrap: wrap; /* with big text, Privacy moves under the credit */
+  justify-content: center;
+  align-items: center;
+  column-gap: 4px;
 }

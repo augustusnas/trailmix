@@ -149,6 +149,8 @@ export const SCREENS: Screen[] = [
   { name: "shared", path: "/home", state: onboarded(), setup: openShared },
   { name: "shared-ask", path: "/", setup: openShared },
   { name: "shared-moved-on", path: "/m/AAAAAAAAAAAAAAAAAAAAAA" },
+  { name: "privacy", path: "/privacy" },
+  { name: "privacy-returning", path: "/privacy", state: onboarded() },
 ];
 
 export async function open(page: Page, s: Screen) {

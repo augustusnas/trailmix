@@ -23,7 +23,8 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | What the phone remembers (pins, vibes, music app) | `src/lib/store.ts` |
 | Who sees Welcome vs Home (Milestone 4 swaps in sign-in here) | `src/lib/gate.ts` |
 | Library search rules | `src/lib/search.ts` |
-| Beta label on/off, live URL, credit | `src/config/site.ts` |
+| Beta label on/off, live URL, credit, privacy contact email | `src/config/site.ts` |
+| Privacy page (keep it true when what is stored changes) | `src/app/privacy/page.tsx` |
 | Colours, fonts, shapes | `src/app/globals.css` (top of file) |
 | App icon (one source for every size) | `src/brand/AppIcon.tsx` |
 | Offline helper (service worker) | `src/app/sw.js/route.ts` |

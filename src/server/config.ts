@@ -20,6 +20,11 @@ export const config = {
    * Can never be switched on in the live (production) deployment.
    */
   fakeServices: () => process.env.FAKE_SERVICES === "1" && process.env.VERCEL_ENV !== "production",
+  /**
+   * Automated tests only (needs fakeServices): every test shares one code and one computer, so the
+   * per-person and per-day limits are lifted. The limit tests run on a second copy with them on.
+   */
+  relaxedLimits: () => config.fakeServices() && process.env.TEST_RELAXED_LIMITS === "1",
 };
 
 /** Per-person and per-day limits. */

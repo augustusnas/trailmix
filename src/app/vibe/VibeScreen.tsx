@@ -7,7 +7,8 @@ import { Headline } from "@/components/Headline";
 import { Icon } from "@/components/Icon";
 import { RoutineTag } from "@/components/RoutineTag";
 import { ENERGIES, GENRES, LENGTHS, MAX_GENRES } from "@/data/vibe";
-import { saveVibe, useSaved, vibeFor, type VibeSettings } from "@/lib/store";
+import { saveVibe, setCurrentMix, useSaved, vibeFor, type VibeSettings } from "@/lib/store";
+import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import styles from "./vibe.module.css";
 
@@ -44,6 +45,7 @@ function Picker({ routineId, initial }: { routineId: string; initial: VibeSettin
   const [energy, setEnergy] = useState(initial.energy);
   const [length, setLength] = useState(initial.length);
   const [missingGenre, setMissingGenre] = useState(false);
+  const online = useOnline();
 
   const atLimit = genres.length >= MAX_GENRES;
 
@@ -58,6 +60,7 @@ function Picker({ routineId, initial }: { routineId: string; initial: VibeSettin
       return;
     }
     saveVibe(routineId, { genres, energy, length }); // F7
+    setCurrentMix(null); // a fresh mix for these settings
     router.push(routineHref("/mix", routineId));
   };
 
@@ -132,7 +135,18 @@ function Picker({ routineId, initial }: { routineId: string; initial: VibeSettin
       </fieldset>
 
       <div className="spacer" />
-      <button type="button" onClick={makeTheMix} className="cta cta--large" style={{ background: "var(--orange)", color: "var(--ink)" }}>
+      {!online && (
+        <p className={styles.offline} role="status" data-testid="offline-banner">
+          You’re offline. You can still set the vibe; Make the mix comes back when you’re connected.
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={makeTheMix}
+        disabled={!online}
+        className="cta cta--large"
+        style={{ background: "var(--orange)", color: "var(--ink)", opacity: online ? 1 : 0.45 }}
+      >
         <span>Make the mix</span>
         <Icon name="arrowRight" />
       </button>

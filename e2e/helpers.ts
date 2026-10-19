@@ -92,3 +92,37 @@ export async function laceUp(page: Page) {
   }
   await page.waitForURL(/\/listen$/);
 }
+
+const ACCESS = { "x-trailmix-access": TEST_ACCESS_CODE };
+
+/** Makes a real mix (with the recorded stand-in services), finds its links, and stores it as a shared mix page. */
+export async function makeSharedMix(
+  request: import("@playwright/test").APIRequestContext,
+  settings = { routine: "boxing-bag-rounds", genres: ["grime", "dnb"], energy: "driven", length: 45 },
+): Promise<{ id: string; mix: { name: string; tracks: { title: string; youtubeId?: string; spotifyUrl?: string; appleUrl?: string }[] } }> {
+  const made = await (await request.post("/api/mix", { headers: ACCESS, data: { ...settings, avoid: [] } })).json();
+  let mix = made.mix;
+  for (let round = 0; mix.tracks.some((t: { linksPending?: boolean }) => t.linksPending) && round < 5; round++) {
+    const pending = mix.tracks.filter((t: { linksPending?: boolean }) => t.linksPending);
+    const links = await (await request.post("/api/links", { headers: ACCESS, data: { mixId: mix.id, tracks: pending } })).json();
+    mix = {
+      ...mix,
+      tracks: mix.tracks.map((t: { title: string; artist: string }) => {
+        const r = links.results.find((x: { title: string; artist: string }) => x.title === t.title && x.artist === t.artist);
+        return r ? { ...t, ...r.links, linksPending: undefined } : t;
+      }),
+    };
+  }
+  const { id } = await (await request.post("/api/share", { headers: ACCESS, data: { mix } })).json();
+  return { id, mix };
+}
+
+/** Waits until The mix has its links and the main button can be tapped. */
+export async function waitForMix(page: Page) {
+  const action = page.getByTestId("mix-action");
+  await action.waitFor();
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-testid="mix-action"]') as HTMLButtonElement | null;
+    return b && !b.disabled;
+  }, undefined, { timeout: 20_000 });
+}

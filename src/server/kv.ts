@@ -62,15 +62,17 @@ export class MemoryKV implements KV {
   }
 }
 
-let kv: KV | null = null;
+// One store for the whole server process (pages and API routes are bundled separately, so a plain
+// module variable would give each its own in-memory copy).
+const holder = globalThis as unknown as { __trailmixKV?: KV };
 
 export function getKV(): KV {
-  if (kv) return kv;
+  if (holder.__trailmixKV) return holder.__trailmixKV;
   // Vercel's Upstash integration may name the settings either way.
   const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
-  kv = !config.fakeServices() && url && token ? new UpstashKV(new Redis({ url, token })) : new MemoryKV();
-  return kv;
+  holder.__trailmixKV = !config.fakeServices() && url && token ? new UpstashKV(new Redis({ url, token })) : new MemoryKV();
+  return holder.__trailmixKV;
 }
 
 /** Tests only: start from empty. */

@@ -26,10 +26,12 @@ test("Home, Library, pinning, search and Set the vibe work offline", async ({ pa
   await page.getByLabel("Find a routine").fill("tab");
   await expect(page.locator("li[data-routine]")).toHaveCount(1);
 
+  // E10: Set the vibe still works, but Make the mix waits for a connection.
   await page.goto("/vibe?routine=tabata");
   await page.getByRole("button", { name: "Grime" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
-  await expect(page.getByTestId("mix-action")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Grime" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("offline-banner")).toContainText("You’re offline");
+  await expect(page.getByRole("button", { name: "Make the mix" })).toBeDisabled();
 
   await page.goto("/home");
   await expect.poll(() => page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")))).toEqual([

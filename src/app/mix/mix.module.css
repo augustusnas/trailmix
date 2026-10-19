@@ -68,3 +68,46 @@
   font-weight: 800;
   line-height: 1.1;
 }
+
+.banner {
+  margin: 12px calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  background: var(--ink);
+  color: var(--sand);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: var(--t-16);
+  font-weight: 700;
+}
+
+.progress,
+.note {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-12);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress {
+  min-height: 1.4em;
+}
+
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--t-17);
+  font-weight: 700;
+  padding: 8px 0;
+}
+
+.remix:disabled,
+.keep:disabled,
+.swap:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.keep {
+  border: 0;
+}

@@ -15,7 +15,8 @@ const DAY = 86400;
 
 /** Counts one use and says whether it was within the limit. */
 async function within(key: string, limit: number, seconds: number): Promise<boolean> {
-  return (await getKV().incr(key, seconds)) <= limit;
+  const n = await getKV().incr(key, seconds);
+  return config.relaxedLimits() || n <= limit;
 }
 
 /**
@@ -24,9 +25,10 @@ async function within(key: string, limit: number, seconds: number): Promise<bool
  */
 export async function mixAllowed(who: string, forced?: string | null): Promise<ErrorCode | null> {
   if (config.mixesPaused() || forced === "e15") return "paused";
+  if (forced === "e9") return "hourly";
   const ceiling = config.dailyMixCeiling();
   const today = await getKV().get<number>(`ceiling:${ukDay()}`);
-  if (forced === "e14" || (today ?? 0) >= ceiling) return "ceiling";
+  if (forced === "e14" || (!config.relaxedLimits() && (today ?? 0) >= ceiling)) return "ceiling";
   if (!(await within(`hourly:${who}`, LIMITS.mixesPerHour, HOUR))) return "hourly";
   if (!(await within(`ceiling:${ukDay()}`, ceiling, 2 * DAY))) return "ceiling";
   return null;
@@ -48,7 +50,7 @@ export async function recordWrongCode(ip: string): Promise<void> {
 export async function youtubeSearchAllowed(mixId: string): Promise<boolean> {
   const kv = getKV();
   const day = `yt:${ukDay()}`;
-  if (((await kv.get<number>(day)) ?? 0) >= LIMITS.youtubeSearchesPerDay) return false;
+  if (!config.relaxedLimits() && ((await kv.get<number>(day)) ?? 0) >= LIMITS.youtubeSearchesPerDay) return false;
   if (!(await within(`yt:mix:${mixId}`, LIMITS.youtubeSearchesPerMix, DAY))) return false;
   return within(day, LIMITS.youtubeSearchesPerDay, 2 * DAY);
 }

@@ -53,3 +53,12 @@
 .message:empty {
   min-height: 0;
 }
+
+.offline {
+  background: var(--ink);
+  color: var(--sand);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: var(--t-16);
+  font-weight: 700;
+}

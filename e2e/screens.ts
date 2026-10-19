@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, record, seed } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, makeSharedMix, record, seed, waitForMix } from "./helpers";
 
 export type Screen = {
   name: string;
@@ -8,6 +8,19 @@ export type Screen = {
   state?: string;
   /** Extra taps to reach the state worth checking. */
   setup?: (page: Page) => Promise<void>;
+  /** Beta test switch to force a failure (E3, E10, E15…). */
+  testSwitch?: string;
+};
+
+const keep = async (page: Page) => {
+  await waitForMix(page);
+  await page.getByTestId("mix-action").click();
+};
+const openShared = async (page: Page) => {
+  const { id } = await makeSharedMix(page.request);
+  await page.goto(`/m/${id}`);
+  await page.getByTestId("play-in").waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid="play-in"]')!.children.length > 0);
 };
 
 const SIX_PINS = ["push-day", "incline-treadmill", "hiit-circuit", "tabata", "yoga-flow", "boxing-bag-rounds"];
@@ -68,15 +81,53 @@ export const SCREENS: Screen[] = [
       await page.getByText("That’s 3. Untick one to swap.").waitFor();
     },
   },
-  { name: "mix", path: "/mix?routine=boxing-bag-rounds", state: onboarded() },
-  { name: "saved", path: "/saved?routine=boxing-bag-rounds", state: onboarded() },
-  { name: "saved-spotify", path: "/saved?routine=boxing-bag-rounds", state: onboarded({ musicApp: "spotify" }) },
-  { name: "shared", path: "/m/demo-123", state: onboarded() },
-  { name: "shared-ask", path: "/m/demo-123" },
+  { name: "mix", path: "/mix?routine=boxing-bag-rounds", state: onboarded(), setup: waitForMix },
+  {
+    name: "mix-failed",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "e3",
+    setup: async (page) => void (await page.getByTestId("mix-problem").waitFor()),
+  },
+  {
+    name: "mix-paused",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "e15",
+    setup: async (page) => void (await page.getByTestId("mix-problem").waitFor()),
+  },
+  {
+    name: "mix-offline",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "e10",
+    setup: async (page) => void (await page.getByTestId("offline-banner").waitFor()),
+  },
+  { name: "saved", path: "/mix?routine=boxing-bag-rounds", state: onboarded(), setup: async (page) => {
+      await keep(page);
+      await page.getByTestId("saved-action").waitFor();
+    } },
+  {
+    name: "saved-spotify",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded({ musicApp: "spotify" }),
+    setup: async (page) => {
+      await keep(page);
+      await page.waitForURL(/\/m\//);
+      await page.goto("/saved?routine=boxing-bag-rounds");
+      await page.getByTestId("saved-action").waitFor();
+    },
+  },
+  { name: "shared", path: "/home", state: onboarded(), setup: openShared },
+  { name: "shared-ask", path: "/", setup: openShared },
+  { name: "shared-moved-on", path: "/m/AAAAAAAAAAAAAAAAAAAAAA" },
 ];
 
 export async function open(page: Page, s: Screen) {
   if (s.state) await seed(page, s.state);
+  if (s.testSwitch) {
+    await page.addInitScript((v) => sessionStorage.setItem("trailmix-test-switch", v), s.testSwitch);
+  }
   await page.goto(s.path);
   await page.locator("main").waitFor();
   if (s.setup) await s.setup(page);

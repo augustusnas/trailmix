@@ -1,57 +1,69 @@
 import type { Metadata } from "next";
-import { Headline } from "@/components/Headline";
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
+import { cache } from "react";
 import { Wordmark } from "@/components/Beta";
-import { Credit } from "@/components/Credit";
-import { SHOW_BETA } from "@/config/site";
-import { energyLabel, fakeMix, genreLabel } from "@/data/fakeMix";
-import { getRoutine, ROUTINES } from "@/data/routines";
-import { defaultLength, DEFAULT_ENERGY } from "@/data/vibe";
+import { Headline } from "@/components/Headline";
+import { getRoutine } from "@/data/routines";
+import { energyLabel, genreLabel } from "@/lib/format";
+import { MESSAGES } from "@/lib/messages";
+import { runningMinutes } from "@/lib/mixTypes";
+import { pageViewAllowed } from "@/server/limits";
+import { readShare } from "@/server/shares";
+import { Footer } from "./Footer";
 import { SharedPlayer } from "./SharedPlayer";
 import styles from "./shared.module.css";
 
-const FAKE_GENRES = ["house"];
+/** Placeholder until Milestone 4 supplies the sharer's first name from Google. */
+const SHARER_PLACEHOLDER = "Charles";
 
-// FAKE: any id shows a made-up mix. Real stored mixes, expiry and rate limits arrive in Milestone 3.
-function mixFor(id: string) {
-  const routine = getRoutine(id) ?? ROUTINES[0];
-  return fakeMix(routine, { energy: DEFAULT_ENERGY, genres: FAKE_GENRES, length: defaultLength(routine.minutes) });
-}
-const FAKE_SHARER = "Charles";
+const getMix = cache(readShare);
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const mix = mixFor((await params).id);
+  const mix = await getMix((await params).id);
   return {
-    title: { absolute: `${mix.name}: a Trailmix` },
+    title: { absolute: mix ? `${mix.name}: a Trailmix` : "Trailmix" },
     robots: { index: false, follow: false },
   };
 }
 
+// A real shared mix: read from storage only (never calls Claude or YouTube).
 export default async function SharedMix({ params }: { params: Promise<{ id: string }> }) {
-  const mix = mixFor((await params).id);
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  if (!(await pageViewAllowed(ip))) return <Busy />; // E17 / N16
+  const mix = await getMix((await params).id);
+  if (!mix) notFound(); // E16: expired or mistyped
+  const routine = getRoutine(mix.routineId)!;
+
   return (
     <main className="screen screen--sand screen--flush">
       <header className={styles.head}>
         <div className="top-bar">
           <Wordmark color="var(--lime)" />
           <span className="mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.16em" }}>
-            Shared by {FAKE_SHARER}
+            Shared by {SHARER_PLACEHOLDER}
           </span>
         </div>
         <Headline text={mix.name} size="shared" style={{ lineHeight: 0.88, letterSpacing: "-0.045em" }} />
         <p className="mono">
-          {mix.routine.name} · {energyLabel(mix.energy)} · {mix.genres.map(genreLabel).join(" · ")} · {mix.length} min
+          {routine.name} · {energyLabel(mix.energy)} · {mix.genres.map(genreLabel).join(" · ")} · {runningMinutes(mix)} min
         </p>
       </header>
       <SharedPlayer mix={mix} />
-      <footer className={styles.foot}>
-        {SHOW_BETA && <p data-testid="beta-label">Trailmix is in invite-only beta</p>}
-        <p>
-          Track links by Songlink/
-          <wbr />
-          Odesli
-        </p>
-        <Credit linkColor="var(--ink)" />
-      </footer>
+      <Footer />
+    </main>
+  );
+}
+
+function Busy() {
+  return (
+    <main className="screen screen--sand">
+      <Wordmark />
+      <Headline text="Hold that thought." size="screen" />
+      <p style={{ fontSize: "var(--t-17)" }} data-testid="views-busy">
+        {MESSAGES.viewsBusy}
+      </p>
     </main>
   );
 }

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES } from "../src/data/categories";
 import { ROUTINES, type Routine } from "../src/data/routines";
-import { ONBOARDED, seed } from "./helpers";
+import { ONBOARDED, seed, waitForMix } from "./helpers";
 
 // F21: whichever routine is picked shows its name and category colour on Set the vibe, The mix and Saved.
 
@@ -34,6 +34,7 @@ async function checkFlow(page: Page, r: Routine) {
   await page.reload();
   await expect(page.getByTestId("routine-name")).toContainText(r.name, { ignoreCase: true });
 
+  await waitForMix(page);
   await page.getByTestId("mix-action").click();
   await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}$`));
   await expectTag(page, r);
@@ -67,5 +68,7 @@ test("vibe choices carry through to the mix", async ({ page }) => {
   await expect(page.getByTestId("routine-name")).toContainText("Boxing bag rounds · 30 min · Feral", { ignoreCase: true });
   await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
   await expect(page.getByTestId("playlist-title")).toContainText("Trailmix · Boxing · Gloves On, Volume Up · ");
-  await expect(page.getByTestId("running-time")).toHaveText(/29 min/i);
+  // F10: the real running time is within 5 minutes of the 30 chosen.
+  const minutes = Number((await page.getByTestId("running-time").textContent())!.match(/\d+/)![0]);
+  expect(Math.abs(minutes - 30)).toBeLessThanOrEqual(5);
 });

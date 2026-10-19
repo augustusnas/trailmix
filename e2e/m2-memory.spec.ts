@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { DAMAGED } from "../src/app/reset/ResetScreen";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, record, sawWelcome, seed, stored, watchForWelcome, laceUp } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, laceUp, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -234,8 +234,13 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   await page.goto("/vibe?routine=push-day");
   await page.getByRole("button", { name: "Rock" }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();
+  await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Spotify");
+  // Spotify users: the mix is stored and its page opens with Spotify first.
   await page.getByTestId("mix-action").click();
+  await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
+  await expect(page.getByTestId("lead-app")).toContainText("Open in Spotify");
+  await page.goto("/saved?routine=push-day");
   await expect(page.getByTestId("saved-action")).toHaveText("Open in Spotify");
   await expect(page.getByRole("heading", { name: "Your mix is ready to play in Spotify, track by track." })).toBeVisible();
 
@@ -249,24 +254,28 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
 
   await page.getByRole("link", { name: "Use Push day" }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();
+  await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Apple Music");
   await page.getByTestId("mix-action").click();
-  await expect(page.getByTestId("saved-action")).toHaveText("Open in Apple Music");
+  await expect(page.getByTestId("lead-app")).toContainText("Open in Apple Music");
 });
 
 test("YouTube Music labels", async ({ page }) => {
   await seed(page, { ...ONBOARDED, vibes: BOXING_VIBE });
   await page.goto("/mix?routine=boxing-bag-rounds");
+  await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Keep it in YouTube Music");
-  await page.goto("/saved?routine=boxing-bag-rounds");
+  await page.getByTestId("mix-action").click();
   await expect(page.getByTestId("saved-action")).toHaveText("Open in YouTube Music");
 });
 
 // ---------- Shared page leads with the visitor's app ----------
 
 test.describe("shared mix page", () => {
-  test("no app remembered: asks first, with three equal buttons, then remembers the pick", async ({ page }) => {
-    await page.goto("/m/demo");
+  test("no app remembered: asks first, with three equal buttons, then remembers the pick", async ({ page, request }) => {
+    const { id } = await makeSharedMix(request);
+    const { id: another } = await makeSharedMix(request);
+    await page.goto(`/m/${id}`);
     await expect(page.getByRole("heading", { name: "Where do you listen?" })).toBeVisible();
     const buttons = page.getByRole("group", { name: "Where do you listen?" }).getByRole("button");
     await expect(buttons).toHaveText(["YouTube Music", "Spotify", "Apple Music"]);
@@ -278,17 +287,18 @@ test.describe("shared mix page", () => {
     await expect(page.locator("a.track").first()).toHaveAttribute("href", /open\.spotify\.com/);
     expect((await stored(page)).musicApp).toBe("spotify");
 
-    await page.goto("/m/another-mix"); // their next shared mix leads with it
+    await page.goto(`/m/${another}`); // their next shared mix leads with it
     await expect(page.getByTestId("lead-app")).toContainText("Open in Spotify");
     // not counted as having set up Trailmix
     expect((await stored(page)).onboarded).toBe(false);
   });
 
-  test("app remembered: it comes first and largest; picking another updates the memory", async ({ page }) => {
+  test("app remembered: it comes first and largest; picking another updates the memory", async ({ page, request }) => {
+    const { id } = await makeSharedMix(request);
     await seed(page, ONBOARDED); // a Trailmix user on YouTube Music
-    await page.goto("/m/demo");
+    await page.goto(`/m/${id}`);
     const lead = page.getByTestId("lead-app");
-    await expect(lead).toContainText("Open the whole playlist in YouTube Music");
+    await expect(lead).toContainText("Open the whole playlist");
     const others = page.getByRole("group", { name: "Other music apps" }).getByRole("button");
     await expect(others).toHaveText(["Spotify", "Apple Music"]);
     const leadBox = (await lead.boundingBox())!;
@@ -387,10 +397,10 @@ test.describe("E12: damaged or wrong-version data", () => {
 
 // ---------- Privacy ----------
 
-test("privacy: no cookies, and pins, vibes and the music app never reach our server", async ({ page, context, baseURL }) => {
-  const sent: { url: string; body: string; headers: string }[] = [];
+test("privacy: no cookies; pins and the music app never reach our server; vibes only when making a mix", async ({ page, context, baseURL }) => {
+  const sent: { url: string; method: string; body: string; headers: string }[] = [];
   page.on("request", (r) => {
-    if (r.url().startsWith(baseURL!)) sent.push({ url: r.url(), body: r.postData() ?? "", headers: JSON.stringify(r.headers()) });
+    if (r.url().startsWith(baseURL!)) sent.push({ url: r.url(), method: r.method(), body: r.postData() ?? "", headers: JSON.stringify(r.headers()) });
   });
 
   await page.goto("/");
@@ -402,9 +412,9 @@ test("privacy: no cookies, and pins, vibes and the music app never reach our ser
   await page.getByRole("link", { name: "Use Kettlebell flow" }).click();
   for (const b of ["Amapiano", "Jazz-funk", "Feral", "90 minutes"]) await page.getByRole("button", { name: b }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();
+  await waitForMix(page);
   await page.getByTestId("mix-action").click();
-  await page.getByRole("link", { name: "Share with friends" }).click();
-  await expect(page).toHaveURL(/\/m\/kettlebell-flow$/);
+  await expect(page).toHaveURL(/\/m\//);
   await page.goto("/home");
   await page.waitForLoadState("networkidle");
 
@@ -412,11 +422,19 @@ test("privacy: no cookies, and pins, vibes and the music app never reach our ser
   expect(sent.length).toBeGreaterThan(0);
   for (const r of sent) {
     const url = new URL(r.url);
-    // The only data the address may carry is which routine is open.
+    // Addresses only ever carry which routine is open.
     for (const key of url.searchParams.keys()) expect(["routine", "_rsc"], r.url).toContain(key);
     const everything = `${r.url} ${r.body} ${r.headers}`.toLowerCase();
-    for (const secret of ["amapiano", "jazz-funk", "feral", "spotify", "pins", "vibes", "musicapp", STORAGE_KEY + "\""]) {
-      expect(everything, `${secret} in ${r.url}`).not.toContain(secret);
+    // Never: pins, the music app, or the saved record itself.
+    for (const secret of ["stretch-mobility", "spotify", "pins", "musicapp", "onboarded", STORAGE_KEY + "\""]) {
+      if (secret === "spotify" && /\/api\/(links|share)$/.test(url.pathname)) continue; // track links for every app
+      if (secret === "stretch-mobility" && url.pathname === "/vibe") continue; // the Library's "use" link prefetch
+      expect(everything, `${secret} in ${r.method} ${r.url}`).not.toContain(secret);
+    }
+    // The vibe goes only to the routes that make mixes, never in an address.
+    // (and to /api/share, which stores the mix with its genres for the shared page).
+    if (!["/api/mix", "/api/swap", "/api/share"].includes(url.pathname)) {
+      for (const vibe of ["amapiano", "jazz-funk", "feral"]) expect(everything, `${vibe} in ${r.url}`).not.toContain(vibe);
     }
     expect(r.headers).not.toContain('"cookie"');
   }

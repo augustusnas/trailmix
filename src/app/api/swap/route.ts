@@ -1,0 +1,38 @@
+import { sanitizeMix } from "@/lib/mixTypes";
+import { checkAccess } from "@/server/access";
+import { MixError } from "@/server/claude";
+import { clientIp, fail, ok, readJson } from "@/server/http";
+import { mixAllowed } from "@/server/limits";
+import { swapTrack } from "@/server/mixes";
+import { testSwitch } from "@/server/testSwitch";
+import { validateMixRequest } from "@/server/validate";
+
+export const maxDuration = 60;
+
+// F11: swap one track for another in the same phase.
+export async function POST(req: Request) {
+  const access = checkAccess(req, clientIp(req));
+  if (!access.ok) return fail("access", 401);
+  const body = (await readJson(req)) as Record<string, unknown> | undefined;
+  const mixReq = validateMixRequest(body);
+  const mix = sanitizeMix(body?.mix);
+  const index = body?.index;
+  if (!mixReq || !mix || typeof index !== "number" || !Number.isInteger(index) || index < 0 || index >= mix.tracks.length) {
+    return fail("invalid", 400);
+  }
+  if (mix.routineId !== mixReq.routine.id) return fail("invalid", 400);
+
+  const forced = testSwitch(req);
+  const refused = await mixAllowed(access.who, forced);
+  if (refused) return fail(refused, refused === "paused" ? 503 : 429);
+
+  try {
+    const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
+    const swapped = await swapTrack({ req: mixReq, usage, forced }, mix, index);
+    console.log(JSON.stringify({ event: "swap", usage }));
+    return ok({ mix: swapped });
+  } catch (err) {
+    const kind = err instanceof MixError ? err.kind : "failed";
+    return fail(kind, kind === "resting" ? 503 : 502);
+  }
+}

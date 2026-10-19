@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, seed, laceUp } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, laceUp, waitForMix } from "./helpers";
 
 test("F1: a fresh install taps through every screen in order", async ({ page }) => {
   await page.goto("/");
@@ -28,9 +28,11 @@ test("F1: a fresh install taps through every screen in order", async ({ page }) 
   await expect(page).toHaveURL(/\/mix\?routine=push-day$/);
   await expect(page.getByRole("heading", { name: "Press Play" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Keep it in YouTube Music" }).click();
+  await waitForMix(page);
+  await expect(page.getByTestId("mix-action")).toHaveText("Keep it in YouTube Music");
+  await page.getByTestId("mix-action").click();
   await expect(page).toHaveURL(/\/saved\?routine=push-day$/);
-  await expect(page.getByRole("heading", { name: "Press Play is in YouTube Music." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Press Play is ready to play." })).toBeVisible();
 
   await page.getByRole("link", { name: "Back to home" }).click();
   await expect(page).toHaveURL(/\/home$/);
@@ -60,10 +62,25 @@ test.describe("once set up", () => {
     await expect(page).toHaveURL(/\/vibe\?routine=tabata$/);
   });
 
-  test("Saved 'Share with friends' opens the shared mix page", async ({ page }) => {
-    await page.goto("/saved?routine=boxing-bag-rounds");
-    await page.getByRole("link", { name: "Share with friends" }).click();
-    await expect(page).toHaveURL(/\/m\/boxing-bag-rounds$/);
+  test("Saved: Open in YouTube Music opens the mix page; Share with friends opens the share sheet", async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __shared: unknown[] }).__shared = [];
+      navigator.share = async (data) => {
+        (window as unknown as { __shared: unknown[] }).__shared.push(data);
+      };
+    });
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    await page.getByTestId("mix-action").click();
+    await expect(page).toHaveURL(/\/saved\?routine=boxing-bag-rounds$/);
+
+    await page.getByRole("button", { name: "Share with friends" }).click();
+    const shared = await page.evaluate(() => (window as unknown as { __shared: { url: string }[] }).__shared);
+    expect(shared).toHaveLength(1);
+    expect(shared[0].url).toMatch(/^https:\/\/trailmix\.augustusnas\.com\/m\/[\w-]{22}$/);
+
+    await page.getByTestId("saved-action").click();
+    await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
     await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
     await expect(page.getByText("Shared by Charles")).toBeVisible();
   });
@@ -81,8 +98,9 @@ test.describe("once set up", () => {
   });
 });
 
-test("the shared page works for any id, without setting up Trailmix", async ({ page }) => {
-  await page.goto("/m/anything-at-all");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page).toHaveURL(/\/m\/anything-at-all$/);
+test("a shared mix opens without setting up Trailmix", async ({ page, request }) => {
+  const { id, mix } = await makeSharedMix(request);
+  await page.goto(`/m/${id}`);
+  await expect(page.getByRole("heading", { name: mix.name })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/m/${id}$`));
 });

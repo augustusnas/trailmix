@@ -3,19 +3,22 @@
 import { Icon } from "@/components/Icon";
 import { PHASE_STYLE } from "@/components/phaseStyle";
 import { MUSIC_APPS, type MusicApp } from "@/data/apps";
-import type { Mix } from "@/data/fakeMix";
+import { PHASES, type Mix, type MixTrack } from "@/lib/mixTypes";
 import { setMusicApp, useSaved } from "@/lib/store";
 import styles from "./shared.module.css";
 
 /**
  * Leads with the visitor's own music app (remembered on their phone only).
  * No app remembered yet → ask first, with three equal buttons.
- * FAKE links until Milestone 3: tracks open a search in the chosen app.
+ * Track links come from Odesli; a track without a link for that app falls back to a search there.
  */
 export function SharedPlayer({ mix }: { mix: Mix }) {
   const saved = useSaved();
   const app = MUSIC_APPS.find((a) => a.id === saved?.musicApp);
-  const first = mix.phases[0].tracks[0];
+  const first = mix.tracks[0];
+  const ids = mix.tracks.map((t) => t.youtubeId);
+  // "Open the whole playlist" only when every track has a YouTube video id.
+  const wholePlaylist = ids.every(Boolean) ? `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}` : null;
 
   return (
     <>
@@ -38,17 +41,17 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
                 Play it in
               </p>
               <a
-                href={app.id === "ytm" ? app.homeUrl : app.trackUrl(first.artist, first.title)}
+                href={app.id === "ytm" && wholePlaylist ? wholePlaylist : trackHref(app, first)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="cta cta--large"
                 style={{ background: "var(--orange)", color: "var(--ink)" }}
                 data-testid="lead-app"
               >
-                <span>{app.id === "ytm" ? "Open the whole playlist in YouTube Music" : app.openAction}</span>
+                <span>{app.id === "ytm" && wholePlaylist ? "Open the whole playlist" : app.openAction}</span>
                 <Icon name="arrowUpRight" size={22} />
               </a>
-              {app.id !== "ytm" && (
+              {!(app.id === "ytm" && wholePlaylist) && (
                 <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35 }}>Then tap any track below to open it in {app.name}.</p>
               )}
               <p className="mono" style={{ letterSpacing: "0.14em", paddingTop: 8 }}>
@@ -67,9 +70,10 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
       </div>
 
       <div className={styles.phases}>
-        {mix.phases.map((p, pi) => {
+        {PHASES.map((p) => {
+          const tracks = mix.tracks.map((t, i) => ({ t, i })).filter(({ t }) => t.phase === p.id);
+          if (!tracks.length) return null;
           const ps = PHASE_STYLE[p.id];
-          const before = mix.phases.slice(0, pi).reduce((n, x) => n + x.tracks.length, 0);
           return (
             <section key={p.id} className="phase" aria-label={p.label}>
               <div className="phase-head">
@@ -80,8 +84,8 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
                   {p.label}
                 </span>
               </div>
-              {p.tracks.map((t, i) => (
-                <TrackRow key={t.title} n={before + i + 1} title={t.title} artist={t.artist} app={app} />
+              {tracks.map(({ t, i }) => (
+                <TrackRow key={t.key} n={i + 1} track={t} app={app} />
               ))}
             </section>
           );
@@ -91,7 +95,14 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
   );
 }
 
-function TrackRow({ n, title, artist, app }: { n: number; title: string; artist: string; app?: MusicApp }) {
+/** The track's own link for that app, or a search there if Odesli didn't have one. */
+function trackHref(app: MusicApp, t: MixTrack): string {
+  const own = app.id === "ytm" ? (t.youtubeMusicUrl ?? (t.youtubeId ? `https://music.youtube.com/watch?v=${t.youtubeId}` : undefined)) : app.id === "spotify" ? t.spotifyUrl : t.appleUrl;
+  return own ?? app.trackUrl(t.artist, t.title);
+}
+
+function TrackRow({ n, track, app }: { n: number; track: MixTrack; app?: MusicApp }) {
+  const { title, artist } = track;
   const inner = (
     <>
       <span className="track-n">{String(n).padStart(2, "0")}</span>
@@ -103,7 +114,7 @@ function TrackRow({ n, title, artist, app }: { n: number; title: string; artist:
   );
   if (!app) return <div className="track">{inner}</div>;
   return (
-    <a href={app.trackUrl(artist, title)} target="_blank" rel="noopener noreferrer" className="track">
+    <a href={trackHref(app, track)} target="_blank" rel="noopener noreferrer" className="track">
       {inner}
       <span className="sr-only">(opens in {app.name})</span>
       <Icon name="arrowUpRight" size={18} stroke={2.3} />

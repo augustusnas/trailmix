@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3100; // the app as beta users get it: SHOW_RESET_PAGE off
-const RESET_ON_PORT = 3101; // the same build with SHOW_RESET_PAGE=true, for the reset page tests
+const RESET_ON_PORT = 3101; // the same build with SHOW_RESET_PAGE=true and the real limits, for reset and limit tests
 
 // Recorded answers instead of Claude, iTunes, Odesli, YouTube and Upstash: tests cost nothing and
 // never touch real accounts. The keys are fake on purpose (the secret scan checks none reach the browser).
@@ -28,11 +28,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "iphone-webkit", use: { browserName: "webkit" }, testIgnore: /reset-on\.spec\.ts/ },
+    { name: "iphone-webkit", use: { browserName: "webkit" }, testIgnore: /(reset-on|limits)\.spec\.ts/ },
     {
       name: "reset-page-on",
       use: { browserName: "webkit", baseURL: `http://localhost:${RESET_ON_PORT}` },
-      testMatch: /reset-on\.spec\.ts/,
+      testMatch: /(reset-on|limits)\.spec\.ts/,
     },
   ],
   // Tests run against the production build. FEEDBACK_EMAIL is deliberately unset.
@@ -41,7 +41,7 @@ export default defineConfig({
       command: `npx next start -p ${PORT}`,
       url: `http://localhost:${PORT}/home`,
       reuseExistingServer: !process.env.CI,
-      env: { ...TEST_ENV, SHOW_RESET_PAGE: "" },
+      env: { ...TEST_ENV, SHOW_RESET_PAGE: "", TEST_RELAXED_LIMITS: "1" },
     },
     {
       command: `npx next start -p ${RESET_ON_PORT}`,

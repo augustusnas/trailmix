@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { makeSharedMix } from "./helpers";
 import { SCREENS, open } from "./screens";
 
 for (const s of SCREENS) {
@@ -16,10 +17,11 @@ for (const s of SCREENS) {
 }
 
 test("the shared mix page tells search engines to skip it", async ({ page, request }) => {
-  const res = await request.get("/m/demo");
+  const { id } = await makeSharedMix(request);
+  const res = await request.get(`/m/${id}`);
   expect(res.headers()["x-robots-tag"]).toContain("noindex");
-  await page.goto("/m/demo");
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await page.goto(`/m/${id}`);
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
 });
 
 test("installable: manifest and iPhone tags", async ({ page, request }) => {

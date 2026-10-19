@@ -161,9 +161,9 @@ test.describe("Set the vibe", () => {
 
   test("first time: no genre, Steady, length from the routine (Tabata 30, Push day 45)", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
-    expect(await pressed(page)).toEqual(["Steady", "30"]);
+    await expect.poll(() => pressed(page)).toEqual(["Steady", "30"]);
     await page.goto("/vibe?routine=push-day");
-    expect(await pressed(page)).toEqual(["Steady", "45"]);
+    await expect.poll(() => pressed(page)).toEqual(["Steady", "45"]);
   });
 
   test("F7: Make the mix saves each routine's settings, separately", async ({ page }) => {
@@ -175,22 +175,22 @@ test.describe("Set the vibe", () => {
     // From the Library, and after a full reload, Boxing remembers…
     await page.goto("/library");
     await page.getByRole("link", { name: "Use Boxing bag rounds" }).click();
-    expect(await pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
     await page.reload();
-    expect(await pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
 
     // …and Push day is untouched.
     await page.goto("/home");
     await page.getByRole("link", { name: "Set the vibe" }).click();
     await expect(page).toHaveURL(/routine=push-day/);
-    expect(await pressed(page)).toEqual(["Steady", "45"]);
+    await expect.poll(() => pressed(page)).toEqual(["Steady", "45"]);
   });
 
   test("changes that aren't made into a mix aren't saved", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
     await page.getByRole("button", { name: "Soul" }).click();
     await page.reload();
-    expect(await pressed(page)).toEqual(["Steady", "30"]);
+    await expect.poll(() => pressed(page)).toEqual(["Steady", "30"]);
   });
 
   test("F8: no genre shows an inline message, doesn't save and doesn't move on", async ({ page }) => {

@@ -4,7 +4,10 @@ import { TEST_ACCESS_CODE } from "./helpers";
 // Runs against the copy of the app with the real limits on (see playwright.config.ts), one test at a time.
 test.describe.configure({ mode: "serial" });
 
-const headers = { "x-trailmix-access": TEST_ACCESS_CODE };
+// Limits count per IP address, so these tests use their own pretend address and don't
+// use up the allowance of other tests running on the same copy of the app.
+const IP = { "x-forwarded-for": "10.99.99.99" };
+const headers = { "x-trailmix-access": TEST_ACCESS_CODE, ...IP };
 const sampleMix = {
   id: "limitsMix001",
   name: "Limit Test",
@@ -31,8 +34,9 @@ test("E17: 20 shares a day per access code, then a friendly message", async ({ r
 test("E17 / N16: 60 shared-page views a minute per visitor, then a friendly page", async ({ request, page }) => {
   expect(shareId).not.toBe("");
   let ok = 0;
-  for (let i = 0; i < 60; i++) if ((await request.get(`/m/${shareId}`)).status() === 200) ok++;
+  for (let i = 0; i < 60; i++) if ((await request.get(`/m/${shareId}`, { headers: IP })).status() === 200) ok++;
   expect(ok).toBe(60);
+  await page.setExtraHTTPHeaders(IP);
   await page.goto(`/m/${shareId}`);
   await expect(page.getByTestId("views-busy")).toHaveText("Lots of people are looking at this mix. Wait a moment and refresh.");
 });

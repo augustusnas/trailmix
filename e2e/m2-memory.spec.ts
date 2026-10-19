@@ -100,6 +100,8 @@ test.describe("F6: Library search and filters", () => {
   test.beforeEach(async ({ page }) => {
     await seed(page, ONBOARDED);
     await page.goto("/library");
+    // Wait until the Library is ready (it shows the pin count), so typing isn't lost.
+    await expect(page.getByTestId("pin-count")).toHaveText(/of 6 on home/i);
   });
   const shown = (page: import("@playwright/test").Page) =>
     page.locator("li[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));

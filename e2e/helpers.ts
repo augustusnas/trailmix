@@ -8,15 +8,30 @@ type State = {
   musicApp?: "ytm" | "spotify" | "apple" | null;
   pins?: string[];
   vibes?: Record<string, { genres: string[]; energy: string; length: number }>;
+  accessCode?: string | null;
+  currentMix?: unknown;
 };
 
+/** The beta access code the test servers are started with. */
+export const TEST_ACCESS_CODE = "test-trail-code";
+
 /** A phone that has finished first run, with the default pins and YouTube Music. */
-export const ONBOARDED: State = { onboarded: true, musicApp: "ytm", pins: DEFAULT_PINS, vibes: {} };
+export const ONBOARDED: State = { onboarded: true, musicApp: "ytm", pins: DEFAULT_PINS, vibes: {}, accessCode: TEST_ACCESS_CODE };
 
 export const BOXING_VIBE = { "boxing-bag-rounds": { genres: ["grime", "dnb"], energy: "driven", length: 45 } };
 
 export function record(state: State) {
-  return JSON.stringify({ version: 1, onboarded: false, musicApp: null, pins: DEFAULT_PINS, vibes: {}, recentMixes: [], ...state });
+  return JSON.stringify({
+    version: 2,
+    onboarded: false,
+    musicApp: null,
+    pins: DEFAULT_PINS,
+    vibes: {},
+    recentMixes: [],
+    accessCode: null,
+    currentMix: null,
+    ...state,
+  });
 }
 
 /**
@@ -65,4 +80,15 @@ export async function watchForWelcome(page: Page) {
 
 export async function sawWelcome(page: Page) {
   return (await page.evaluate(() => sessionStorage.getItem("__sawWelcome"))) !== null;
+}
+
+/** Welcome → Lace up → enter the beta access code → Where do you listen. */
+export async function laceUp(page: Page) {
+  await page.getByRole("button", { name: "Lace up" }).click();
+  const form = page.getByTestId("access-form");
+  if (await form.isVisible().catch(() => false)) {
+    await page.getByLabel("Beta access code").fill(TEST_ACCESS_CODE);
+    await page.getByRole("button", { name: "Let me in" }).click();
+  }
+  await page.waitForURL(/\/listen$/);
 }

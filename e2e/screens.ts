@@ -16,6 +16,15 @@ const onboarded = (extra: object = {}) => record({ ...ONBOARDED, vibes: BOXING_V
 // Every screen and every Milestone 2 state, for screenshots, labels, accessibility and security checks.
 export const SCREENS: Screen[] = [
   { name: "welcome", path: "/" },
+  {
+    name: "welcome-code",
+    path: "/",
+    setup: async (page) => {
+      // Just the form: wrong guesses are limited per computer, so screenshots don't make any.
+      await page.getByRole("button", { name: "Lace up" }).click();
+      await page.getByLabel("Beta access code").waitFor();
+    },
+  },
   { name: "listen", path: "/listen" },
   { name: "home", path: "/home", state: onboarded() },
   { name: "home-full", path: "/home", state: onboarded({ pins: SIX_PINS }) },

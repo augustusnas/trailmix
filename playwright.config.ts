@@ -3,6 +3,18 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 3100; // the app as beta users get it: SHOW_RESET_PAGE off
 const RESET_ON_PORT = 3101; // the same build with SHOW_RESET_PAGE=true, for the reset page tests
 
+// Recorded answers instead of Claude, iTunes, Odesli, YouTube and Upstash: tests cost nothing and
+// never touch real accounts. The keys are fake on purpose (the secret scan checks none reach the browser).
+const TEST_ENV = {
+  FEEDBACK_EMAIL: "",
+  FAKE_SERVICES: "1",
+  BETA_ACCESS_CODE: "test-trail-code",
+  ANTHROPIC_API_KEY: "sk-ant-test-NOT-A-REAL-KEY-ff00",
+  YOUTUBE_API_KEY: "AIza-test-NOT-A-REAL-KEY-ee11",
+  MIXES_PAUSED: "",
+  DAILY_MIX_CEILING: "",
+};
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -29,13 +41,13 @@ export default defineConfig({
       command: `npx next start -p ${PORT}`,
       url: `http://localhost:${PORT}/home`,
       reuseExistingServer: !process.env.CI,
-      env: { FEEDBACK_EMAIL: "", SHOW_RESET_PAGE: "" },
+      env: { ...TEST_ENV, SHOW_RESET_PAGE: "" },
     },
     {
       command: `npx next start -p ${RESET_ON_PORT}`,
       url: `http://localhost:${RESET_ON_PORT}/home`,
       reuseExistingServer: !process.env.CI,
-      env: { FEEDBACK_EMAIL: "", SHOW_RESET_PAGE: "true" },
+      env: { ...TEST_ENV, SHOW_RESET_PAGE: "true" },
     },
   ],
 });

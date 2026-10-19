@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, seed } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, seed, laceUp } from "./helpers";
 
 test("F1: a fresh install taps through every screen in order", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Pick the terrain. We’ll bring the noise." })).toBeVisible();
 
-  await page.getByRole("link", { name: "Lace up" }).click();
+  await laceUp(page);
   await expect(page).toHaveURL(/\/listen$/);
   await expect(page.getByRole("heading", { name: "Where do you listen?" })).toBeVisible();
 

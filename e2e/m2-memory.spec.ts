@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { DAMAGED } from "../src/app/reset/ResetScreen";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, record, sawWelcome, seed, stored, watchForWelcome } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, record, sawWelcome, seed, stored, watchForWelcome, laceUp } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -222,7 +222,7 @@ test.describe("Set the vibe", () => {
 
 test("F20: chosen once, never asked again, used on The mix and Saved, changeable in the Library", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Lace up" }).click();
+  await laceUp(page);
   await page.getByRole("button", { name: /Spotify/ }).click();
   await page.getByRole("button", { name: "That’s me" }).click();
   await expect(page).toHaveURL(/\/home$/);
@@ -375,7 +375,7 @@ test.describe("E12: damaged or wrong-version data", () => {
       Storage.prototype.removeItem = fail;
     });
     await page.goto("/");
-    await page.getByRole("link", { name: "Lace up" }).click();
+    await laceUp(page);
     await page.getByRole("button", { name: "That’s me" }).click();
     await expect(page.getByRole("heading", { name: "What’s the terrain today?" })).toBeVisible();
     await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -394,7 +394,7 @@ test("privacy: no cookies, and pins, vibes and the music app never reach our ser
   });
 
   await page.goto("/");
-  await page.getByRole("link", { name: "Lace up" }).click();
+  await laceUp(page);
   await page.getByRole("button", { name: /Spotify/ }).click();
   await page.getByRole("button", { name: "That’s me" }).click();
   await page.getByRole("link", { name: "Library", exact: true }).click();

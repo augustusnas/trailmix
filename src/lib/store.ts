@@ -5,15 +5,24 @@ import { useSyncExternalStore } from "react";
 import { MUSIC_APPS, type MusicApp } from "@/data/apps";
 import { DEFAULT_PINS, MAX_PINS, ROUTINES } from "@/data/routines";
 import { DEFAULT_ENERGY, ENERGIES, GENRES, LENGTHS, MAX_GENRES, defaultLength } from "@/data/vibe";
+import { sanitizeMix, type Mix } from "./mixTypes";
 
 export const STORAGE_KEY = "trailmix";
-export const STORAGE_VERSION = 1;
+/** 2: Milestone 3 added the access code, the current mix and recent mixes. Version 1 is carried over. */
+export const STORAGE_VERSION = 2;
 export const MAX_RECENT_MIXES = 10;
 
 export type MusicAppId = MusicApp["id"];
 export type VibeSettings = { genres: string[]; energy: string; length: number };
-/** Filled from Milestone 3. */
-export type RecentMix = Record<string, unknown>;
+/** A mix you kept or opened: enough to avoid repeats and, later, for the stats page. */
+export type RecentMix = {
+  name: string;
+  routineId: string;
+  date: string;
+  tracks: { title: string; artist: string }[];
+  /** Share of tracks not in the previous 10 mixes, 0–100. */
+  freshness: number;
+};
 
 export type Saved = {
   version: typeof STORAGE_VERSION;
@@ -24,11 +33,36 @@ export type Saved = {
   pins: string[];
   /** Per routine id: the last settings used on Set the vibe. */
   vibes: Record<string, VibeSettings>;
+  /** Newest first, at most 10. */
   recentMixes: RecentMix[];
+  /** Temporary beta access code (until sign-in in Milestone 4). See lib/access.ts. */
+  accessCode: string | null;
+  /** The mix on The mix and Saved right now, so a refresh never pays for a new one. */
+  currentMix: Mix | null;
 };
 
 export function defaults(onboarded = false): Saved {
-  return { version: STORAGE_VERSION, onboarded, musicApp: null, pins: [...DEFAULT_PINS], vibes: {}, recentMixes: [] };
+  return {
+    version: STORAGE_VERSION,
+    onboarded,
+    musicApp: null,
+    pins: [...DEFAULT_PINS],
+    vibes: {},
+    recentMixes: [],
+    accessCode: null,
+    currentMix: null,
+  };
+}
+
+function cleanRecent(v: unknown): RecentMix | undefined {
+  if (!isObject(v) || !Array.isArray(v.tracks)) return undefined;
+  if (typeof v.name !== "string" || typeof v.routineId !== "string" || typeof v.date !== "string") return undefined;
+  const tracks = v.tracks
+    .filter((t): t is { title: string; artist: string } => isObject(t) && typeof t.title === "string" && typeof t.artist === "string")
+    .slice(0, 40)
+    .map((t) => ({ title: t.title.slice(0, 120), artist: t.artist.slice(0, 120) }));
+  const freshness = typeof v.freshness === "number" && v.freshness >= 0 && v.freshness <= 100 ? v.freshness : 100;
+  return { name: v.name.slice(0, 80), routineId: v.routineId, date: v.date.slice(0, 40), tracks, freshness };
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -54,7 +88,8 @@ function cleanVibe(routineId: string, v: unknown): VibeSettings | undefined {
 export function sanitize(raw: unknown): Saved {
   if (!isObject(raw)) return defaults();
   const onboarded = raw.onboarded === true;
-  if (raw.version !== STORAGE_VERSION) return defaults(onboarded);
+  // Version 1 (Milestone 2) is carried over: same fields, the new ones start empty.
+  if (raw.version !== STORAGE_VERSION && raw.version !== 1) return defaults(onboarded);
 
   const out = defaults(onboarded);
   if (typeof raw.musicApp === "string" && MUSIC_APPS.some((a) => a.id === raw.musicApp)) {
@@ -74,8 +109,15 @@ export function sanitize(raw: unknown): Saved {
     }
   }
   if (Array.isArray(raw.recentMixes)) {
-    out.recentMixes = raw.recentMixes.filter(isObject).slice(0, MAX_RECENT_MIXES);
+    out.recentMixes = raw.recentMixes
+      .map(cleanRecent)
+      .filter((m): m is RecentMix => Boolean(m))
+      .slice(0, MAX_RECENT_MIXES);
   }
+  if (typeof raw.accessCode === "string" && raw.accessCode.length > 0 && raw.accessCode.length <= 100) {
+    out.accessCode = raw.accessCode;
+  }
+  out.currentMix = sanitizeMix(raw.currentMix);
   return out;
 }
 
@@ -209,4 +251,27 @@ export function vibeFor(s: Saved, routineId: string): VibeSettings {
   if (saved) return saved;
   const routine = ROUTINES.find((r) => r.id === routineId)!;
   return { genres: [], energy: DEFAULT_ENERGY, length: defaultLength(routine.minutes) };
+}
+
+export function setAccessCode(code: string | null): void {
+  update((s) => ({ ...s, accessCode: code }));
+}
+
+export function setCurrentMix(mix: Mix | null): void {
+  update((s) => ({ ...s, currentMix: mix }));
+}
+
+/** Adds a kept or opened mix to the last 10 (newest first; the same mix isn't added twice). */
+export function addRecentMix(mix: Mix): void {
+  update((s) => {
+    const entry: RecentMix = {
+      name: mix.name,
+      routineId: mix.routineId,
+      date: mix.createdAt,
+      tracks: mix.tracks.map((t) => ({ title: t.title, artist: t.artist })),
+      freshness: mix.freshness ?? 100,
+    };
+    const others = s.recentMixes.filter((m) => !(m.name === entry.name && m.date === entry.date));
+    return { ...s, recentMixes: [entry, ...others].slice(0, MAX_RECENT_MIXES) };
+  });
 }

@@ -1,4 +1,4 @@
-import { CtaLink } from "@/components/CtaLink";
+import { LaceUp } from "./LaceUp";
 import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
 import { Gate } from "@/components/Gate";
@@ -47,9 +47,7 @@ export default function Welcome() {
           Tell it what you’re training and how you feel. Trailmix builds the soundtrack and drops it straight into
           your music app.
         </p>
-        <CtaLink href="/listen" bg="var(--ink)" fg="var(--lime)">
-          Lace up
-        </CtaLink>
+        <LaceUp />
         <p className="mono" style={{ textAlign: "center" }}>
           Sign in with Google to save your mixes
         </p>

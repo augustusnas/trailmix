@@ -13,12 +13,14 @@ describe("on-device storage", () => {
 
   it("starts with the defaults: three default pins, no vibes, no music app, not onboarded", () => {
     expect(store.load()).toEqual({
-      version: 1,
+      version: 2,
       onboarded: false,
       musicApp: null,
       pins: DEFAULT_PINS,
       vibes: {},
       recentMixes: [],
+      accessCode: null,
+      currentMix: null,
     });
   });
 
@@ -27,7 +29,7 @@ describe("on-device storage", () => {
     store.pin("tabata");
     store.saveVibe("tabata", { genres: ["grime"], energy: "feral", length: 30 });
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(raw).toMatchObject({ version: 1, onboarded: true, musicApp: "spotify" });
+    expect(raw).toMatchObject({ version: 2, onboarded: true, musicApp: "spotify" });
     expect(raw.pins).toEqual([...DEFAULT_PINS, "tabata"]);
     expect(sanitize(raw)).toEqual(raw);
   });
@@ -74,7 +76,7 @@ describe("on-device storage", () => {
     const s = sanitize({
       version: 1,
       vibes: { tabata: { genres: ["grime", "dnb", "house", "rock"], energy: "easy", length: 30 } },
-      recentMixes: Array.from({ length: 12 }, (_, i) => ({ i })),
+      recentMixes: Array.from({ length: 12 }, (_, i) => ({ name: `Mix ${i}`, routineId: "tabata", date: "2026-10-19", tracks: [], freshness: 80 })),
     });
     expect(s.vibes.tabata.genres).toEqual(["grime", "dnb", "house"]);
     expect(s.recentMixes).toHaveLength(10);
@@ -130,6 +132,61 @@ describe("on-device storage", () => {
     expect(store.load()).toBe(a); // unchanged storage → the same copy
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...defaults(true), musicApp: "apple" }));
     expect(store.load().musicApp).toBe("apple");
+  });
+
+  it("carries Milestone 2 (version 1) data over, adding the new fields empty", () => {
+    const v1 = {
+      version: 1,
+      onboarded: true,
+      musicApp: "spotify",
+      pins: ["tabata", "yoga-flow"],
+      vibes: { tabata: { genres: ["grime"], energy: "feral", length: 30 } },
+      recentMixes: [],
+    };
+    expect(sanitize(v1)).toEqual({ ...v1, version: 2, accessCode: null, currentMix: null });
+  });
+
+  it("still resets unknown future or ancient versions (E12)", () => {
+    expect(sanitize({ version: 0, onboarded: true, pins: ["tabata"] })).toEqual(defaults(true));
+    expect(sanitize({ version: 3, pins: ["tabata"] })).toEqual(defaults());
+  });
+
+  it("keeps recent mixes newest first, at most 10, and drops broken ones", () => {
+    const mix = (n: number) => ({
+      id: `m${n}`,
+      name: `Mix ${n}`,
+      routineId: "tabata",
+      genres: ["grime"],
+      energy: "feral",
+      length: 30,
+      createdAt: `2026-10-${String(n).padStart(2, "0")}`,
+      freshness: 90,
+      tracks: [{ title: "Song", artist: "Band", phase: "main" as const, durationMs: 200000, key: "band|song" }],
+    });
+    for (let i = 1; i <= 12; i++) store.addRecentMix(mix(i));
+    const recent = store.load().recentMixes;
+    expect(recent).toHaveLength(10);
+    expect(recent[0].name).toBe("Mix 12");
+    expect(recent[9].name).toBe("Mix 3");
+    expect(sanitize({ version: 2, recentMixes: [{ name: 1 }, "x", null] }).recentMixes).toEqual([]);
+  });
+
+  it("keeps a valid current mix and drops a broken one", () => {
+    const good = {
+      id: "abc",
+      name: "Gloves On",
+      routineId: "boxing-bag-rounds",
+      genres: ["grime"],
+      energy: "driven",
+      length: 30,
+      createdAt: "2026-10-19",
+      tracks: [{ title: "Song", artist: "Band", phase: "main", durationMs: 200000, key: "k", appleUrl: "javascript:alert(1)" }],
+    };
+    const kept = sanitize({ version: 2, currentMix: good }).currentMix!;
+    expect(kept.name).toBe("Gloves On");
+    expect(kept.tracks[0].appleUrl).toBeUndefined(); // only https links survive
+    expect(sanitize({ version: 2, currentMix: { ...good, tracks: [] } }).currentMix).toBeNull();
+    expect(sanitize({ version: 2, currentMix: "nope" }).currentMix).toBeNull();
   });
 
   it("never crashes when the phone refuses storage (e.g. private browsing)", () => {

@@ -1,9 +1,13 @@
 // F10: fitting to length. Claude doesn't decide length; real durations do.
 // Warm-up and cool-down stay whole; the main block is filled in Claude's order until the total is
-// within 5 minutes of the chosen length. Tracks that would overshoot are skipped (a shorter one
+// within 2½ minutes of the chosen length (5 is the most it may be out). Tracks that would overshoot are skipped (a shorter one
 // from the spare takes the place).
 
-export const TOLERANCE_MS = 5 * 60_000;
+import { LENGTH_TOLERANCE_MS } from "@/lib/mixTypes";
+
+export const TOLERANCE_MS = LENGTH_TOLERANCE_MS;
+/** Fill until within 2½ minutes of the target, not just 5, so the mix isn't left at the edge. */
+export const AIM_MS = TOLERANCE_MS / 2;
 
 export type Timed = { phase: "warm-up" | "main" | "cool-down"; durationMs: number };
 
@@ -15,7 +19,7 @@ export function fitToLength<T extends Timed>(tracks: T[], lengthMin: number): { 
   let total = [...warm, ...cool].reduce((n, t) => n + t.durationMs, 0);
   const chosen: T[] = [];
   for (const t of main) {
-    if (total >= target - TOLERANCE_MS) break;
+    if (total >= target - AIM_MS) break;
     if (total + t.durationMs > target + TOLERANCE_MS) continue; // too long here: skip to a shorter spare
     chosen.push(t);
     total += t.durationMs;

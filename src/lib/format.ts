@@ -1,5 +1,5 @@
 import { getRoutine } from "@/data/routines";
-import { ENERGIES, GENRES } from "@/data/vibe";
+import { ENERGIES, GENRES, currentGenre } from "@/data/vibe";
 
 /** "15 Oct", in the phone's own time zone. */
 export function shortDate(date: Date): string {
@@ -16,5 +16,6 @@ export function energyLabel(id: string): string {
 }
 
 export function genreLabel(id: string): string {
-  return GENRES.find((g) => g.id === id)?.label ?? id;
+  const now = currentGenre(id) ?? id;
+  return GENRES.find((g) => g.id === now)?.label ?? id;
 }

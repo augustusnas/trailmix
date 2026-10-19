@@ -55,14 +55,14 @@ One record in `localStorage` under the key `trailmix`: `{ version, onboarded, mu
 
 Upstash's own settings (`UPSTASH_REDIS_REST_URL`/`_TOKEN` or `KV_REST_API_URL`/`_TOKEN`) come from Vercel's Upstash integration. Without them (on a Mac), counts, the track cache and shared mixes live in memory.
 
-**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E2, E3, E4, E5, E9, E10, E14, E15).
+**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E2, E3, E4, E5, E9, E10, E14, E15, two in three tracks failing, a short mix, a slow swap).
 
 ## Settings (environment variables)
 
 | Name | What it does | If missing |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Claude, for making mixes | Mix-making says it's resting |
-| `CLAUDE_MODEL` | Which Claude model makes mixes | `claude-haiku-5-5` |
+| `CLAUDE_MODEL` | Which Claude model makes mixes (`claude-sonnet-5-5` for Sonnet). A name that doesn't work falls back to Haiku, with a `model-fallback` warning in the log | `claude-haiku-5-5` |
 | `YOUTUBE_API_KEY` | Not used yet: Milestone 4 saves YouTube Music playlists with it | Nothing changes yet |
 | `BETA_ACCESS_CODE` | The code testers enter once on Lace up (until sign-in) | Nobody can make mixes |
 | `DAILY_MIX_CEILING` | Most mixes a day across everyone (E14), reset at UK midnight | 60 |

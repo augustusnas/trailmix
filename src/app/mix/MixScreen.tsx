@@ -15,22 +15,16 @@ import type { ApiResult } from "@/lib/access";
 import { energyLabel, genreLabel } from "@/lib/format";
 import { MESSAGES, type ErrorCode } from "@/lib/messages";
 import { fetchLinks, linksReady, requestMix, requestSwap, shareMix } from "@/lib/mixClient";
-import { PHASES, runningMinutes, type Mix } from "@/lib/mixTypes";
-import { addRecentMix, load, setCurrentMix, useSaved, type VibeSettings } from "@/lib/store";
+import { PHASES, cameOutShort, runningMinutes, type Mix } from "@/lib/mixTypes";
+import { STAGES, type StageId } from "@/lib/progress";
+import { addRecentMix, load, rememberArtists, setCurrentMix, useSaved, type VibeSettings } from "@/lib/store";
 import { shareLink } from "@/lib/share";
 import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import styles from "./mix.module.css";
 
-type Problem = { error: ErrorCode; message: string };
-
-/** What the progress line says while a mix is being made (shown after 2 seconds, N2). */
-const STEPS = [
-  { after: 2_000, text: "Picking tracks for your vibe…" },
-  { after: 7_000, text: "Checking every track is real…" },
-  { after: 14_000, text: "Fitting it to your length…" },
-  { after: 22_000, text: "Nearly there…" },
-];
+/** `retry` is what Try again does: the same Generate, Remix or Swap. */
+type Problem = { error: ErrorCode; message: string; retry?: () => void };
 
 export function MixScreen() {
   const router = useRouter();
@@ -58,31 +52,28 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 
   const [busy, setBusy] = useState<"making" | "remixing" | "keeping" | { swapping: number } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
-  const [step, setStep] = useState("");
+  /** While making: the stage the server has reached (it reports each one as the real work gets there). */
+  const [stage, setStage] = useState<StageId>("picking");
   /** E5: YouTube's daily limit is used up; offer the mix page and Share instead. */
   const [quotaId, setQuotaId] = useState<string | null>(null);
   const started = useRef(false);
-
-  const handle = useCallback((res: ApiResult<{ mix: Mix }>) => {
-    if (res.ok) {
-      setProblem(null);
-      setCurrentMix(res.data.mix);
-    } else {
-      setProblem({ error: res.error, message: res.message });
-    }
-  }, []);
 
   const make = useCallback(
     async (remixOf?: Mix) => {
       setBusy(remixOf ? "remixing" : "making");
       setProblem(null);
-      const timers = STEPS.map((s) => setTimeout(() => setStep(s.text), s.after));
-      handle(await requestMix(routine, vibe, load(), remixOf));
-      timers.forEach(clearTimeout);
-      setStep("");
+      setStage("picking");
+      const res: ApiResult<{ mix: Mix }> = await requestMix(routine, vibe, load(), remixOf, setStage);
+      if (res.ok) {
+        setCurrentMix(res.data.mix);
+        rememberArtists(res.data.mix); // so the next few mixes for this routine can use other artists
+      } else {
+        // A Remix that fails (or runs out of time) leaves the current mix on screen.
+        setProblem({ error: res.error, message: res.message, retry: () => void make(remixOf) });
+      }
       setBusy(null);
     },
-    [routine, vibe, handle],
+    [routine, vibe],
   );
 
   // First visit after Make the mix: make it (once).
@@ -116,9 +107,11 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   const swap = async (index: number) => {
     if (!mix) return;
     setBusy({ swapping: index });
+    setProblem(null);
     const res = await requestSwap(routine, vibe, load(), mix, index);
+    // On failure or after 15 seconds the original track stays.
     if (res.ok) setCurrentMix({ ...res.data.mix, shareId: undefined });
-    else setProblem({ error: res.error, message: res.message });
+    else setProblem({ error: res.error, message: res.message, retry: () => void swap(index) });
     setBusy(null);
   };
 
@@ -139,6 +132,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 
   const pending = mix ? mix.tracks.filter((t) => t.linksPending).length : 0;
   const making = busy === "making" || busy === "remixing";
+  const stageIndex = STAGES.findIndex((s) => s.id === stage);
+  const stageText = STAGES[stageIndex].text(vibe.length);
 
   return (
     <>
@@ -166,12 +161,30 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
               </span>
             </div>
           </>
+        ) : making ? (
+          <>
+            <Headline text={stageText} size="mix" style={{ lineHeight: 0.9 }} />
+            <div
+              className={styles.stages}
+              role="progressbar"
+              aria-label={busy === "remixing" ? "Remixing" : "Making your mix"}
+              aria-valuemin={0}
+              aria-valuemax={STAGES.length}
+              aria-valuenow={stageIndex + 1}
+              aria-valuetext={`Step ${stageIndex + 1} of ${STAGES.length}: ${stageText}`}
+              data-testid="mix-stages"
+              data-stage={stage}
+            >
+              {STAGES.map((s, i) => (
+                <span key={s.id} className={i < stageIndex ? styles.stageDone : i === stageIndex ? styles.stageNow : styles.stageNext} />
+              ))}
+            </div>
+            <p className="mono" role="status" data-testid="mix-progress" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.12em" }}>
+              Step {stageIndex + 1} of {STAGES.length}
+            </p>
+          </>
         ) : (
-          <Headline
-            text={problem && !making ? "Not this time." : busy === "remixing" ? "Remixing…" : "Making your mix…"}
-            size="mix"
-            style={{ lineHeight: 0.9 }}
-          />
+          <Headline text={problem ? "Not this time." : "Making your mix…"} size="mix" style={{ lineHeight: 0.9 }} />
         )}
       </header>
 
@@ -182,12 +195,6 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
       )}
 
       <div className={styles.phases} aria-busy={making}>
-        {making && (
-          <p className={styles.progress} role="status" data-testid="mix-progress">
-            {step}
-          </p>
-        )}
-
         {quotaId && mix && (
           <div className={styles.problem} role="alert" data-testid="youtube-quota">
             <p>{MESSAGES.youtubeQuota}</p>
@@ -205,11 +212,17 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
           </div>
         )}
 
-        {problem && <ProblemBox problem={problem} routine={routine} onRetry={() => make(problem.error === "failed" ? undefined : undefined)} />}
+        {problem && <ProblemBox problem={problem} routine={routine} onRetry={problem.retry ?? (() => void make())} />}
 
         {mix && !making && (
           <>
-            {mix.shortened && <p className={styles.note}>{MESSAGES.shortened}</p>}
+            {cameOutShort(mix) ? (
+              <p className={styles.note} data-testid="length-note">
+                This one came out at {runningMinutes(mix)} minutes.
+              </p>
+            ) : (
+              mix.shortened && <p className={styles.note}>{MESSAGES.shortened}</p>
+            )}
             {pending > 0 && online && app.id === "apple" && (
               <div className={styles.linksProgress} data-testid="links-progress">
                 <p className={styles.note} role="status">
@@ -276,6 +289,9 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   );
 }
 
+/** Problems where trying again straight away can work. */
+const RETRYABLE = new Set<ErrorCode>(["failed", "timeout", "swapFailed"]);
+
 function ProblemBox({ problem, routine, onRetry }: { problem: Problem; routine: Routine; onRetry: () => void }) {
   const [askCode, setAskCode] = useState(problem.error === "access");
   if (askCode) {
@@ -294,12 +310,12 @@ function ProblemBox({ problem, routine, onRetry }: { problem: Problem; routine: 
   return (
     <div className={styles.problem} role="alert" data-testid="mix-problem">
       <p>{problem.message}</p>
-      {problem.error === "failed" && (
+      {RETRYABLE.has(problem.error) && (
         <button type="button" className="cta cta--medium" style={{ background: "var(--ink)", color: "var(--lime)" }} onClick={onRetry}>
           <span>Try again</span>
         </button>
       )}
-      {problem.error !== "failed" && (
+      {!RETRYABLE.has(problem.error) && (
         <a href={routineHref("/vibe", routine.id)} className="cta cta--medium" style={{ border: "2px solid var(--ink)", color: "var(--ink)" }}>
           <span>Back to your vibe</span>
         </a>

@@ -77,7 +77,7 @@ export const SCREENS: Screen[] = [
     path: "/vibe?routine=yoga-flow",
     state: onboarded(),
     setup: async (page) => {
-      for (const g of ["Soul", "Disco", "Jazz-funk"]) await page.getByRole("button", { name: g }).click();
+      for (const g of ["R&B & soul", "Funk & disco", "Metal"]) await page.getByRole("button", { name: g }).click();
       await page.getByText("That’s 3. Untick one to swap.").waitFor();
     },
   },
@@ -87,7 +87,28 @@ export const SCREENS: Screen[] = [
     path: "/mix?routine=boxing-bag-rounds",
     state: onboarded(),
     testSwitch: "slow",
-    setup: async (page) => void (await page.getByText("Picking tracks for your vibe…").waitFor()),
+    setup: async (page) => void (await page.getByRole("heading", { name: "Picking tracks for your vibe" }).waitFor()),
+  },
+  {
+    name: "mix-energy",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "slow",
+    setup: async (page) => void (await page.getByRole("heading", { name: "Lining up the energy" }).waitFor({ timeout: 15_000 })),
+  },
+  {
+    name: "mix-fitting",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "slow",
+    setup: async (page) => void (await page.getByRole("heading", { name: "Fitting it to 45 minutes" }).waitFor({ timeout: 15_000 })),
+  },
+  {
+    name: "mix-short",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "short",
+    setup: async (page) => void (await page.getByTestId("length-note").waitFor()),
   },
   {
     name: "mix-failed",

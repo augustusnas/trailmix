@@ -12,7 +12,7 @@ const sampleMix = {
   id: "limitsMix001",
   name: "Limit Test",
   routineId: "tabata",
-  genres: ["grime"],
+  genres: ["uk-rap"],
   energy: "feral",
   length: 30,
   createdAt: "2026-10-19T10:00:00Z",
@@ -42,7 +42,7 @@ test("E17 / N16: 60 shared-page views a minute per visitor, then a friendly page
 });
 
 test("E9: 20 mixes an hour per person, then a friendly message", async ({ request }) => {
-  const data = { routine: "tabata", genres: ["grime"], energy: "feral", length: 30, avoid: [] };
+  const data = { routine: "tabata", genres: ["uk-rap"], energy: "feral", length: 30, avoid: [] };
   for (let i = 0; i < 20; i++) expect((await request.post("/api/mix", { headers, data })).status(), `mix ${i + 1}`).toBe(200);
   const res = await request.post("/api/mix", { headers, data });
   expect(res.status()).toBe(429);

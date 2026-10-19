@@ -90,7 +90,7 @@ test.describe("pins", () => {
     await expect(page.getByTestId("home-empty")).toBeVisible();
     await page.getByRole("link", { name: "Open the library" }).click();
     await expect(page).toHaveURL(/\/library$/);
-    expect((await stored(page)).vibes["push-day"].genres).toEqual(["rock"]);
+    expect((await stored(page)).vibes["push-day"].genres).toEqual(["rock-indie"]); // saved as the old "rock", kept as its new genre
   });
 });
 
@@ -170,16 +170,16 @@ test.describe("Set the vibe", () => {
 
   test("F7: Make the mix saves each routine's settings, separately", async ({ page }) => {
     await page.goto("/vibe?routine=boxing-bag-rounds");
-    for (const b of ["Grime", "Drum & bass", "Feral", "60 minutes"]) await page.getByRole("button", { name: b }).click();
+    for (const b of ["UK rap & grime", "Drum & bass", "Feral", "60 minutes"]) await page.getByRole("button", { name: b }).click();
     await page.getByRole("button", { name: "Make the mix" }).click();
     await expect(page).toHaveURL(/\/mix/);
 
     // From the Library, and after a full reload, Boxing remembers…
     await page.goto("/library");
     await page.getByRole("link", { name: "Use Boxing bag rounds" }).click();
-    await expect.poll(() => pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["UK rap & grime", "Drum & bass", "Feral", "60"]);
     await page.reload();
-    await expect.poll(() => pressed(page)).toEqual(["Drum & bass", "Grime", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["UK rap & grime", "Drum & bass", "Feral", "60"]);
 
     // …and Push day is untouched.
     await page.goto("/home");
@@ -190,7 +190,7 @@ test.describe("Set the vibe", () => {
 
   test("changes that aren't made into a mix aren't saved", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
-    await page.getByRole("button", { name: "Soul" }).click();
+    await page.getByRole("button", { name: "R&B & soul" }).click();
     await page.reload();
     await expect.poll(() => pressed(page)).toEqual(["Steady", "30"]);
   });
@@ -206,17 +206,17 @@ test.describe("Set the vibe", () => {
     await expect(page).toHaveURL(/\/vibe\?routine=tabata$/);
     expect(dialogs).toBe(0);
     expect((await stored(page)).vibes.tabata).toBeUndefined();
-    await page.getByRole("button", { name: "Soul" }).click();
+    await page.getByRole("button", { name: "R&B & soul" }).click();
     await expect(msg).toHaveText("");
   });
 
   test("up to 3 genres: the rest are disabled until one is unticked", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
-    for (const g of ["Soul", "Disco", "Pop"]) await page.getByRole("button", { name: g }).click();
+    for (const g of ["R&B & soul", "Funk & disco", "Pop"]) await page.getByRole("button", { name: g }).click();
     await expect(page.getByTestId("genre-message")).toHaveText("That’s 3. Untick one to swap.");
-    await expect(page.getByRole("button", { name: "Rock" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Rock & indie" })).toBeDisabled();
     await page.getByRole("button", { name: "Pop" }).click();
-    await expect(page.getByRole("button", { name: "Rock" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Rock & indie" })).toBeEnabled();
   });
 });
 
@@ -412,7 +412,7 @@ test("privacy: no cookies; pins and the music app never reach our server; vibes 
   await page.getByRole("link", { name: "Library", exact: true }).click();
   await page.getByRole("button", { name: "Pin to home: Stretch & mobility" }).click();
   await page.getByRole("link", { name: "Use Kettlebell flow" }).click();
-  for (const b of ["Amapiano", "Jazz-funk", "Feral", "90 minutes"]) await page.getByRole("button", { name: b }).click();
+  for (const b of ["Afrobeats & amapiano", "Funk & disco", "Feral", "90 minutes"]) await page.getByRole("button", { name: b }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();
   await waitForMix(page);
   await page.getByTestId("mix-action").click();
@@ -436,7 +436,7 @@ test("privacy: no cookies; pins and the music app never reach our server; vibes 
     // The vibe goes only to the routes that make mixes, never in an address.
     // (and to /api/share, which stores the mix with its genres for the shared page).
     if (!["/api/mix", "/api/swap", "/api/share"].includes(url.pathname)) {
-      for (const vibe of ["amapiano", "jazz-funk", "feral"]) expect(everything, `${vibe} in ${r.url}`).not.toContain(vibe);
+      for (const vibe of ["afro", "funk-disco", "feral"]) expect(everything, `${vibe} in ${r.url}`).not.toContain(vibe);
     }
     expect(r.headers).not.toContain('"cookie"');
   }

@@ -1,7 +1,7 @@
 import { resetPageEnabled } from "@/config/flags";
 import { config } from "./config";
 
-const SWITCHES = new Set(["e1", "e2", "e3", "e4", "e5", "e9", "e14", "e15", "slow"]);
+const SWITCHES = new Set(["e1", "e2", "e3", "e4", "e5", "e9", "e14", "e15", "slow", "mostfail", "short", "slowswap"]);
 
 /**
  * Beta test switches, so failures can be forced on a phone. Only honoured when SHOW_RESET_PAGE is

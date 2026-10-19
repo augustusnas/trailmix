@@ -4,13 +4,15 @@
 import { useSyncExternalStore } from "react";
 import { MUSIC_APPS, type MusicApp } from "@/data/apps";
 import { DEFAULT_PINS, MAX_PINS, ROUTINES } from "@/data/routines";
-import { DEFAULT_ENERGY, ENERGIES, GENRES, LENGTHS, MAX_GENRES, defaultLength } from "@/data/vibe";
+import { DEFAULT_ENERGY, ENERGIES, LENGTHS, currentGenres, defaultLength } from "@/data/vibe";
 import { sanitizeMix, type Mix } from "./mixTypes";
 
 export const STORAGE_KEY = "trailmix";
 /** 2: Milestone 3 added the access code, the current mix and recent mixes. Version 1 is carried over. */
 export const STORAGE_VERSION = 2;
 export const MAX_RECENT_MIXES = 10;
+/** Artists are remembered from this many mixes per routine, so a Remix can steer away from them. */
+export const ARTIST_MEMORY_MIXES = 5;
 
 export type MusicAppId = MusicApp["id"];
 export type VibeSettings = { genres: string[]; energy: string; length: number };
@@ -39,6 +41,8 @@ export type Saved = {
   accessCode: string | null;
   /** The mix on The mix and Saved right now, so a refresh never pays for a new one. */
   currentMix: Mix | null;
+  /** Per routine id: the artists in each of the last 5 mixes made (kept or not), newest first. */
+  recentArtists: Record<string, string[][]>;
 };
 
 export function defaults(onboarded = false): Saved {
@@ -51,6 +55,7 @@ export function defaults(onboarded = false): Saved {
     recentMixes: [],
     accessCode: null,
     currentMix: null,
+    recentArtists: {},
   };
 }
 
@@ -67,15 +72,13 @@ function cleanRecent(v: unknown): RecentMix | undefined {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const routineIds = new Set(ROUTINES.map((r) => r.id));
-const genreIds = new Set(GENRES.map((g) => g.id));
 const energyIds = new Set(ENERGIES.map((e) => e.id));
 
 function cleanVibe(routineId: string, v: unknown): VibeSettings | undefined {
   if (!isObject(v)) return undefined;
   const routine = ROUTINES.find((r) => r.id === routineId)!;
-  const genres = Array.isArray(v.genres)
-    ? [...new Set(v.genres.filter((g): g is string => typeof g === "string" && genreIds.has(g)))].slice(0, MAX_GENRES)
-    : [];
+  // Genres saved before the new list map to their closest new one (Grime → UK rap & grime).
+  const genres = Array.isArray(v.genres) ? currentGenres(v.genres) : [];
   const energy = typeof v.energy === "string" && energyIds.has(v.energy) ? v.energy : DEFAULT_ENERGY;
   const length = (LENGTHS as readonly unknown[]).includes(v.length) ? (v.length as number) : defaultLength(routine.minutes);
   return { genres, energy, length };
@@ -118,6 +121,16 @@ export function sanitize(raw: unknown): Saved {
     out.accessCode = raw.accessCode;
   }
   out.currentMix = sanitizeMix(raw.currentMix);
+  if (isObject(raw.recentArtists)) {
+    for (const [id, mixes] of Object.entries(raw.recentArtists)) {
+      if (!routineIds.has(id) || !Array.isArray(mixes)) continue;
+      const clean = mixes
+        .filter(Array.isArray)
+        .slice(0, ARTIST_MEMORY_MIXES)
+        .map((names: unknown[]) => names.filter((n): n is string => typeof n === "string").slice(0, 40).map((n) => n.slice(0, 120)));
+      if (clean.length) out.recentArtists[id] = clean;
+    }
+  }
   return out;
 }
 
@@ -259,6 +272,24 @@ export function setAccessCode(code: string | null): void {
 
 export function setCurrentMix(mix: Mix | null): void {
   update((s) => ({ ...s, currentMix: mix }));
+}
+
+/** Remembers a newly made mix's artists for its routine (the last 5 mixes). */
+export function rememberArtists(mix: Mix): void {
+  update((s) => {
+    const artists = [...new Set(mix.tracks.map((t) => t.artist))];
+    const before = s.recentArtists[mix.routineId] ?? [];
+    return { ...s, recentArtists: { ...s.recentArtists, [mix.routineId]: [artists, ...before].slice(0, ARTIST_MEMORY_MIXES) } };
+  });
+}
+
+/** Artists from the last 5 mixes for a routine, each once. */
+export function artistsToAvoid(s: Saved, routineId: string): string[] {
+  const seen = new Set<string>();
+  return (s.recentArtists[routineId] ?? []).flat().filter((a) => {
+    const k = a.toLowerCase();
+    return seen.has(k) ? false : (seen.add(k), true);
+  });
 }
 
 /** Adds a kept or opened mix to the last 10 (newest first; the same mix isn't added twice). */

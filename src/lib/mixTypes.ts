@@ -1,5 +1,7 @@
 // The shape of a real mix, shared by the server and the phone.
 
+import { currentGenres } from "@/data/vibe";
+
 export type PhaseId = "warm-up" | "main" | "cool-down";
 export const PHASES: { id: PhaseId; label: string; note: string }[] = [
   { id: "warm-up", label: "Warm-up", note: "easing in" },
@@ -38,6 +40,11 @@ export type Mix = {
   /** Set once stored as a shared mix page. */
   shareId?: string;
 };
+
+/** F10: a mix counts as the right length within 5 minutes either way. */
+export const LENGTH_TOLERANCE_MS = 5 * 60_000;
+/** More than 5 minutes short of the chosen length. */
+export const cameOutShort = (m: Pick<Mix, "tracks" | "length">) => runningMs(m) < m.length * 60_000 - LENGTH_TOLERANCE_MS;
 
 export const runningMs = (m: Pick<Mix, "tracks">) => m.tracks.reduce((n, t) => n + t.durationMs, 0);
 export const runningMinutes = (m: Pick<Mix, "tracks">) => Math.round(runningMs(m) / 60000);
@@ -84,7 +91,7 @@ export function sanitizeMix(v: unknown): Mix | null {
     id,
     name,
     routineId,
-    genres: Array.isArray(v.genres) ? v.genres.filter((g): g is string => typeof g === "string").slice(0, 3) : [],
+    genres: Array.isArray(v.genres) ? currentGenres(v.genres) : [],
     energy: str(v.energy, 20) ?? "steady",
     length: typeof v.length === "number" ? v.length : 45,
     tracks,

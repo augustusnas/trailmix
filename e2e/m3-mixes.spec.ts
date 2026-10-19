@@ -11,11 +11,11 @@ const titles = (page: Page) => page.getByTestId("mix-track").locator(".track-tit
 test.describe("making mixes", () => {
   test.beforeEach(async ({ page }) => seed(page, { ...ONBOARDED, vibes: BOXING_VIBE }));
 
-  test("F9 / N2: progress shows after 2 seconds, then the real mix; Apple Music links follow in the background", async ({ page }) => {
+  test("F9 / N2: progress shows straight away, then the real mix; Apple Music links follow in the background", async ({ page }) => {
     await switchOn(page, "slow");
     const started = Date.now();
     await page.goto("/mix?routine=boxing-bag-rounds");
-    await expect(page.getByTestId("mix-progress")).toHaveText("Picking tracks for your vibe…");
+    await expect(page.getByRole("heading", { name: "Picking tracks for your vibe" })).toBeVisible({ timeout: 2_000 });
     await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible({ timeout: 30_000 });
     expect(Date.now() - started).toBeLessThan(30_000);
     await waitForMix(page);
@@ -26,6 +26,143 @@ test.describe("making mixes", () => {
     const tracks: T[] = (await stored(page)).currentMix.tracks;
     // The stand-in iTunes has 4 in 5 songs; the rest open an Apple Music search.
     expect(tracks.filter((t) => t.appleUrl?.startsWith("https://music.apple.com/")).length).toBeGreaterThan(tracks.length / 2);
+  });
+
+  test("loading: three stages, each when the server really reaches it, with a progress bar; nothing about checking songs", async ({ page }) => {
+    await switchOn(page, "slow");
+    const seen: string[] = [];
+    await page.exposeFunction("recordStage", (v: string) => seen.push(v));
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        const bar = document.querySelector('[data-testid="mix-stages"]');
+        const v = bar ? `${bar.getAttribute("data-stage")} ${bar.getAttribute("aria-valuenow")} ${document.querySelector("h1")?.textContent}` : "";
+        if (v && (window as unknown as { last?: string }).last !== v) {
+          (window as unknown as { last?: string }).last = v;
+          void (window as unknown as { recordStage: (v: string) => void }).recordStage(v);
+        }
+      }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    });
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    const bar = page.getByRole("progressbar", { name: "Making your mix" });
+    await expect(bar).toHaveAttribute("aria-valuetext", "Step 1 of 3: Picking tracks for your vibe");
+    await expect(page.getByTestId("mix-progress")).toHaveText("Step 1 of 3");
+    await expect(page.getByRole("heading", { name: "Lining up the energy" })).toBeVisible({ timeout: 10_000 });
+    await expect(bar).toHaveAttribute("aria-valuenow", "2");
+    await expect(page.getByRole("heading", { name: "Fitting it to 45 minutes" })).toBeVisible({ timeout: 10_000 });
+    await expect(bar).toHaveAttribute("aria-valuenow", "3");
+    await waitForMix(page);
+    expect([...new Set(seen)]).toEqual(["picking 1 Picking tracks for your vibe", "energy 2 Lining up the energy", "fitting 3 Fitting it to 45 minutes"]);
+    expect((await page.content()).toLowerCase()).not.toMatch(/is real|checking every/);
+  });
+
+  test("loading: with Reduce Motion on, the progress bar doesn't move", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await switchOn(page, "slow");
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    const segments = page.getByTestId("mix-stages").locator("span");
+    await expect(segments).toHaveCount(3);
+    const motion = await segments.evaluateAll((els) => els.map((e) => `${getComputedStyle(e).animationName}|${getComputedStyle(e).transitionDuration}`));
+    for (const m of motion) expect(m).toMatch(/^none\|0s$/);
+  });
+
+  test("F10: when most suggestions fail the check, the mix still comes out within 5 minutes", async ({ page }) => {
+    await switchOn(page, "mostfail");
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const minutes = Number((await page.getByTestId("running-time").textContent())!.match(/\d+/)![0]);
+    expect(Math.abs(minutes - 45)).toBeLessThanOrEqual(5);
+    await expect(page.getByTestId("length-note")).toHaveCount(0);
+  });
+
+  test("F10: when it still can't fill the length, The mix says how long it came out", async ({ page }) => {
+    await switchOn(page, "short");
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const minutes = Number((await page.getByTestId("running-time").textContent())!.match(/\d+/)![0]);
+    expect(minutes).toBeLessThan(40);
+    await expect(page.getByTestId("length-note")).toHaveText(`This one came out at ${minutes} minutes.`);
+  });
+
+  test("Swap: after 15 seconds with no answer, the original track stays and Try again works", async ({ page }) => {
+    await page.clock.install();
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const before = await titles(page);
+    let hang = true;
+    await page.route("**/api/swap", (route) => (hang ? undefined : route.continue()));
+    await page.getByRole("button", { name: `Swap ${before[3]} by`, exact: false }).click();
+    await expect(page.getByText("Finding another…")).toBeVisible();
+    await page.clock.fastForward(14_000);
+    await expect(page.getByTestId("mix-problem")).toHaveCount(0);
+    await page.clock.fastForward(1_500);
+    await expect(page.getByTestId("mix-problem")).toContainText("Couldn't find a swap for this one. Try again.");
+    expect(await titles(page)).toEqual(before);
+    hang = false;
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect.poll(async () => (await titles(page))[3]).not.toBe(before[3]);
+    await expect(page.getByTestId("mix-problem")).toHaveCount(0);
+  });
+
+  test("Swap: when the server runs out of time, the original track stays", async ({ page }) => {
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const before = await titles(page);
+    await page.evaluate(() => sessionStorage.setItem("trailmix-test-switch", "slowswap"));
+    await page.getByRole("button", { name: `Swap ${before[3]} by`, exact: false }).click();
+    await expect(page.getByTestId("mix-problem")).toContainText("Couldn't find a swap for this one. Try again.", { timeout: 20_000 });
+    expect(await titles(page)).toEqual(before);
+  });
+
+  test("Generate: after 45 seconds with no answer, a message and Try again (which works)", async ({ page }) => {
+    await page.clock.install();
+    let hang = true;
+    await page.route("**/api/mix", (route) => (hang ? undefined : route.continue()));
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await expect(page.getByRole("heading", { name: "Picking tracks for your vibe" })).toBeVisible();
+    await page.clock.fastForward(46_000);
+    await expect(page.getByTestId("mix-problem")).toContainText("That took too long. Try again.");
+    hang = false;
+    await page.getByRole("button", { name: "Try again" }).click();
+    await waitForMix(page);
+  });
+
+  test("Remix: after 45 seconds with no answer, the current mix stays and Try again remixes", async ({ page }) => {
+    await page.clock.install();
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const before = await titles(page);
+    let hang = true;
+    await page.route("**/api/mix", (route) => (hang ? undefined : route.continue()));
+    await page.getByRole("button", { name: "Remix" }).click();
+    await page.clock.fastForward(46_000);
+    await expect(page.getByTestId("mix-problem")).toContainText("That took too long. Try again.");
+    await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
+    expect(await titles(page)).toEqual(before);
+    hang = false;
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page.getByRole("heading", { name: "Gloves On, Volume Up II" })).toBeVisible();
+  });
+
+  test("Remix: sends the artists from the last 5 mixes for this routine, and no mix has an artist more than twice", async ({ page }) => {
+    const bodies: { avoidArtists?: string[] }[] = [];
+    page.on("request", (r) => r.url().endsWith("/api/mix") && bodies.push(r.postDataJSON()));
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    const firstArtists = await page.getByTestId("mix-track").locator(".track-artist").allTextContents();
+    for (let n = 0; n < 5; n++) {
+      await page.getByRole("button", { name: "Remix" }).click();
+      await expect.poll(() => bodies.length).toBe(n + 2);
+      await waitForMix(page);
+      const artists = await page.getByTestId("mix-track").locator(".track-artist").allTextContents();
+      const count = new Map<string, number>();
+      artists.forEach((a) => count.set(a, (count.get(a) ?? 0) + 1));
+      expect(Math.max(...count.values())).toBeLessThanOrEqual(2);
+    }
+    expect(bodies[0].avoidArtists).toEqual([]);
+    for (const a of new Set(firstArtists)) expect(bodies[1].avoidArtists).toContain(a);
+    // Six mixes made; only the last 5 are remembered.
+    const memory = (await stored(page)).recentArtists["boxing-bag-rounds"];
+    expect(memory).toHaveLength(5);
   });
 
   test("a refresh shows the same mix and doesn't make (or pay for) a new one", async ({ page }) => {
@@ -95,7 +232,7 @@ test.describe("making mixes", () => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await expect(page.getByTestId("mix-problem")).toContainText("Mix-making is resting right now. Try again later.");
     await page.getByRole("link", { name: "Back to your vibe" }).click();
-    await expect(page.getByRole("button", { name: "Grime" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "UK rap & grime" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Driven" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -299,3 +436,14 @@ test("N5: no key reaches the browser (pages, scripts, or API answers)", async ({
   }
   void request;
 });
+
+test("E12: genres saved before the new list show as their closest new genre, and mixes still work", async ({ page }) => {
+  await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["grime", "jazz-funk", "soul"], energy: "driven", length: 45 } } });
+  await page.goto("/vibe?routine=boxing-bag-rounds");
+  for (const g of ["UK rap & grime", "Funk & disco", "R&B & soul"]) await expect(page.getByRole("button", { name: g })).toHaveAttribute("aria-pressed", "true");
+  const sent = page.waitForRequest((r) => r.url().endsWith("/api/mix"));
+  await page.getByRole("button", { name: "Make the mix" }).click();
+  expect((await sent).postDataJSON().genres).toEqual(["uk-rap", "funk-disco", "rnb-soul"]);
+  await waitForMix(page);
+});
+

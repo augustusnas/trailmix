@@ -1,16 +1,17 @@
 // @vitest-environment node
 import Anthropic from "@anthropic-ai/sdk";
 import { getRoutine } from "@/data/routines";
-import { runningMs, trackKey } from "@/lib/mixTypes";
-import { classify, setClaudeClientForTests, suggestMix } from "./claude";
+import { cameOutShort, runningMs, trackKey } from "@/lib/mixTypes";
+import { FALLBACK_MODEL, classify, currentModel, resetModelFallbackForTests, setClaudeClientForTests, suggestMix, thinkingFor } from "./claude";
 import { CATALOG } from "./fakes";
 import { TOLERANCE_MS, fitToLength, separateArtists } from "./fit";
 import { resetMemoryKV } from "./kv";
 import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, simplify } from "./lookup";
+import { morePrompt } from "./prompt";
 import { MixError } from "./claude";
-import { makeMix, newNotes, swapTrack } from "./mixes";
+import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
 import { recordTrackChecks } from "./stats";
-import { mixPrompt, trackPlan } from "./prompt";
+import { SYSTEM_PROMPT, mixPrompt, trackPlan } from "./prompt";
 import type { MixRequest } from "./validate";
 
 const env = { ...process.env };
@@ -24,10 +25,11 @@ afterAll(() => {
 
 const request = (over: Partial<MixRequest> = {}): MixRequest => ({
   routine: getRoutine("boxing-bag-rounds")!,
-  genres: ["grime", "dnb"],
+  genres: ["uk-rap", "dnb"],
   energy: "driven",
   length: 45,
   avoid: [],
+  avoidArtists: [],
   ...over,
 });
 const ask = (over: Partial<MixRequest> = {}, forced: string | null = null) => ({
@@ -174,6 +176,86 @@ describe("F9: making a mix", () => {
   });
 });
 
+describe("matching names", () => {
+  it("treats dotted initials and 2Pac/Tupac as the same", () => {
+    expect(bestMatch([{ title: "Still D.R.E.", artist: "Dr. Dre", durationMs: 270_000 }], "Still Dre", "Dr. Dre")).toBeDefined();
+    expect(bestMatch([{ title: "Ghetto Gospel", artist: "2Pac", durationMs: 240_000 }], "Ghetto Gospel", "Tupac")).toBeDefined();
+    expect(simplify("Fred again..")).toBe("fred again");
+  });
+});
+
+describe("F10 when most suggestions fail the check", () => {
+  for (const length of [30, 45, 60, 90]) {
+    it(`two in three failing: still within 5 minutes of ${length}, in at most ${LENGTH_ROUNDS} rounds of extras`, async () => {
+      const notes = newNotes();
+      const { mix, timings } = await makeMix(ask({ length }, "mostfail"), [], undefined, notes);
+      expect(notes.notFound.length / notes.suggested).toBeGreaterThan(0.5);
+      expect(Math.abs(runningMs(mix) - length * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
+      expect(timings.lengthRounds).toBeLessThanOrEqual(LENGTH_ROUNDS);
+      expect(cameOutShort(mix)).toBe(false);
+    });
+  }
+
+  it("when every replacement fails too, it tries 3 rounds, then the mix says how long it came out", async () => {
+    const { mix, timings } = await makeMix(ask({ length: 90 }, "short"));
+    expect(timings.lengthRounds).toBe(LENGTH_ROUNDS);
+    expect(cameOutShort(mix)).toBe(true);
+    expect(mix.tracks.length).toBeGreaterThan(0);
+  });
+
+  it("reports the three stages in order", async () => {
+    const stages: Stage[] = [];
+    await makeMix(ask(), [], undefined, newNotes(), (s) => stages.push(s));
+    expect(stages).toEqual(["picking", "energy", "fitting"]);
+  });
+});
+
+describe("time limits", () => {
+  it("Generate and Remix stop with a timeout once the limit has passed", async () => {
+    await expect(makeMix({ ...ask(), deadline: Date.now() - 1 })).rejects.toEqual(new MixError("timeout"));
+  });
+
+  it("Swap stops at its limit, without changing the mix", async () => {
+    const { mix } = await makeMix(ask());
+    const before = JSON.stringify(mix);
+    const started = Date.now();
+    await expect(swapTrack({ ...ask({}, "slowswap"), deadline: Date.now() + 200 }, mix, 3)).rejects.toEqual(new MixError("timeout"));
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(JSON.stringify(mix)).toBe(before);
+  });
+});
+
+describe("artists: at most 2 per mix, and steering away from recent ones", () => {
+  it("keeps only the first 2 tracks by any one artist (ignoring case and features)", () => {
+    const t = (artist: string, title: string) => ({ artist, title });
+    const out = capArtists([t("Skepta", "1"), t("JME", "2"), t("skepta", "3"), t("Skepta feat. JME", "4"), t("JME", "5")]);
+    expect(out.map((x) => x.title)).toEqual(["1", "2", "3", "5"]);
+    expect(MAX_PER_ARTIST).toBe(2);
+  });
+
+  it("no mix has more than 2 tracks by one artist", async () => {
+    for (const length of [30, 90]) {
+      const { mix } = await makeMix(ask({ length }));
+      const count = new Map<string, number>();
+      for (const t of mix.tracks) count.set(t.artist, (count.get(t.artist) ?? 0) + 1);
+      expect(Math.max(...count.values())).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("the prompt lists the artists from recent mixes for this routine, keeps the accuracy rules, and caps artists", () => {
+    const p = mixPrompt(request({ avoidArtists: ["Skepta", "Stormzy"] }));
+    expect(p).toContain("Skepta, Stormzy");
+    expect(p).toMatch(/use other artists/);
+    expect(p).toMatch(/reusing one of these is better than guessing/);
+    expect(SYSTEM_PROMPT).toMatch(/Only pick tracks you are confident exist/);
+    expect(SYSTEM_PROMPT).toMatch(/at most 2 tracks by any one artist/);
+    expect(mixPrompt(request())).not.toContain("last few mixes");
+    const more = morePrompt(request({ avoidArtists: ["Skepta"] }), "main", 3, [], "", ["Dave"]);
+    expect(more).toContain("Already twice in the playlist, so don't use these artists: Dave");
+    expect(more).toContain("Skepta");
+  });
+});
+
 describe("E2 and the bad-track count", () => {
   it("E2: when the catalogue can't check the tracks, the mix fails nicely instead of coming out empty", async () => {
     await expect(makeMix(ask({}, "e2"))).rejects.toEqual(new MixError("failed"));
@@ -258,10 +340,42 @@ describe("Claude errors (E3, E4)", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
+  it("Sonnet 5.5 gets the thinking setting it accepts; Haiku keeps thinking off", () => {
+    expect(thinkingFor("claude-sonnet-5-5")).toEqual({ thinking: { type: "between_tools" } });
+    expect(thinkingFor("claude-haiku-5-5")).toEqual({ thinking: { type: "disabled" } });
+    expect(thinkingFor("claude-opus-5-5")).toEqual({});
+  });
+
+  it("a CLAUDE_MODEL that doesn't work falls back to Haiku with a warning, instead of failing", async () => {
+    realMode();
+    resetModelFallbackForTests();
+    process.env.CLAUDE_MODEL = "claude-sonnet-5.5"; // a typo: the real name uses a dash
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const create = pretend(Anthropic.APIError.generate(404, { error: { type: "not_found_error" } }, "model not found", new Headers()), goodAnswer, goodAnswer);
+    expect((await suggestMix(ask())).name).toBe("Test Mix");
+    expect(create.mock.calls.map((c) => c[0].model)).toEqual(["claude-sonnet-5.5", FALLBACK_MODEL]);
+    expect(warn.mock.calls[0][0]).toMatch(/"event":"model-fallback".*"wanted":"claude-sonnet-5.5"/);
+    // The broken model isn't tried again on every mix.
+    expect(currentModel()).toBe(FALLBACK_MODEL);
+    await suggestMix(ask());
+    expect(create.mock.calls[2][0].model).toBe(FALLBACK_MODEL);
+    resetModelFallbackForTests();
+    warn.mockRestore();
+  });
+
+  it("a working CLAUDE_MODEL is used as is", async () => {
+    realMode();
+    resetModelFallbackForTests();
+    process.env.CLAUDE_MODEL = "claude-sonnet-5-5";
+    const create = pretend(goodAnswer);
+    await suggestMix(ask());
+    expect(create.mock.calls[0][0]).toMatchObject({ model: "claude-sonnet-5-5", thinking: { type: "between_tools" } });
+  });
+
   it("the prompt holds only checked values, recent tracks and the rules", () => {
     const p = mixPrompt(request({ avoid: [{ title: "Show Me Love", artist: "Robin S" }] }));
     expect(p).toContain("Workout: Boxing bag rounds (Combat)");
-    expect(p).toContain("Genres: Grime, Drum & bass");
+    expect(p).toContain("Genres: UK rap & grime, Drum & bass");
     expect(p).toContain("- Show Me Love — Robin S");
   });
 });

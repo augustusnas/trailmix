@@ -1,4 +1,5 @@
 import { DEFAULT_PINS } from "@/data/routines";
+import { GENRES, currentGenre } from "@/data/vibe";
 import * as store from "./store";
 import { STORAGE_KEY, defaults, sanitize } from "./store";
 
@@ -21,13 +22,14 @@ describe("on-device storage", () => {
       recentMixes: [],
       accessCode: null,
       currentMix: null,
+      recentArtists: {},
     });
   });
 
   it("saves to and loads from one versioned record", () => {
     store.completeOnboarding("spotify");
     store.pin("tabata");
-    store.saveVibe("tabata", { genres: ["grime"], energy: "feral", length: 30 });
+    store.saveVibe("tabata", { genres: ["uk-rap"], energy: "feral", length: 30 });
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(raw).toMatchObject({ version: 2, onboarded: true, musicApp: "spotify" });
     expect(raw.pins).toEqual([...DEFAULT_PINS, "tabata"]);
@@ -46,11 +48,11 @@ describe("on-device storage", () => {
   });
 
   it("can unpin to zero without falling back to the defaults, and keeps vibes", () => {
-    store.saveVibe("push-day", { genres: ["rock"], energy: "driven", length: 60 });
+    store.saveVibe("push-day", { genres: ["rock-indie"], energy: "driven", length: 60 });
     for (const id of DEFAULT_PINS) store.unpin(id);
     expect(store.load().pins).toEqual([]);
     expect(sanitize(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).pins).toEqual([]);
-    expect(store.load().vibes["push-day"]).toEqual({ genres: ["rock"], energy: "driven", length: 60 });
+    expect(store.load().vibes["push-day"]).toEqual({ genres: ["rock-indie"], energy: "driven", length: 60 });
   });
 
   it("drops ids that no longer exist", () => {
@@ -60,7 +62,7 @@ describe("on-device storage", () => {
       musicApp: "napster",
       pins: ["tabata", "retired-routine", 42, "tabata"],
       vibes: {
-        tabata: { genres: ["grime", "polka", "dnb"], energy: "sleepy", length: 33 },
+        tabata: { genres: ["uk-rap", "polka", "dnb"], energy: "sleepy", length: 33 },
         "retired-routine": { genres: ["house"], energy: "easy", length: 30 },
         emom: "not an object",
       },
@@ -68,17 +70,17 @@ describe("on-device storage", () => {
     });
     expect(s.pins).toEqual(["tabata"]);
     expect(s.musicApp).toBeNull();
-    expect(s.vibes).toEqual({ tabata: { genres: ["grime", "dnb"], energy: "steady", length: 30 } });
+    expect(s.vibes).toEqual({ tabata: { genres: ["uk-rap", "dnb"], energy: "steady", length: 30 } });
     expect(s.recentMixes).toEqual([]);
   });
 
   it("keeps at most 3 genres and 10 recent mixes", () => {
     const s = sanitize({
       version: 1,
-      vibes: { tabata: { genres: ["grime", "dnb", "house", "rock"], energy: "easy", length: 30 } },
+      vibes: { tabata: { genres: ["uk-rap", "dnb", "house", "rock-indie"], energy: "easy", length: 30 } },
       recentMixes: Array.from({ length: 12 }, (_, i) => ({ name: `Mix ${i}`, routineId: "tabata", date: "2026-10-19", tracks: [], freshness: 80 })),
     });
-    expect(s.vibes.tabata.genres).toEqual(["grime", "dnb", "house"]);
+    expect(s.vibes.tabata.genres).toEqual(["uk-rap", "dnb", "house"]);
     expect(s.recentMixes).toHaveLength(10);
   });
 
@@ -140,10 +142,10 @@ describe("on-device storage", () => {
       onboarded: true,
       musicApp: "spotify",
       pins: ["tabata", "yoga-flow"],
-      vibes: { tabata: { genres: ["grime"], energy: "feral", length: 30 } },
+      vibes: { tabata: { genres: ["uk-rap"], energy: "feral", length: 30 } },
       recentMixes: [],
     };
-    expect(sanitize(v1)).toEqual({ ...v1, version: 2, accessCode: null, currentMix: null });
+    expect(sanitize(v1)).toEqual({ ...v1, version: 2, accessCode: null, currentMix: null, recentArtists: {} });
   });
 
   it("still resets unknown future or ancient versions (E12)", () => {
@@ -156,7 +158,7 @@ describe("on-device storage", () => {
       id: `m${n}`,
       name: `Mix ${n}`,
       routineId: "tabata",
-      genres: ["grime"],
+      genres: ["uk-rap"],
       energy: "feral",
       length: 30,
       createdAt: `2026-10-${String(n).padStart(2, "0")}`,
@@ -176,7 +178,7 @@ describe("on-device storage", () => {
       id: "abc",
       name: "Gloves On",
       routineId: "boxing-bag-rounds",
-      genres: ["grime"],
+      genres: ["uk-rap"],
       energy: "driven",
       length: 30,
       createdAt: "2026-10-19",
@@ -212,8 +214,8 @@ describe("on-device storage", () => {
   });
 
   it("remembers vibes per routine", () => {
-    store.saveVibe("boxing-bag-rounds", { genres: ["grime"], energy: "feral", length: 30 });
-    expect(store.vibeFor(store.load(), "boxing-bag-rounds").genres).toEqual(["grime"]);
+    store.saveVibe("boxing-bag-rounds", { genres: ["uk-rap"], energy: "feral", length: 30 });
+    expect(store.vibeFor(store.load(), "boxing-bag-rounds").genres).toEqual(["uk-rap"]);
     expect(store.vibeFor(store.load(), "push-day").genres).toEqual([]);
   });
 
@@ -233,3 +235,61 @@ function safeParse(text: string): unknown {
     return null;
   }
 }
+
+describe("genres from before the new list (E12)", () => {
+  it("map to their closest new genre, without repeats, and the vibe still works", () => {
+    const s = sanitize({
+      version: 2,
+      onboarded: true,
+      vibes: {
+        tabata: { genres: ["grime", "jazz-funk", "disco"], energy: "feral", length: 30 },
+        "yoga-flow": { genres: ["soul", "rnb", "amapiano"], energy: "easy", length: 45 },
+        "push-day": { genres: ["afrobeats", "rock", "hiphop"], energy: "driven", length: 60 },
+      },
+      currentMix: {
+        id: "m1", name: "Old Mix", routineId: "tabata", genres: ["grime", "soul"], energy: "feral", length: 30,
+        tracks: [{ title: "T", artist: "A", phase: "main", durationMs: 200_000 }],
+      },
+    });
+    expect(s.onboarded).toBe(true);
+    expect(s.vibes.tabata.genres).toEqual(["uk-rap", "funk-disco"]);
+    expect(s.vibes["yoga-flow"].genres).toEqual(["rnb-soul", "afro"]);
+    expect(s.vibes["push-day"].genres).toEqual(["afro", "rock-indie", "hiphop"]);
+    expect(s.currentMix?.genres).toEqual(["uk-rap", "rnb-soul"]);
+  });
+
+  it("every old genre has a home in the new list", () => {
+    for (const old of ["hiphop", "afrobeats", "house", "dnb", "rnb", "rock", "grime", "amapiano", "soul", "disco", "pop", "jazz-funk"]) {
+      expect(GENRES.map((g) => g.id), old).toContain(currentGenre(old));
+    }
+    expect(GENRES.map((g) => g.label)).toEqual([
+      "Hip-hop", "UK rap & grime", "House", "Drum & bass", "Techno", "Electronic", "Pop", "R&B & soul", "Afrobeats & amapiano", "Rock & indie", "Metal", "Funk & disco",
+    ]);
+  });
+});
+
+describe("artists from the last 5 mixes per routine", () => {
+  beforeEach(fresh);
+  const mix = (n: number, routineId = "push-day") => ({
+    id: `m${n}`, name: `Mix ${n}`, routineId, genres: ["uk-rap"], energy: "driven", length: 45, createdAt: "", freshness: 100,
+    tracks: [
+      { title: "One", artist: `Artist ${n}`, phase: "main" as const, durationMs: 200_000, key: "a" },
+      { title: "Two", artist: "Skepta", phase: "main" as const, durationMs: 200_000, key: "b" },
+    ],
+  });
+
+  it("keeps the last 5 per routine, newest first, and lists each artist once", () => {
+    for (let n = 1; n <= 7; n++) store.rememberArtists(mix(n));
+    store.rememberArtists(mix(9, "tabata"));
+    const s = store.load();
+    expect(s.recentArtists["push-day"]).toHaveLength(5);
+    expect(store.artistsToAvoid(s, "push-day")).toEqual(["Artist 7", "Skepta", "Artist 6", "Artist 5", "Artist 4", "Artist 3"]);
+    expect(store.artistsToAvoid(s, "tabata")).toEqual(["Artist 9", "Skepta"]);
+    expect(store.artistsToAvoid(s, "yoga-flow")).toEqual([]);
+  });
+
+  it("drops damaged artist memory without breaking anything else (E12)", () => {
+    const s = sanitize({ version: 2, onboarded: true, recentArtists: { "push-day": "nope", "not-a-routine": [["A"]], tabata: [["A", 3, "B"], "x"] } });
+    expect(s.recentArtists).toEqual({ tabata: [["A", "B"]] });
+  });
+});

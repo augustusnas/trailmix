@@ -16,7 +16,7 @@ I want to **test this on my phone tomorrow (17 Oct)**, so build in the order of 
 
 1. **E12 failed on my phone.** After Damage → Back to home, Home still showed my 6 pins. Make Damage do a full reload so the app reads the damaged data fresh, and make sure the app never writes its in-memory copy back over damaged data. Add a test that damages storage, reloads, and checks that Home shows the three defaults with no Welcome. Tell me the cause in plain English. **This matters more now:** this milestone adds recent mixes to saved data, so the storage version goes up, and every phone that used Milestone 2 will hit the E12 path on its next open.
 2. **Reset page:** keep it, but only when a `SHOW_RESET_PAGE` environment variable is set to `true`. With it unset, tapping the heading 5 times does nothing.
-3. **Genre limit:** keep "Pick up to 3".
+3. **Genre limit:** keep "Pick up to 3". **Genres (changed after the phone test):** 12 broad genres: Hip-hop, UK rap & grime, House, Drum & bass, Techno, Electronic, Pop, R&B & soul, Afrobeats & amapiano, Rock & indie, Metal, Funk & disco. Old saved genres map to their closest new one (Grime → UK rap & grime, Afrobeats and Amapiano → Afrobeats & amapiano, 90s R&B and Soul → R&B & soul, Rock → Rock & indie, Disco and Jazz-funk → Funk & disco), on the phone and on the server, so vibe memory doesn't break (E12).
 4. **Saved screen wording for Spotify and Apple Music:** replace "…is ready for Spotify." with "Your mix is ready to play in Spotify, track by track." (and the same for Apple Music). Keep "Track by track" as the label.
 
 ## Fixed details
@@ -41,14 +41,15 @@ Without sign-in, the new server routes would be open to anyone who finds them, a
 
 ### 1. Generate mix (F9, F18)
 - A server route takes routine, genres, energy, length and **recent tracks to avoid** (titles and artists from my last 10 mixes, sent from the phone).
-- Claude model: a small, fast model, chosen with a `CLAUDE_MODEL` environment variable that defaults to the current Claude Haiku model, so I can change it without a code change.
+- Claude model: a small, fast model, chosen with a `CLAUDE_MODEL` environment variable that defaults to the current Claude Haiku model (`claude-haiku-5-5`), so I can change it without a code change. Sonnet is `claude-sonnet-5-5`. Each model gets the "no long thinking" setting it accepts (Sonnet 5.5 refuses the one Haiku uses, which is why every Sonnet mix failed). If `CLAUDE_MODEL` names a model that doesn't work, mixes fall back to Haiku and the log shows a `model-fallback` warning.
 - **Prompt requirements (keep them in one file, so they can be improved later):**
   - Return strict JSON only: a fun mix name, then tracks with title, artist and phase (warm-up, main block, cool-down).
   - Real, released tracks only. Match the genres and energy.
   - Only tracks Claude is confident exist, credited to the artist who released them, and only artists it knows well. Deeper cuts come from those artists' own catalogues, never from obscure artists.
   - The usual released version, not a live recording, under 10 minutes.
   - An energy arc across the phases. Energy keeps building through the main block so it never sags midway.
-  - No artist twice in a row.
+  - No artist twice in a row, and **at most 2 tracks per artist** in a mix (also enforced in code, and on Swap).
+  - **Artists from my last 5 mixes for this routine** are sent from the phone (made mixes, kept or not), and Claude avoids them where it can, but only by choosing other artists it knows well: reusing one beats guessing.
   - At least 70% of tracks not in my recent mixes, with a couple of deeper cuts.
   - About 20% more tracks than the length needs, so there's spare.
   - Use the JSON or structured-output feature so the answer is always well-formed.
@@ -65,7 +66,9 @@ Run lookups when a mix is generated, so the preview only shows tracks that exist
 6. **Apple Music links, in the background:** after the mix is on screen, the iTunes Search API finds each track's exact Apple Music song, paced to 15 searches a minute shared by everyone, and cached. Until a track's link arrives, it opens an Apple Music search, so nothing ever waits for it. Apple Music users see "Finding Apple Music links 6 of 14" with a progress bar; there's no error if iTunes is busy, it just carries on the next minute.
 7. **No YouTube calls when a mix is made, swapped or remixed.** YouTube video IDs (100 units per search) are only needed to save a playlist, which is Milestone 4.
 
-**Measured speed (N2: mix on screen within 30 seconds, progress shown after 2):** first mix 5–9 seconds, remix 6–8 seconds, swap about 1½ seconds. Apple Music links for a whole mix arrive within about 10 seconds.
+**Measured speed (N2: mix on screen within 30 seconds, progress shown after 2):** first mix 4–14 seconds, remix 6–8 seconds, swap about 1½ seconds. Apple Music links for a whole mix arrive within about 10 seconds.
+
+**Time limits:** Generate and Remix give up after 45 seconds on the phone ("That took too long. Try again.", with Try again; a failed Remix keeps the current mix). Swap gives up after 15 seconds, keeps the original track and shows "Couldn't find a swap for this one. Try again." The server stops a little earlier (40 and 13 seconds), and every Claude and Deezer request inside it is cut to the time that's left.
 
 **Bad-track count:** every mix, remix and swap adds to two running totals in Upstash, `stats:suggested` (tracks Claude suggested) and `stats:failed` (ones that failed the check). Each server log line ends with `trackCheck`: this request's numbers and the running total with its failure percentage. The stats page can show it later.
 
@@ -73,9 +76,13 @@ A YouTube API key restricted to the YouTube Data API, server only, is in Vercel 
 
 ### 3. Fit to length (F10)
 - Claude doesn't decide length. Use real durations from Deezer.
-- Keep the warm-up and cool-down whole, then fill the main block in Claude's order until the total is **within 5 minutes** of the chosen length.
-- Still short: ask Claude for more main-block tracks. One long track overshooting: swap it for a shorter one in the same phase.
+- Keep the warm-up and cool-down whole, then fill the main block in Claude's order until the total is **within 2½ minutes** of the chosen length (5 is the most it may be out).
+- Main-block replacements are sized to fill the length, allowing for how many of this mix's suggestions have failed so far (about half, for grime). Tracks that failed are never suggested or checked again in the same mix.
+- Still more than 5 minutes short: ask Claude for more main-block tracks, **up to 3 rounds**. Still short after that: The mix says "This one came out at X minutes." One long track overshooting: swap it for a shorter one in the same phase.
 - Show the real running time on The mix ("44 min").
+
+### 3½. While a mix is made
+A large headline with the current stage and a three-part progress bar: "Picking tracks for your vibe" → "Lining up the energy" → "Fitting it to [N] minutes", with "Step 1 of 3" underneath. The server reports each stage as the real work reaches it (Claude suggesting; checking and replacing; fitting the length). Nothing mentions checking whether songs are real. The bar's pulse stops with Reduce Motion on, and it's checked at the largest text size.
 
 ### 4. Swap and Remix (F11, F12)
 - **Swap:** replaces only that track, with one in the **same phase**, not already in the list, run through the same lookup. Re-check the length after the swap.
@@ -109,7 +116,7 @@ Make the mix and Keep it are disabled offline, with a "You're offline" banner. H
 - E1, E2, E3, E4, E9, E10, E11, E12, E14, E15, E16, E17, plus the 1½–10 minute track lengths and the bad-track count.
 - Access code: every new server route refuses requests without it (this stands in for N6 until Milestone 4).
 - N5: a secret scan, plus a check that no key appears in anything sent to the browser.
-- **Test switches** so I can force E1, E2, E3, E4, E5, E9, E10, E14 and E15 on my phone during the friend trial. Keep them behind the same `SHOW_RESET_PAGE` setting.
+- **Test switches** so I can force E1, E2, E3, E4, E5, E9, E10, E14 and E15 on my phone during the friend trial, plus "two in three tracks fail the check", "replacements all fail (comes out short)" and "Swap takes too long". Keep them behind the same `SHOW_RESET_PAGE` setting.
 - If a test fails, tell me in plain English what it means.
 
 ## Build plan (push after each step so I can test tomorrow)

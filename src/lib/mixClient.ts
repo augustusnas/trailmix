@@ -2,9 +2,14 @@
 // The app's side of making, changing, linking and sharing mixes.
 
 import type { Routine } from "@/data/routines";
-import { callApi, type ApiResult } from "./access";
+import { callApi, callApiWithProgress, type ApiResult } from "./access";
 import type { Mix, MixTrack } from "./mixTypes";
-import type { Saved, VibeSettings } from "./store";
+import { isStage, type StageId } from "./progress";
+import { artistsToAvoid, type Saved, type VibeSettings } from "./store";
+
+/** Time limits: the phone gives up after these and says so (the server stops a little sooner). */
+export const MIX_TIMEOUT_MS = 45_000;
+export const SWAP_TIMEOUT_MS = 15_000;
 
 /** Titles and artists from the last 10 kept mixes, so Claude can keep things fresh (F18). */
 export function recentTracks(saved: Saved) {
@@ -17,17 +22,30 @@ const settings = (routine: Routine, vibe: VibeSettings, saved: Saved) => ({
   energy: vibe.energy,
   length: vibe.length,
   avoid: recentTracks(saved),
+  avoidArtists: artistsToAvoid(saved, routine.id),
 });
 
-export function requestMix(routine: Routine, vibe: VibeSettings, saved: Saved, remixOf?: Mix): Promise<ApiResult<{ mix: Mix }>> {
-  return callApi("/api/mix", {
-    ...settings(routine, vibe, saved),
-    remix: remixOf ? { name: remixOf.name, tracks: remixOf.tracks.map(({ title, artist }) => ({ title, artist })) } : undefined,
-  });
+/** Makes a mix (or a Remix), reporting each stage the server reaches. */
+export function requestMix(
+  routine: Routine,
+  vibe: VibeSettings,
+  saved: Saved,
+  remixOf?: Mix,
+  onStage: (s: StageId) => void = () => {},
+): Promise<ApiResult<{ mix: Mix }>> {
+  return callApiWithProgress<{ mix: Mix }>(
+    "/api/mix",
+    {
+      ...settings(routine, vibe, saved),
+      remix: remixOf ? { name: remixOf.name, tracks: remixOf.tracks.map(({ title, artist }) => ({ title, artist })) } : undefined,
+    },
+    (line) => isStage(line.stage) && onStage(line.stage),
+    { timeoutMs: MIX_TIMEOUT_MS, onTimeout: "timeout" },
+  );
 }
 
 export function requestSwap(routine: Routine, vibe: VibeSettings, saved: Saved, mix: Mix, index: number) {
-  return callApi<{ mix: Mix }>("/api/swap", { ...settings(routine, vibe, saved), mix, index });
+  return callApi<{ mix: Mix }>("/api/swap", { ...settings(routine, vibe, saved), mix, index }, { timeoutMs: SWAP_TIMEOUT_MS, onTimeout: "swapFailed" });
 }
 
 type LinkAnswer = {

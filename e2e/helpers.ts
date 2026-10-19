@@ -19,7 +19,7 @@ export const TEST_ACCESS_CODE = "test-trail-code";
 /** A phone that has finished first run, with the default pins and YouTube Music. */
 export const ONBOARDED: State = { onboarded: true, musicApp: "ytm", pins: DEFAULT_PINS, vibes: {}, accessCode: TEST_ACCESS_CODE };
 
-export const BOXING_VIBE = { "boxing-bag-rounds": { genres: ["grime", "dnb"], energy: "driven", length: 45 } };
+export const BOXING_VIBE = { "boxing-bag-rounds": { genres: ["uk-rap", "dnb"], energy: "driven", length: 45 } };
 
 export function record(state: State) {
   return JSON.stringify({
@@ -99,7 +99,7 @@ const ACCESS = { "x-trailmix-access": TEST_ACCESS_CODE };
 /** Makes a real mix (with the recorded stand-in services), finds its Apple Music links, and stores it as a shared mix page. */
 export async function makeSharedMix(
   request: import("@playwright/test").APIRequestContext,
-  settings = { routine: "boxing-bag-rounds", genres: ["grime", "dnb"], energy: "driven", length: 45 },
+  settings = { routine: "boxing-bag-rounds", genres: ["uk-rap", "dnb"], energy: "driven", length: 45 },
 ): Promise<{ id: string; mix: { name: string; tracks: { title: string; artist: string; appleUrl?: string }[] } }> {
   const made = await (await request.post("/api/mix", { headers: ACCESS, data: { ...settings, avoid: [] } })).json();
   let mix = made.mix;

@@ -21,9 +21,9 @@ The full plan is copied from the Trailmix build brief's Test plan tab, so Claude
 | ID | Check |
 | --- | --- |
 | F9 | A generated mix has a fun name, warm-up, main block and cool-down, and every track was found by the lookup |
-| F10 | For 30, 45, 60 and 90 minutes, the mix's total length is within 5 minutes of the target |
-| F11 | Swap changes only that track; the new one is in the same phase and not already in the list |
-| F12 | Remix gives a new list and name, and uses no YouTube quota |
+| F10 | For 30, 45, 60 and 90 minutes, the mix's total length is within 5 minutes of the target, including when two in three suggestions fail the check (up to 3 rounds of extra main-block tracks); if it still can't, The mix says "This one came out at X minutes" |
+| F11 | Swap changes only that track; the new one is in the same phase and not already in the list. After 15 seconds the original stays, with "Couldn't find a swap for this one. Try again"; Generate and Remix give up after 45 seconds with "That took too long. Try again" |
+| F12 | Remix gives a new list and name, and uses no YouTube quota; it sends the artists from the last 5 mixes for that routine; no mix has more than 2 tracks by one artist |
 | F15 | Share creates one mix page link; opening it signed out shows the mix and lets the visitor pick YouTube Music, Spotify or Apple Music; each track opens in that app (a search for the song in Spotify and YouTube Music; the exact song in Apple Music when iTunes found it, otherwise a search); the visitor's saved app leads |
 | F18 | Given 10 previous mixes, at least 70% of a new mix's tracks aren't in them; the freshness percentage is recorded |
 | F21 | The chosen routine still carries through Set the vibe, The mix, Saved and the shared mix page |
@@ -34,7 +34,7 @@ The full plan is copied from the Trailmix build brief's Test plan tab, so Claude
 | E9 | Past 20 mixes an hour → "That's a lot of mixes. Back in a few minutes" |
 | E10 | Offline → Make the mix and Keep it disabled, "You're offline" banner; Home and Library still work |
 | E11 | Invalid routine, genre, energy or length (or more than 3 genres) is rejected on the server; nothing is sent to Claude |
-| E12 | Missing, damaged or old-version storage → three default pins (Push day, Incline treadmill, HIIT circuit) and blank vibes, with no error and no Welcome. **Test it with a full reload.** |
+| E12 | Missing, damaged or old-version storage → three default pins (Push day, Incline treadmill, HIIT circuit) and blank vibes, with no error and no Welcome. **Test it with a full reload.** Genres saved before the October list map to their closest new genre |
 | E14 | Daily ceiling reached → "Trailmix has made enough mixes for today. Back tomorrow"; mix pages still work |
 | E15 | `MIXES_PAUSED=true` → "Mix-making is paused. Back soon"; Home and Library still work |
 | E16 | An expired or mistyped mix link → "This mix has moved on. Ask whoever shared it for a fresh one", in Trailmix colours |
@@ -69,7 +69,7 @@ The full plan is copied from the Trailmix build brief's Test plan tab, so Claude
 | F4 | Pin cap | Given 6 pins, when I open the Library, then unpinned + buttons are disabled and the "home is full" notice shows | 2 |
 | F5 | Unpin | Given a pinned routine, when I unpin it, then it leaves Home and pins are available again | 2 |
 | F6 | Library search and filter | When I type "tab" or tap Conditioning, then only matching routines show; no match shows the empty message | 2 |
-| F7 | Vibe memory | Given I used Boxing with Grime, Driven, 45, when I pick Boxing again, then those settings are preselected | 2 |
+| F7 | Vibe memory | Given I used Boxing with UK rap & grime, Driven, 45, when I pick Boxing again, then those settings are preselected | 2 |
 | F8 | Vibe validation | Given no genre selected, when I tap Make the mix, then I'm asked to pick at least one | 2 |
 | F9 | Generate | When I make a mix, then I see a fun name, warm-up, main block and cool-down, and every track was found by the lookup | 3 |
 | F10 | Length | Given 45 minutes chosen, when the mix is built, then its total length is within 5 minutes of 45 | 3 |

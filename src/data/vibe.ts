@@ -4,18 +4,42 @@ export type Option = { id: string; label: string };
 
 export const GENRES: Option[] = [
   { id: "hiphop", label: "Hip-hop" },
-  { id: "afrobeats", label: "Afrobeats" },
+  { id: "uk-rap", label: "UK rap & grime" },
   { id: "house", label: "House" },
   { id: "dnb", label: "Drum & bass" },
-  { id: "rnb", label: "90s R&B" },
-  { id: "rock", label: "Rock" },
-  { id: "grime", label: "Grime" },
-  { id: "amapiano", label: "Amapiano" },
-  { id: "soul", label: "Soul" },
-  { id: "disco", label: "Disco" },
+  { id: "techno", label: "Techno" },
+  { id: "electronic", label: "Electronic" },
   { id: "pop", label: "Pop" },
-  { id: "jazz-funk", label: "Jazz-funk" },
+  { id: "rnb-soul", label: "R&B & soul" },
+  { id: "afro", label: "Afrobeats & amapiano" },
+  { id: "rock-indie", label: "Rock & indie" },
+  { id: "metal", label: "Metal" },
+  { id: "funk-disco", label: "Funk & disco" },
 ];
+
+/** Milestone 2–3 genres, so saved vibes and mixes from before the October 2026 list still work (E12). */
+const OLD_GENRES: Record<string, string> = {
+  grime: "uk-rap",
+  afrobeats: "afro",
+  amapiano: "afro",
+  rnb: "rnb-soul",
+  soul: "rnb-soul",
+  rock: "rock-indie",
+  disco: "funk-disco",
+  "jazz-funk": "funk-disco",
+};
+
+/** A genre id from today's list (old ids become their closest new one), or undefined if it isn't a genre. */
+export function currentGenre(id: unknown): string | undefined {
+  if (typeof id !== "string") return undefined;
+  const now = OLD_GENRES[id] ?? id;
+  return GENRES.some((g) => g.id === now) ? now : undefined;
+}
+
+/** Cleans a list of genres: old ids mapped, unknown ones dropped, no repeats, at most 3. */
+export function currentGenres(ids: unknown[]): string[] {
+  return [...new Set(ids.map(currentGenre).filter((g): g is string => Boolean(g)))].slice(0, MAX_GENRES);
+}
 
 export const ENERGIES: Option[] = [
   { id: "easy", label: "Easy" },

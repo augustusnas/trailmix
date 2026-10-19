@@ -66,7 +66,7 @@ for (const r of ROUTINES) {
 
 test("vibe choices carry through to the mix", async ({ page }) => {
   await page.goto("/vibe?routine=boxing-bag-rounds");
-  await page.getByRole("button", { name: "Grime" }).click();
+  await page.getByRole("button", { name: "UK rap & grime" }).click();
   await page.getByRole("button", { name: "Feral" }).click();
   await page.getByRole("button", { name: "30 minutes" }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();

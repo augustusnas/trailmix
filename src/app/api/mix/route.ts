@@ -1,8 +1,10 @@
+import { PROGRESS_HEADER } from "@/lib/progress";
+import { MESSAGES } from "@/lib/messages";
 import { checkAccess } from "@/server/access";
 import { MixError } from "@/server/claude";
 import { clientIp, fail, ok, readJson } from "@/server/http";
 import { mixAllowed } from "@/server/limits";
-import { makeMix, newNotes } from "@/server/mixes";
+import { makeMix, newNotes, type Stage } from "@/server/mixes";
 import { trackCheckLog } from "@/server/stats";
 import { testSwitch } from "@/server/testSwitch";
 import { cleanTracks, validateMixRequest } from "@/server/validate";
@@ -11,6 +13,8 @@ import { cleanText } from "@/server/validate";
 export const maxDuration = 60;
 
 // F9 / F12: make a new mix, or a Remix of the current one (same settings, new list and name).
+// The app asks for progress (PROGRESS_HEADER): then the answer is one JSON line per stage as the
+// real work reaches it, and a last line with the mix or the error. Without it, one plain answer.
 export async function POST(req: Request) {
   const access = checkAccess(req, clientIp(req));
   if (!access.ok) return fail("access", 401);
@@ -26,15 +30,36 @@ export async function POST(req: Request) {
   if (refused) return fail(refused, refused === "paused" ? 503 : 429);
 
   const notes = newNotes();
-  try {
-    const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-    const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes);
-    // trackCheck (last): this mix's suggestions that failed the catalogue check, and the running total.
-    console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, tracks: mix.tracks.length, usage, timings, notes, trackCheck: await trackCheckLog(notes) }));
-    return ok({ mix });
-  } catch (err) {
-    const kind = err instanceof MixError ? err.kind : "failed";
-    console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
-    return fail(kind, kind === "resting" ? 503 : 502);
+  const run = async (onStage?: (s: Stage) => void) => {
+    try {
+      const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
+      const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes, onStage);
+      // trackCheck (last): this mix's suggestions that failed the catalogue check, and the running total.
+      console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, minutes: Math.round(mix.tracks.reduce((n, t) => n + t.durationMs, 0) / 6000) / 10, tracks: mix.tracks.length, usage, timings, notes, trackCheck: await trackCheckLog(notes) }));
+      return { mix } as const;
+    } catch (err) {
+      const kind = err instanceof MixError ? err.kind : "failed";
+      console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
+      return { kind } as const;
+    }
+  };
+  const status = (kind: string) => (kind === "resting" ? 503 : kind === "timeout" ? 504 : 502);
+
+  if (req.headers.get(PROGRESS_HEADER) !== "1") {
+    const r = await run();
+    return "mix" in r ? ok({ mix: r.mix }) : fail(r.kind, status(r.kind));
   }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const line = (v: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(v)}\n`));
+      const r = await run((stage) => line({ stage }));
+      line("mix" in r ? { mix: r.mix } : { error: r.kind, message: MESSAGES[r.kind] });
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" },
+  });
 }

@@ -34,7 +34,9 @@ export async function POST(req: Request) {
     console.log(JSON.stringify({ event: "swap", usage, notes, trackCheck: await trackCheckLog(notes) }));
     return ok({ mix: swapped });
   } catch (err) {
+    // Nothing found in time (15 seconds on the phone): the original track stays.
     const kind = err instanceof MixError ? err.kind : "failed";
-    return fail(kind, kind === "resting" ? 503 : 502);
+    console.error(JSON.stringify({ event: "swap-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
+    return kind === "resting" ? fail("resting", 503) : fail("swapFailed", kind === "timeout" ? 504 : 502);
   }
 }

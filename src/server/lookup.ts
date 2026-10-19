@@ -59,10 +59,13 @@ export function simplify(s: string) {
 
 type ItunesResult = { trackName?: string; artistName?: string; trackViewUrl?: string; trackTimeMillis?: number; kind?: string };
 
+/** Album-length jams (15-minute "Chameleon") would swallow a workout; a shorter version usually exists. */
+export const MAX_TRACK_MS = 9 * 60_000;
+
 export function bestItunesMatch(results: ItunesResult[], title: string, artist: string): ItunesResult | undefined {
   const t = simplify(title);
   const a = simplify(artist);
-  const ok = results.filter((r) => r.kind === "song" && r.trackViewUrl && r.trackTimeMillis);
+  const ok = results.filter((r) => r.kind === "song" && r.trackViewUrl && r.trackTimeMillis && r.trackTimeMillis <= MAX_TRACK_MS);
   const titleOk = (r: ItunesResult) => {
     const rt = simplify(r.trackName ?? "");
     return rt === t || rt.startsWith(`${t} `) || t.startsWith(`${rt} `);
@@ -74,19 +77,29 @@ export function bestItunesMatch(results: ItunesResult[], title: string, artist: 
   return ok.find((r) => titleOk(r) && artistOk(r));
 }
 
+/** iTunes links are album pages; the `i` part says which song to play. Everything else is tracking. */
+export function appleSongUrl(trackViewUrl: string): string {
+  const u = new URL(trackViewUrl);
+  const song = u.searchParams.get("i");
+  return `${u.origin}${u.pathname}${song ? `?i=${encodeURIComponent(song)}` : ""}`;
+}
+
 /** "unavailable" means iTunes didn't answer properly (busy or down), which is not the same as "doesn't exist". */
 async function itunesSearch(title: string, artist: string): Promise<{ appleUrl: string; durationMs: number } | null | "unavailable"> {
   if (config.fakeServices()) return fakeItunes(title, artist);
-  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${title}`, entity: "song", limit: "10", country: "GB" })}`;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // 25 results cost the same one request as 10, and more often include the original recording.
+  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${title}`, entity: "song", limit: "25", country: "GB" })}`;
+  // iTunes allows about 20 searches a minute and answers 403 when it's had enough: wait and try again.
+  for (const wait of [0, 1500, 3500]) {
+    if (wait) await new Promise((r) => setTimeout(r, wait));
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(6000), cache: "no-store" });
-      if (res.status === 403 || res.status === 429 || res.status >= 500) throw new Error(`itunes ${res.status}`);
+      if (res.status === 403 || res.status === 429 || res.status >= 500) continue;
       const data = (await res.json()) as { results?: ItunesResult[] };
       const m = bestItunesMatch(data.results ?? [], title, artist);
-      return m ? { appleUrl: m.trackViewUrl!.split("?")[0], durationMs: m.trackTimeMillis! } : null;
+      return m ? { appleUrl: appleSongUrl(m.trackViewUrl!), durationMs: m.trackTimeMillis! } : null;
     } catch {
-      await new Promise((r) => setTimeout(r, 1200));
+      // timed out or unreadable: try again
     }
   }
   return "unavailable";

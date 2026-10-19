@@ -6,7 +6,7 @@ import { classify, setClaudeClientForTests, suggestMix } from "./claude";
 import { CATALOG } from "./fakes";
 import { TOLERANCE_MS, fitToLength, separateArtists } from "./fit";
 import { resetMemoryKV } from "./kv";
-import { bestItunesMatch, findLinks, simplify } from "./lookup";
+import { MAX_TRACK_MS, appleSongUrl, bestItunesMatch, findLinks, simplify } from "./lookup";
 import { makeMix, swapTrack } from "./mixes";
 import { mixPrompt, trackPlan } from "./prompt";
 import type { MixRequest } from "./validate";
@@ -81,6 +81,18 @@ describe("track matching (iTunes)", () => {
     ];
     expect(bestItunesMatch(results, "Show Me Love", "Robin S")?.trackViewUrl).toBe("https://a/2");
     expect(bestItunesMatch(results, "Imaginary Song", "Nobody")).toBeUndefined();
+  });
+
+  it("skips album-length versions over 9 minutes", () => {
+    const long = { kind: "song", trackName: "Chameleon", artistName: "Herbie Hancock", trackViewUrl: "https://a/3", trackTimeMillis: 15.7 * 60_000 };
+    expect(bestItunesMatch([long], "Chameleon", "Herbie Hancock")).toBeUndefined();
+    expect(bestItunesMatch([{ ...long, trackTimeMillis: MAX_TRACK_MS }], "Chameleon", "Herbie Hancock")).toBeDefined();
+  });
+
+  it("keeps the song in Apple links, not just the album", () => {
+    expect(appleSongUrl("https://music.apple.com/gb/album/hate-me-now/1223059940?i=1223060123&uo=4")).toBe(
+      "https://music.apple.com/gb/album/hate-me-now/1223059940?i=1223060123",
+    );
   });
 });
 

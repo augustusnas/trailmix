@@ -14,11 +14,19 @@ const AVERAGE_MS = 3.7 * 60_000;
 type Found = TrackInfo & { phase: PhaseId };
 const refKey = (t: TrackRef) => trackKey(t.title, t.artist);
 
-async function confirmAll(list: SuggestedTrack[]): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
+/** For the server log: which suggestions iTunes didn't find, and how many it was too busy to check. */
+export type LookupNotes = { notFound: string[]; busy: number };
+
+async function confirmAll(list: SuggestedTrack[], notes?: LookupNotes): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
   const results = await inBatches(list, 4, (t) => confirmTrack(t.title, t.artist));
   const found: Found[] = [];
   const missing: SuggestedTrack[] = [];
-  results.forEach((r, i) => (r && r !== "unavailable" ? found.push({ ...r, phase: list[i].phase }) : missing.push(list[i])));
+  results.forEach((r, i) => {
+    if (r && r !== "unavailable") return found.push({ ...r, phase: list[i].phase });
+    missing.push(list[i]);
+    if (r === "unavailable") notes && notes.busy++;
+    else notes?.notFound.push(`${list[i].title} — ${list[i].artist}`);
+  });
   return { found, missing };
 }
 
@@ -42,15 +50,16 @@ const byPhase = (tracks: Found[]) =>
   (["warm-up", "main", "cool-down"] as PhaseId[]).flatMap((p) => tracks.filter((t) => t.phase === p));
 
 /** F9: a new mix (or a Remix, when `exclude` and `avoidName` are given). */
-export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: string): Promise<{ mix: Mix; timings: Record<string, number> }> {
+export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: string): Promise<{ mix: Mix; timings: Record<string, number>; notes: LookupNotes }> {
   const started = Date.now();
   const timings: Record<string, number> = {};
+  const notes: LookupNotes = { notFound: [], busy: 0 };
   const lap = (name: string) => (timings[name] = Date.now() - started);
   const late = () => Date.now() - started > BUDGET_MS;
 
   const suggestion = await suggestMix(a, exclude, avoidName);
   lap("claude");
-  let { found, missing } = await confirmAll(suggestion.tracks);
+  let { found, missing } = await confirmAll(suggestion.tracks, notes);
   lap("itunes");
   const used = () => [...exclude, ...suggestion.tracks, ...found];
 
@@ -60,7 +69,7 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
     let need = missing.filter((m) => m.phase === phase).length;
     for (let tries = 0; need > 0 && tries < 2 && !late(); tries++) {
       const more = await suggestMore(a, phase, need, used(), "replacing tracks that couldn't be found");
-      const r = await confirmAll(more.slice(0, need));
+      const r = await confirmAll(more.slice(0, need), notes);
       found = [...found, ...r.found];
       need -= r.found.length;
       missing = [...missing, ...r.missing];
@@ -74,7 +83,7 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
   for (let round = 0; fit.status === "short" && round < 2 && !late(); round++) {
     const deficit = a.req.length * 60_000 - TOLERANCE_MS / 2 - fit.totalMs;
     const more = await suggestMore(a, "main", Math.ceil(deficit / AVERAGE_MS) + 2, used(), "the playlist is too short");
-    const r = await confirmAll(more);
+    const r = await confirmAll(more, notes);
     found = [...found, ...r.found];
     fit = fitToLength(byPhase(found), a.req.length);
   }
@@ -96,7 +105,7 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
     freshness: tracks.length ? Math.round((fresh / tracks.length) * 100) : 100,
   };
   timings.total = Date.now() - started;
-  return { mix, timings };
+  return { mix, timings, notes };
 }
 
 /** F11: replace one track with another real one in the same phase, keeping the length within 5 minutes. */

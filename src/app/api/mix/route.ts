@@ -26,8 +26,8 @@ export async function POST(req: Request) {
 
   try {
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-    const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName);
-    console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, tracks: mix.tracks.length, usage, timings }));
+    const { mix, timings, notes } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName);
+    console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, tracks: mix.tracks.length, usage, timings, notes }));
     return ok({ mix });
   } catch (err) {
     const kind = err instanceof MixError ? err.kind : "failed";

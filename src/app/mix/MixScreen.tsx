@@ -17,6 +17,7 @@ import { MESSAGES, type ErrorCode } from "@/lib/messages";
 import { fetchLinks, linksReady, requestMix, requestSwap, shareMix } from "@/lib/mixClient";
 import { PHASES, runningMinutes, type Mix } from "@/lib/mixTypes";
 import { addRecentMix, load, setCurrentMix, useSaved, type VibeSettings } from "@/lib/store";
+import { shareLink } from "@/lib/share";
 import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import styles from "./mix.module.css";
@@ -58,6 +59,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   const [busy, setBusy] = useState<"making" | "remixing" | "keeping" | { swapping: number } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [step, setStep] = useState("");
+  /** E5: YouTube's daily limit is used up; offer the mix page and Share instead. */
+  const [quotaId, setQuotaId] = useState<string | null>(null);
   const started = useRef(false);
 
   const handle = useCallback((res: ApiResult<{ mix: Mix }>) => {
@@ -121,12 +124,13 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   const keep = async () => {
     if (!mix) return;
     setBusy("keeping");
-    const res = mix.shareId ? { ok: true as const, data: { id: mix.shareId } } : await shareMix(mix);
+    const res = await shareMix(mix, app.id === "ytm");
     setBusy(null);
     if (!res.ok) return setProblem({ error: res.error, message: res.message });
     const kept = { ...mix, shareId: res.data.id };
     setCurrentMix(kept);
     addRecentMix(kept);
+    if (res.data.youtube === "quota") return setQuotaId(res.data.id); // E5
     // MILESTONE 4: YouTube Music users get a real playlist saved here, before Saved.
     if (app.id === "ytm") router.push(routineHref("/saved", routine.id));
     else router.push(`/m/${res.data.id}`);
@@ -183,15 +187,35 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
           </p>
         )}
 
+        {quotaId && mix && (
+          <div className={styles.problem} role="alert" data-testid="youtube-quota">
+            <p>{MESSAGES.youtubeQuota}</p>
+            <a href={`/m/${quotaId}`} className="cta cta--medium" style={{ background: "var(--ink)", color: "var(--lime)" }}>
+              <span>Open the mix page</span>
+            </a>
+            <button
+              type="button"
+              className="cta cta--medium"
+              style={{ border: "2px solid var(--ink)", color: "var(--ink)" }}
+              onClick={() => shareLink(quotaId, mix.name)}
+            >
+              <span>Share the list</span>
+            </button>
+          </div>
+        )}
+
         {problem && <ProblemBox problem={problem} routine={routine} onRetry={() => make(problem.error === "failed" ? undefined : undefined)} />}
 
         {mix && !making && (
           <>
             {mix.shortened && <p className={styles.note}>{MESSAGES.shortened}</p>}
             {pending > 0 && online && (
-              <p className={styles.note} role="status" data-testid="links-progress">
-                Finding links {mix.tracks.length - pending} of {mix.tracks.length}
-              </p>
+              <div className={styles.linksProgress} data-testid="links-progress">
+                <p className={styles.note} role="status">
+                  Finding links {mix.tracks.length - pending} of {mix.tracks.length}
+                </p>
+                <progress max={mix.tracks.length} value={mix.tracks.length - pending} aria-label="Links found" />
+              </div>
             )}
             {PHASES.map((p) => {
               const tracks = mix.tracks.map((t, i) => ({ t, i })).filter(({ t }) => t.phase === p.id);

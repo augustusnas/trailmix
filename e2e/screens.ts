@@ -83,6 +83,13 @@ export const SCREENS: Screen[] = [
   },
   { name: "mix", path: "/mix?routine=boxing-bag-rounds", state: onboarded(), setup: waitForMix },
   {
+    name: "mix-making",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "slow",
+    setup: async (page) => void (await page.getByText("Picking tracks for your vibe…").waitFor()),
+  },
+  {
     name: "mix-failed",
     path: "/mix?routine=boxing-bag-rounds",
     state: onboarded(),

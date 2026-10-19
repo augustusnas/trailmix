@@ -10,6 +10,7 @@ type State = {
   vibes?: Record<string, { genres: string[]; energy: string; length: number }>;
   accessCode?: string | null;
   currentMix?: unknown;
+  recentMixes?: unknown[];
 };
 
 /** The beta access code the test servers are started with. */

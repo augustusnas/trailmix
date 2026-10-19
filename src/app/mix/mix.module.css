@@ -111,3 +111,27 @@
 .keep {
   border: 0;
 }
+
+.linksProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.linksProgress progress {
+  width: 100%;
+  height: 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: rgba(22, 19, 15, 0.15);
+}
+.linksProgress progress::-webkit-progress-bar {
+  background: rgba(22, 19, 15, 0.15);
+  border-radius: var(--radius-pill);
+}
+.linksProgress progress::-webkit-progress-value {
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+}

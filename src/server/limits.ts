@@ -54,3 +54,11 @@ export async function youtubeSearchAllowed(mixId: string): Promise<boolean> {
   if (!(await within(`yt:mix:${mixId}`, LIMITS.youtubeSearchesPerMix, DAY))) return false;
   return within(day, LIMITS.youtubeSearchesPerDay, 2 * DAY);
 }
+
+/**
+ * E5: is there YouTube quota left today for saving a playlist? MILESTONE 4: check the real quota
+ * used by saves. Until then only the E5 test switch says no.
+ */
+export async function youtubeSaveQuotaLeft(forced?: string | null): Promise<boolean> {
+  return forced !== "e5";
+}

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { CATALOG } from "../src/server/fakes";
 import { BOXING_VIBE, ONBOARDED, TEST_ACCESS_CODE, makeSharedMix, seed, stored, waitForMix } from "./helpers";
 
 const switchOn = (page: Page, v: string) => page.addInitScript((x) => sessionStorage.setItem("trailmix-test-switch", x), v);
@@ -87,8 +88,8 @@ test.describe("making mixes", () => {
   });
 
   for (const [sw, message] of [
-    ["e9", "That's 20 mixes this hour. Take a breather and try again soon."],
-    ["e14", "Trailmix has made all the mixes it can for today. Back after midnight."],
+    ["e9", "That's a lot of mixes. Back in a few minutes."],
+    ["e14", "Trailmix has made enough mixes for today. Back tomorrow."],
     ["e15", "Mix-making is paused. Back soon."],
   ] as const) {
     test(`${sw.toUpperCase()}: "${message}"`, async ({ page }) => {
@@ -138,6 +139,41 @@ test.describe("making mixes", () => {
     const second = await titles(page);
     expect(second.filter((t) => !first.includes(t)).length / second.length).toBeGreaterThanOrEqual(0.7);
   });
+});
+
+test("E5: YouTube's daily limit used up → Keep it offers the mix page and Share instead; mixes still work", async ({ page }) => {
+  await seed(page, { ...ONBOARDED, vibes: BOXING_VIBE });
+  await switchOn(page, "e5");
+  await page.goto("/mix?routine=boxing-bag-rounds");
+  await waitForMix(page);
+  await page.getByTestId("mix-action").click();
+  const box = page.getByTestId("youtube-quota");
+  await expect(box).toContainText("YouTube's daily limit is used up. Try tomorrow or share the list.");
+  await expect(page).toHaveURL(/\/mix\?routine=boxing-bag-rounds$/); // the mix stays on screen
+  await box.getByRole("link", { name: "Open the mix page" }).click();
+  await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
+});
+
+test("F18: given 10 previous mixes, at least 70% of a new mix is new, and its freshness is recorded when kept", async ({ page }) => {
+  // Ten earlier mixes of ten tracks each, drawn from the same recorded catalogue the stand-in Claude uses.
+  const recentMixes = Array.from({ length: 10 }, (_, m) => ({
+    name: `Earlier ${m}`,
+    routineId: "boxing-bag-rounds",
+    date: `2026-10-${String(m + 1).padStart(2, "0")}`,
+    freshness: 100,
+    tracks: CATALOG.slice(m * 10, m * 10 + 10).map((t) => ({ title: t.title, artist: t.artist })),
+  }));
+  const previous = new Set(recentMixes.flatMap((m) => m.tracks.map((t) => t.title)));
+  await seed(page, { ...ONBOARDED, vibes: BOXING_VIBE, recentMixes });
+  await page.goto("/mix?routine=boxing-bag-rounds");
+  await waitForMix(page);
+  const now = await titles(page);
+  const fresh = now.filter((t) => !previous.has(t)).length / now.length;
+  expect(fresh).toBeGreaterThanOrEqual(0.7);
+  await page.getByTestId("mix-action").click();
+  await page.getByTestId("saved-action").waitFor();
+  const kept = (await stored(page)).recentMixes[0];
+  expect(kept.freshness).toBe(Math.round(fresh * 100));
 });
 
 test("a phone set up before access codes is asked for the code when it makes a mix", async ({ page }) => {

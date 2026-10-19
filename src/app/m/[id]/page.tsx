@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Wordmark } from "@/components/Beta";
 import { Headline } from "@/components/Headline";
+import { RoutineTag } from "@/components/RoutineTag";
 import { getRoutine } from "@/data/routines";
 import { energyLabel, genreLabel } from "@/lib/format";
 import { MESSAGES } from "@/lib/messages";
@@ -46,8 +47,11 @@ export default async function SharedMix({ params }: { params: Promise<{ id: stri
           </span>
         </div>
         <Headline text={mix.name} size="shared" style={{ lineHeight: 0.88, letterSpacing: "-0.045em" }} />
+        <div>
+          <RoutineTag routine={routine} />
+        </div>
         <p className="mono">
-          {routine.name} · {energyLabel(mix.energy)} · {mix.genres.map(genreLabel).join(" · ")} · {runningMinutes(mix)} min
+          {energyLabel(mix.energy)} · {mix.genres.map(genreLabel).join(" · ")} · {runningMinutes(mix)} min
         </p>
       </header>
       <SharedPlayer mix={mix} />

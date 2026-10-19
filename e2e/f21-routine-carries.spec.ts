@@ -38,6 +38,11 @@ async function checkFlow(page: Page, r: Routine) {
   await page.getByTestId("mix-action").click();
   await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}$`));
   await expectTag(page, r);
+
+  // …and on the shared mix page.
+  await page.getByTestId("saved-action").click();
+  await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
+  await expectTag(page, r);
 }
 
 test.beforeEach(async ({ page }) => seed(page, ONBOARDED));

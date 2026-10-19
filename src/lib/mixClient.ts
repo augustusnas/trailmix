@@ -53,6 +53,7 @@ export async function fetchLinks(mix: Mix): Promise<{ mix: Mix; retryAfterMs: nu
 
 export const linksReady = (mix: Mix) => mix.tracks.every((t) => !t.linksPending);
 
-export function shareMix(mix: Mix) {
-  return callApi<{ id: string }>("/api/share", { mix });
+/** Stores the mix as a shared page. For YouTube Music users' Keep it, also asks to save (E5 if no quota). */
+export function shareMix(mix: Mix, saveToYouTube = false) {
+  return callApi<{ id: string; youtube?: "ok" | "quota" }>("/api/share", { mix, saveToYouTube });
 }

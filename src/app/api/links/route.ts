@@ -1,7 +1,6 @@
 import { checkAccess } from "@/server/access";
 import { clientIp, fail, ok, readJson } from "@/server/http";
 import { findLinks, type LinkResult } from "@/server/lookup";
-import { testSwitch } from "@/server/testSwitch";
 import { cleanText } from "@/server/validate";
 
 export const maxDuration = 60;
@@ -22,11 +21,6 @@ export async function POST(req: Request) {
     const appleUrl = typeof t?.appleUrl === "string" && /^https:\/\/music\.apple\.com\//.test(t.appleUrl) ? t.appleUrl : null;
     return title && artist && appleUrl ? [{ title, artist, appleUrl }] : [];
   });
-
-  // E5 test switch: links unavailable, so tracks keep only their Apple links.
-  if (testSwitch(req) === "e5") {
-    return ok({ results: tracks.map((t) => ({ key: "", links: {}, done: true, title: t.title, artist: t.artist })), retryAfterMs: 0 });
-  }
 
   const results: (LinkResult & { title: string; artist: string })[] = [];
   const started = Date.now();

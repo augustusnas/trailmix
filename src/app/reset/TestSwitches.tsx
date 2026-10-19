@@ -10,7 +10,7 @@ const SWITCHES = [
   { id: "e1", label: "E1 · Tracks can't be found (mix comes out shorter)" },
   { id: "e3", label: "E3 · The mix doesn't come together" },
   { id: "e4", label: "E4 · Mix-making is resting (Claude down)" },
-  { id: "e5", label: "E5 · Track links unavailable (provisional)" },
+  { id: "e5", label: "E5 · YouTube's daily limit used up (Keep it)" },
   { id: "e9", label: "E9 · Hourly limit reached" },
   { id: "e10", label: "E10 · Pretend to be offline" },
   { id: "e14", label: "E14 · Daily ceiling reached" },

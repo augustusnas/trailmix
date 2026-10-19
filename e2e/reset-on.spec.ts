@@ -38,3 +38,15 @@ test("F1 phone check: Reset to a fresh install goes back to Welcome with nothing
   await expect(page.getByRole("heading", { name: "Pick the terrain. We’ll bring the noise." })).toBeVisible();
   expect(await stored(page)).toBeNull();
 });
+
+test("phone test switches: E3 forced from the reset page, then back to normal", async ({ page }) => {
+  await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["grime"], energy: "driven", length: 30 } } });
+  await openReset(page);
+  await page.getByRole("button", { name: /E3 · The mix doesn't come together/ }).click();
+  await page.goto("/mix?routine=boxing-bag-rounds");
+  await expect(page.getByTestId("mix-problem")).toContainText("The mix didn't come together. Try again.");
+  await openReset(page);
+  await page.getByRole("button", { name: "Everything normal" }).click();
+  await page.goto("/mix?routine=boxing-bag-rounds");
+  await expect(page.getByTestId("mix-action")).toBeVisible();
+});

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Headline } from "@/components/Headline";
 import { STORAGE_KEY, reset } from "@/lib/store";
+import { TestSwitches } from "./TestSwitches";
 
 /** Unreadable data that still says it finished first run. Exported for the E12 test. */
 export const DAMAGED = '{"version":1,"onboarded":true,"pins":"oops", "vibes":[1,2';
@@ -47,6 +48,7 @@ export function ResetScreen() {
       <p role="status" style={{ fontSize: "var(--t-17)" }}>
         {done}
       </p>
+      <TestSwitches />
       <Link href="/home" className="cta cta--medium" style={{ border: "2px solid var(--sand)", color: "var(--sand)" }}>
         <span>Back to home</span>
       </Link>

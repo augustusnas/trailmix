@@ -300,7 +300,7 @@ test.describe("shared mix page", () => {
     await seed(page, ONBOARDED); // a Trailmix user on YouTube Music
     await page.goto(`/m/${id}`);
     const lead = page.getByTestId("lead-app");
-    await expect(lead).toContainText("Open the whole playlist");
+    await expect(lead).toContainText("Open in YouTube Music");
     const others = page.getByRole("group", { name: "Other music apps" }).getByRole("button");
     await expect(others).toHaveText(["Spotify", "Apple Music"]);
     const leadBox = (await lead.boundingBox())!;

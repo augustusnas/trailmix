@@ -1,5 +1,5 @@
-// Making and changing mixes: Claude suggests → every track confirmed real (iTunes) → missing ones
-// replaced (E1) → fitted to length (F10) → shown. Links for other apps come afterwards (links route).
+// Making and changing mixes: Claude suggests → every track confirmed real (Deezer) → missing ones
+// replaced (E1) → fitted to length (F10) → shown. Apple Music links come afterwards (links route).
 
 import { randomBytes } from "node:crypto";
 import { trackKey, type Mix, type MixTrack, type PhaseId } from "@/lib/mixTypes";
@@ -14,7 +14,7 @@ const AVERAGE_MS = 3.7 * 60_000;
 type Found = TrackInfo & { phase: PhaseId };
 const refKey = (t: TrackRef) => trackKey(t.title, t.artist);
 
-/** For the server log: which suggestions iTunes didn't find, and how many it was too busy to check. */
+/** For the server log: which suggestions Deezer didn't find, and how many it was too busy to check. */
 export type LookupNotes = { notFound: string[]; busy: number };
 
 async function confirmAll(list: SuggestedTrack[], notes?: LookupNotes): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
@@ -38,11 +38,7 @@ function toMixTrack(t: Found): MixTrack {
     durationMs: t.durationMs,
     key: trackKey(t.title, t.artist),
     appleUrl: t.appleUrl,
-    spotifyUrl: t.spotifyUrl,
-    youtubeMusicUrl: t.youtubeMusicUrl,
-    youtubeUrl: t.youtubeUrl,
-    youtubeId: t.youtubeId,
-    linksPending: t.linksDone ? undefined : true,
+    linksPending: t.appleDone ? undefined : true,
   };
 }
 
@@ -63,9 +59,9 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
   lap("itunes");
   const used = () => [...exclude, ...suggestion.tracks, ...found];
 
-  // E1: replace tracks iTunes can't find, in the same phase, up to 2 tries; then drop them.
-  let dropped = 0;
-  for (const phase of ["warm-up", "main", "cool-down"] as PhaseId[]) {
+  // E1: replace tracks that can't be found, in the same phase, up to 2 tries; then drop them.
+  // The phases are asked for at the same time.
+  const replace = async (phase: PhaseId): Promise<number> => {
     let need = missing.filter((m) => m.phase === phase).length;
     for (let tries = 0; need > 0 && tries < 2 && !late(); tries++) {
       const more = await suggestMore(a, phase, need, used(), "replacing tracks that couldn't be found");
@@ -74,8 +70,9 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
       need -= r.found.length;
       missing = [...missing, ...r.missing];
     }
-    dropped += need;
-  }
+    return need;
+  };
+  const dropped = (await Promise.all((["warm-up", "main", "cool-down"] as PhaseId[]).map(replace))).reduce((n, d) => n + d, 0);
   lap("replacements");
 
   // F10: fit to length; if still short, ask for more main-block tracks (up to 2 rounds).

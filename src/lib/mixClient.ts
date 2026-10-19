@@ -31,22 +31,19 @@ export function requestSwap(routine: Routine, vibe: VibeSettings, saved: Saved, 
 }
 
 type LinkAnswer = {
-  results: { title: string; artist: string; links: Partial<MixTrack> }[];
+  results: Pick<MixTrack, "title" | "artist" | "appleUrl">[];
   retryAfterMs: number;
 };
 
-/** One round of background link-finding: returns the mix with whatever links arrived, and when to ask again. */
+/** One round of finding exact Apple Music links: the mix with whatever arrived, and when to ask again. */
 export async function fetchLinks(mix: Mix): Promise<{ mix: Mix; retryAfterMs: number } | null> {
-  const pending = mix.tracks.filter((t) => t.linksPending && t.appleUrl);
+  const pending = mix.tracks.filter((t) => t.linksPending);
   if (!pending.length) return { mix, retryAfterMs: 0 };
-  const res = await callApi<LinkAnswer>("/api/links", {
-    mixId: mix.id,
-    tracks: pending.map(({ title, artist, appleUrl }) => ({ title, artist, appleUrl })),
-  });
+  const res = await callApi<LinkAnswer>("/api/links", { tracks: pending.map(({ title, artist }) => ({ title, artist })) });
   if (!res.ok) return null;
   const tracks = mix.tracks.map((t) => {
     const r = res.data.results.find((x) => x.title === t.title && x.artist === t.artist);
-    return r ? { ...t, ...r.links, linksPending: undefined } : t;
+    return r ? { ...t, appleUrl: r.appleUrl, linksPending: undefined } : t;
   });
   return { mix: { ...mix, tracks }, retryAfterMs: res.data.retryAfterMs };
 }

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { codeMatches, checkAccess, ACCESS_HEADER } from "./access";
 import { resetMemoryKV } from "./kv";
-import { codeTryAllowed, mixAllowed, recordWrongCode, shareAllowed, ukDay, youtubeSearchAllowed } from "./limits";
+import { codeTryAllowed, mixAllowed, recordWrongCode, shareAllowed, ukDay } from "./limits";
 import { cleanText, validateMixRequest } from "./validate";
 
 const env = { ...process.env };
@@ -123,13 +123,5 @@ describe("limits", () => {
   it("20 shares a day per code", async () => {
     for (let i = 0; i < 20; i++) expect(await shareAllowed("code1")).toBe(true);
     expect(await shareAllowed("code1")).toBe(false);
-  });
-
-  it("YouTube searches: 3 per mix, 30 per day", async () => {
-    for (let i = 0; i < 3; i++) expect(await youtubeSearchAllowed("mix1")).toBe(true);
-    expect(await youtubeSearchAllowed("mix1")).toBe(false);
-    let allowed = 3;
-    for (let m = 2; m <= 20; m++) for (let i = 0; i < 3; i++) if (await youtubeSearchAllowed(`mix${m}`)) allowed++;
-    expect(allowed).toBe(30);
   });
 });

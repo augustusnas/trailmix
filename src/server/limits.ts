@@ -1,5 +1,5 @@
 // Limits that protect Claude credit and YouTube units: off switch (E15), daily ceiling (E14),
-// per-person hourly limit (E9), plus share, page-view, code-try and YouTube search caps.
+// per-person hourly limit (E9), plus share, page-view and code-try caps.
 
 import type { ErrorCode } from "@/lib/messages";
 import { LIMITS, config } from "./config";
@@ -44,15 +44,6 @@ export async function codeTryAllowed(ip: string): Promise<boolean> {
 }
 export async function recordWrongCode(ip: string): Promise<void> {
   await getKV().incr(codeTriesKey(ip), 2 * HOUR);
-}
-
-/** YouTube fallback searches: 3 per mix, 30 per day overall (each costs 100 of 10,000 units). */
-export async function youtubeSearchAllowed(mixId: string): Promise<boolean> {
-  const kv = getKV();
-  const day = `yt:${ukDay()}`;
-  if (!config.relaxedLimits() && ((await kv.get<number>(day)) ?? 0) >= LIMITS.youtubeSearchesPerDay) return false;
-  if (!(await within(`yt:mix:${mixId}`, LIMITS.youtubeSearchesPerMix, DAY))) return false;
-  return within(day, LIMITS.youtubeSearchesPerDay, 2 * DAY);
 }
 
 /**

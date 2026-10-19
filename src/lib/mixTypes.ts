@@ -11,21 +11,18 @@ export type MixTrack = {
   title: string;
   artist: string;
   phase: PhaseId;
-  /** Real length, from iTunes (or YouTube for fallback tracks). */
+  /** Real length, from Deezer. */
   durationMs: number;
   /** Cache key for this track's lookup. */
   key: string;
+  /** The exact Apple Music song. Without it, Apple Music opens a search (as Spotify and YouTube Music always do). */
   appleUrl?: string;
-  spotifyUrl?: string;
-  youtubeMusicUrl?: string;
-  youtubeUrl?: string;
-  youtubeId?: string;
-  /** Spotify and YouTube links are still being found (Odesli), in the background. */
+  /** iTunes hasn't been asked for the Apple Music link yet; it's found in the background. */
   linksPending?: boolean;
 };
 
 export type Mix = {
-  /** Random id for this mix (also used to count YouTube searches per mix). */
+  /** Random id for this mix. */
   id: string;
   name: string;
   routineId: string;
@@ -75,11 +72,7 @@ export function sanitizeMix(v: unknown): Mix | null {
       phase,
       durationMs,
       key: str(t.key) ?? trackKey(title, artist),
-      appleUrl: url(t.appleUrl),
-      spotifyUrl: url(t.spotifyUrl),
-      youtubeMusicUrl: url(t.youtubeMusicUrl),
-      youtubeUrl: url(t.youtubeUrl),
-      youtubeId: typeof t.youtubeId === "string" && /^[\w-]{6,20}$/.test(t.youtubeId) ? t.youtubeId : undefined,
+      appleUrl: url(t.appleUrl)?.startsWith("https://music.apple.com/") ? url(t.appleUrl) : undefined,
       linksPending: t.linksPending === true ? true : undefined,
     });
   }

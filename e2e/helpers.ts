@@ -96,21 +96,21 @@ export async function laceUp(page: Page) {
 
 const ACCESS = { "x-trailmix-access": TEST_ACCESS_CODE };
 
-/** Makes a real mix (with the recorded stand-in services), finds its links, and stores it as a shared mix page. */
+/** Makes a real mix (with the recorded stand-in services), finds its Apple Music links, and stores it as a shared mix page. */
 export async function makeSharedMix(
   request: import("@playwright/test").APIRequestContext,
   settings = { routine: "boxing-bag-rounds", genres: ["grime", "dnb"], energy: "driven", length: 45 },
-): Promise<{ id: string; mix: { name: string; tracks: { title: string; youtubeId?: string; spotifyUrl?: string; appleUrl?: string }[] } }> {
+): Promise<{ id: string; mix: { name: string; tracks: { title: string; artist: string; appleUrl?: string }[] } }> {
   const made = await (await request.post("/api/mix", { headers: ACCESS, data: { ...settings, avoid: [] } })).json();
   let mix = made.mix;
   for (let round = 0; mix.tracks.some((t: { linksPending?: boolean }) => t.linksPending) && round < 5; round++) {
     const pending = mix.tracks.filter((t: { linksPending?: boolean }) => t.linksPending);
-    const links = await (await request.post("/api/links", { headers: ACCESS, data: { mixId: mix.id, tracks: pending } })).json();
+    const links = await (await request.post("/api/links", { headers: ACCESS, data: { tracks: pending } })).json();
     mix = {
       ...mix,
       tracks: mix.tracks.map((t: { title: string; artist: string }) => {
         const r = links.results.find((x: { title: string; artist: string }) => x.title === t.title && x.artist === t.artist);
-        return r ? { ...t, ...r.links, linksPending: undefined } : t;
+        return r ? { ...t, appleUrl: r.appleUrl, linksPending: undefined } : t;
       }),
     };
   }
@@ -118,7 +118,7 @@ export async function makeSharedMix(
   return { id, mix };
 }
 
-/** Waits until The mix has its links and the main button can be tapped. */
+/** Waits until The mix is on screen and the main button can be tapped. */
 export async function waitForMix(page: Page) {
   const action = page.getByTestId("mix-action");
   await action.waitFor();

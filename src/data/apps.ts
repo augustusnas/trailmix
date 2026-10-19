@@ -12,7 +12,7 @@ export type MusicApp = {
   /** Main button on Saved */
   openAction: string;
   homeUrl: string;
-  /** FAKE until Milestone 3: a search for the track in this app. */
+  /** A search for the song in this app (Apple Music uses the exact song when iTunes found it). */
   trackUrl: (artist: string, title: string) => string;
 };
 

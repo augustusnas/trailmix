@@ -1,23 +1,22 @@
-// Track lookup: cache → iTunes (is it real? how long?) → Odesli (links for every app) → YouTube
-// search only as a capped fallback (E2). Results are cached in Upstash for everyone.
+// Track lookup. Before a mix is shown: cache → Deezer (is it real? how long?). Fast, no key, and it
+// allows 50 searches every 5 seconds, so a whole mix is checked at once.
+// Afterwards, in the background: iTunes for each track's exact Apple Music link, paced to iTunes's
+// limit of about 20 searches a minute. Spotify and YouTube Music links are searches for the song
+// (built on the phone, see data/apps.ts). Results are cached in Upstash for everyone.
 
 import { trackKey } from "@/lib/mixTypes";
 import { config } from "./config";
-import { fakeItunes, fakeOdesli, fakeYouTube } from "./fakes";
+import { fakeCatalogue, fakeItunes } from "./fakes";
 import { getKV } from "./kv";
-import { youtubeSearchAllowed } from "./limits";
 
 export type TrackInfo = {
   title: string;
   artist: string;
-  appleUrl: string;
   durationMs: number;
-  spotifyUrl?: string;
-  youtubeMusicUrl?: string;
-  youtubeUrl?: string;
-  youtubeId?: string;
-  /** Odesli (and the YouTube fallback, if needed) have been tried. */
-  linksDone?: boolean;
+  /** The exact Apple Music song, once iTunes has been asked. */
+  appleUrl?: string;
+  /** iTunes has been asked (whether or not it found the song). */
+  appleDone?: boolean;
 };
 
 type Cached = TrackInfo | { missing: true };
@@ -35,14 +34,14 @@ async function readCache(key: string): Promise<Cached | null> {
 
 async function writeCache(key: string, value: Cached) {
   try {
-    // Unknown tracks are remembered for a day only, in case iTunes adds them.
+    // Unknown tracks are remembered for a day only, in case they're added.
     await getKV().set(cacheKey(key), value, "missing" in value ? 86400 : CACHE_DAYS * 86400);
   } catch {
     // the cache is a speed-up, never required
   }
 }
 
-// ---------- iTunes ----------
+// ---------- matching ----------
 
 /** Lower case, accents and punctuation gone, "feat." parts and bracketed versions dropped. */
 export function simplify(s: string) {
@@ -53,51 +52,56 @@ export function simplify(s: string) {
     // one bracketed note at a time: "(feat. X)", "[2019 Remaster]", "(Radio Edit)"…
     .replace(/\s*[([][^)\]]*\b(feat|ft|with|remaster(ed)?|version|edit|mix|live|radio)\b[^)\]]*[)\]]/g, "")
     .replace(/\s+(feat\.?|ft\.?|featuring)\s.*$/, "")
+    .replace(/^the\s+/, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
 
-type ItunesResult = { trackName?: string; artistName?: string; trackViewUrl?: string; trackTimeMillis?: number; kind?: string };
-
 /** Album-length jams (15-minute "Chameleon") would swallow a workout; a shorter version usually exists. */
 export const MAX_TRACK_MS = 9 * 60_000;
+/** Shorter than this is an intro, edit or snippet (a 54-second "Bitches Brew"), not the song. */
+export const MIN_TRACK_MS = 90_000;
 
-export function bestItunesMatch(results: ItunesResult[], title: string, artist: string): ItunesResult | undefined {
+export type Candidate = { title: string; artist: string; durationMs: number; url?: string };
+
+/** The first result that's the same song by the same artist (not a cover or karaoke), 1½ to 9 minutes long. */
+export function bestMatch<C extends Candidate>(results: C[], title: string, artist: string): C | undefined {
   const t = simplify(title);
   const a = simplify(artist);
-  const ok = results.filter((r) => r.kind === "song" && r.trackViewUrl && r.trackTimeMillis && r.trackTimeMillis <= MAX_TRACK_MS);
-  const titleOk = (r: ItunesResult) => {
-    const rt = simplify(r.trackName ?? "");
-    return rt === t || rt.startsWith(`${t} `) || t.startsWith(`${rt} `);
+  const titleOk = (c: C) => {
+    const ct = simplify(c.title);
+    return ct === t || ct.startsWith(`${t} `) || t.startsWith(`${ct} `);
   };
-  const artistOk = (r: ItunesResult) => {
-    const ra = simplify(r.artistName ?? "");
-    return ra.includes(a) || a.includes(ra);
+  const artistOk = (c: C) => {
+    const ca = simplify(c.artist);
+    return ca.length > 0 && (ca.includes(a) || a.includes(ca));
   };
-  return ok.find((r) => titleOk(r) && artistOk(r));
+  return results.find((c) => c.durationMs >= MIN_TRACK_MS && c.durationMs <= MAX_TRACK_MS && titleOk(c) && artistOk(c));
 }
 
-/** iTunes links are album pages; the `i` part says which song to play. Everything else is tracking. */
-export function appleSongUrl(trackViewUrl: string): string {
-  const u = new URL(trackViewUrl);
-  const song = u.searchParams.get("i");
-  return `${u.origin}${u.pathname}${song ? `?i=${encodeURIComponent(song)}` : ""}`;
-}
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** "unavailable" means iTunes didn't answer properly (busy or down), which is not the same as "doesn't exist". */
-async function itunesSearch(title: string, artist: string): Promise<{ appleUrl: string; durationMs: number } | null | "unavailable"> {
-  if (config.fakeServices()) return fakeItunes(title, artist);
-  // 25 results cost the same one request as 10, and more often include the original recording.
-  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${title}`, entity: "song", limit: "25", country: "GB" })}`;
-  // iTunes allows about 20 searches a minute and answers 403 when it's had enough: wait and try again.
-  for (const wait of [0, 1500, 3500]) {
-    if (wait) await new Promise((r) => setTimeout(r, wait));
+// ---------- Deezer: does it exist, and how long is it ----------
+
+type DeezerResult = { title?: string; title_short?: string; duration?: number; readable?: boolean; artist?: { name?: string } };
+
+/** "unavailable" means Deezer didn't answer properly (busy or down), which is not the same as "doesn't exist". */
+async function deezerSearch(title: string, artist: string): Promise<{ durationMs: number } | null | "unavailable"> {
+  if (config.fakeServices()) return fakeCatalogue(title, artist);
+  const url = `https://api.deezer.com/search?${new URLSearchParams({ q: `${artist} ${title}`, limit: "25" })}`;
+  for (const wait of [0, 1000, 2500]) {
+    if (wait) await pause(wait);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000), cache: "no-store" });
-      if (res.status === 403 || res.status === 429 || res.status >= 500) continue;
-      const data = (await res.json()) as { results?: ItunesResult[] };
-      const m = bestItunesMatch(data.results ?? [], title, artist);
-      return m ? { appleUrl: appleSongUrl(m.trackViewUrl!), durationMs: m.trackTimeMillis! } : null;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+      if (!res.ok) continue;
+      // Deezer reports being busy inside a normal answer: { error: { code: 4, ... } }
+      const data = (await res.json()) as { data?: DeezerResult[]; error?: unknown };
+      if (data.error || !Array.isArray(data.data)) continue;
+      const candidates = data.data
+        .filter((r) => r.readable !== false)
+        .map((r) => ({ title: r.title_short ?? r.title ?? "", artist: r.artist?.name ?? "", durationMs: (r.duration ?? 0) * 1000 }));
+      const m = bestMatch(candidates, title, artist);
+      return m ? { durationMs: m.durationMs } : null;
     } catch {
       // timed out or unreadable: try again
     }
@@ -105,12 +109,12 @@ async function itunesSearch(title: string, artist: string): Promise<{ appleUrl: 
   return "unavailable";
 }
 
-/** Step 1–2: cache, then iTunes. Returns null when the track doesn't seem to exist (E1). */
+/** Before showing a mix: cache, then Deezer. Returns null when the track doesn't seem to exist (E1). */
 export async function confirmTrack(title: string, artist: string): Promise<TrackInfo | null | "unavailable"> {
   const key = trackKey(title, artist);
   const cached = await readCache(key);
   if (cached) return "missing" in cached ? null : cached;
-  const found = await itunesSearch(title, artist);
+  const found = await deezerSearch(title, artist);
   if (found === "unavailable") return found;
   if (!found) {
     await writeCache(key, { missing: true });
@@ -121,97 +125,64 @@ export async function confirmTrack(title: string, artist: string): Promise<Track
   return info;
 }
 
-/** Runs lookups a few at a time, so iTunes isn't flooded. */
+/** Runs lookups a few at a time. */
 export async function inBatches<T, R>(items: T[], size: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = [];
   for (let i = 0; i < items.length; i += size) out.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
   return out;
 }
 
-// ---------- Odesli and the YouTube fallback ----------
+// ---------- iTunes: the exact Apple Music link, in the background ----------
 
-/** Odesli's free tier allows about 10 requests a minute, shared by everyone using Trailmix. */
-const odesliPerMinute = () => (config.fakeServices() ? 1000 : config.odesliKey() ? 50 : 9);
+/** iTunes allows about 20 searches a minute from one address; stay under it, shared by everyone. */
+const itunesPerMinute = () => (config.fakeServices() ? 1000 : 15);
 
-async function odesliSlot(): Promise<boolean> {
-  return (await getKV().incr(`odesli:${Math.floor(Date.now() / 60000)}`, 120)) <= odesliPerMinute();
+async function itunesSlot(): Promise<boolean> {
+  return (await getKV().incr(`itunes:${Math.floor(Date.now() / 60000)}`, 120)) <= itunesPerMinute();
 }
 
-type Links = Pick<TrackInfo, "spotifyUrl" | "youtubeMusicUrl" | "youtubeUrl" | "youtubeId">;
+type ItunesResult = { trackName?: string; artistName?: string; trackViewUrl?: string; trackTimeMillis?: number; kind?: string };
 
-async function odesli(appleUrl: string): Promise<Links | null> {
-  if (config.fakeServices()) return fakeOdesli(appleUrl);
-  const params = new URLSearchParams({ url: appleUrl, userCountry: "GB" });
-  const key = config.odesliKey();
-  if (key) params.set("key", key);
+/** iTunes links are album pages; the `i` part says which song to play. Everything else is tracking. */
+export function appleSongUrl(trackViewUrl: string): string {
+  const u = new URL(trackViewUrl);
+  const song = u.searchParams.get("i");
+  return `${u.origin}${u.pathname}${song ? `?i=${encodeURIComponent(song)}` : ""}`;
+}
+
+/** The song's Apple Music link, null if iTunes doesn't have it, "unavailable" if iTunes is busy. */
+async function itunesSearch(title: string, artist: string): Promise<string | null | "unavailable"> {
+  if (config.fakeServices()) return fakeItunes(title, artist);
+  // 25 results cost the same one request as 10, and more often include the original recording.
+  const url = `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${title}`, entity: "song", limit: "25", country: "GB" })}`;
   try {
-    const res = await fetch(`https://api.song.link/v1-alpha.1/links?${params}`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      linksByPlatform?: Record<string, { url?: string; entityUniqueId?: string }>;
-    };
-    const p = data.linksByPlatform ?? {};
-    const yt = p.youtube ?? p.youtubeMusic;
-    const youtubeId = yt?.entityUniqueId?.startsWith("YOUTUBE_VIDEO::") ? yt.entityUniqueId.split("::")[1] : undefined;
-    return { spotifyUrl: p.spotify?.url, youtubeMusicUrl: p.youtubeMusic?.url, youtubeUrl: p.youtube?.url, youtubeId };
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000), cache: "no-store" });
+    if (!res.ok) return "unavailable"; // 403 is iTunes saying "too many": ask again next minute
+    const data = (await res.json()) as { results?: ItunesResult[] };
+    const candidates = (data.results ?? [])
+      .filter((r) => r.kind === "song" && r.trackViewUrl)
+      .map((r) => ({ title: r.trackName ?? "", artist: r.artistName ?? "", durationMs: r.trackTimeMillis ?? 0, url: r.trackViewUrl! }));
+    const m = bestMatch(candidates, title, artist);
+    return m ? appleSongUrl(m.url) : null;
   } catch {
-    return null;
+    return "unavailable";
   }
 }
 
-/** E2: one YouTube search (100 of the 10,000 daily units), Music category first. Capped per mix and per day. */
-async function youtubeSearch(title: string, artist: string, mixId: string): Promise<string | null> {
-  if (!(await youtubeSearchAllowed(mixId))) return null;
-  if (config.fakeServices()) return fakeYouTube(title, artist);
-  const key = config.youtubeKey();
-  if (!key) return null;
-  const params = new URLSearchParams({
-    part: "snippet",
-    type: "video",
-    videoCategoryId: "10",
-    maxResults: "5",
-    q: `${artist} ${title}`,
-    key,
-  });
-  try {
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { items?: { id?: { videoId?: string }; snippet?: { channelTitle?: string; title?: string } }[] };
-    const items = data.items ?? [];
-    const score = (i: (typeof items)[number]) =>
-      (i.snippet?.channelTitle?.toLowerCase().endsWith(" - topic") ? 3 : 0) +
-      (/official audio/i.test(i.snippet?.title ?? "") ? 2 : 0) +
-      (/\blive\b/i.test(i.snippet?.title ?? "") ? -2 : 0);
-    const best = [...items].sort((a, b) => score(b) - score(a))[0];
-    return best?.id?.videoId ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export type LinkResult = { key: string; links: Links; done: boolean };
+export type AppleLink = { key: string; appleUrl?: string; done: boolean };
 
 /**
- * Step 3–5 for one track: Odesli (paced to its free limit), then the YouTube fallback if Odesli has
- * no YouTube match or is down. `done: false` means "no Odesli slot yet, ask again shortly".
+ * One track's Apple Music link. `done: false` means "iTunes is busy, ask again shortly".
+ * When iTunes doesn't have the song, it's done without a link and opens an Apple Music search instead.
  */
-export async function findLinks(t: { title: string; artist: string; appleUrl: string }, mixId: string): Promise<LinkResult> {
+export async function findAppleLink(t: { title: string; artist: string }): Promise<AppleLink> {
   const key = trackKey(t.title, t.artist);
   const cached = await readCache(key);
-  if (cached && !("missing" in cached) && cached.linksDone) {
-    const { spotifyUrl, youtubeMusicUrl, youtubeUrl, youtubeId } = cached;
-    return { key, links: { spotifyUrl, youtubeMusicUrl, youtubeUrl, youtubeId }, done: true };
-  }
-  if (!(await odesliSlot())) return { key, links: {}, done: false };
-  const links: Links = (await odesli(t.appleUrl)) ?? {};
-  if (!links.youtubeId) {
-    const id = await youtubeSearch(t.title, t.artist, mixId);
-    if (id) {
-      links.youtubeId = id;
-      links.youtubeUrl = `https://www.youtube.com/watch?v=${id}`;
-      links.youtubeMusicUrl = `https://music.youtube.com/watch?v=${id}`;
-    }
-  }
-  if (cached && !("missing" in cached)) await writeCache(key, { ...cached, ...links, linksDone: true });
-  return { key, links, done: true };
+  if (cached && !("missing" in cached) && cached.appleDone) return { key, appleUrl: cached.appleUrl, done: true };
+  if (!(await itunesSlot())) return { key, done: false };
+  const found = await itunesSearch(t.title, t.artist);
+  if (found === "unavailable") return { key, done: false };
+  const appleUrl = found ?? undefined;
+  if (cached && !("missing" in cached)) await writeCache(key, { ...cached, appleUrl, appleDone: true });
+  return { key, appleUrl, done: true };
 }

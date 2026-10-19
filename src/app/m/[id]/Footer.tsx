@@ -6,11 +6,7 @@ export function Footer() {
   return (
     <footer className={styles.foot}>
       {SHOW_BETA && <p data-testid="beta-label">Trailmix is in invite-only beta</p>}
-      <p>
-        Track links by Songlink/
-        <wbr />
-        Odesli
-      </p>
+      <p>Track details from Deezer and Apple Music</p>
       <Credit linkColor="var(--ink)" />
     </footer>
   );

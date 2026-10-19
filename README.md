@@ -14,7 +14,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Genres, energy levels, lengths | `src/data/vibe.ts` |
 | The mix prompt (everything Claude is told) | `src/server/prompt.ts` |
 | Making, swapping and fitting mixes | `src/server/mixes.ts`, `src/server/fit.ts` |
-| Track lookup (cache → iTunes → Odesli → YouTube fallback) | `src/server/lookup.ts` |
+| Track lookup (cache → Deezer; exact Apple Music links from iTunes in the background) | `src/server/lookup.ts` |
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
 | Who may make mixes (Milestone 4 swaps in sign-in here) | `src/server/access.ts`, `src/lib/access.ts` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
@@ -62,8 +62,7 @@ Upstash's own settings (`UPSTASH_REDIS_REST_URL`/`_TOKEN` or `KV_REST_API_URL`/`
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | Claude, for making mixes | Mix-making says it's resting |
 | `CLAUDE_MODEL` | Which Claude model makes mixes | `claude-haiku-5-5` |
-| `YOUTUBE_API_KEY` | YouTube search, only as a fallback (3 per mix, 30 a day) | Tracks keep Apple and Spotify links only |
-| `ODESLI_API_KEY` | Odesli's paid limit instead of the free ~10 a minute | Free tier |
+| `YOUTUBE_API_KEY` | Not used yet: Milestone 4 saves YouTube Music playlists with it | Nothing changes yet |
 | `BETA_ACCESS_CODE` | The code testers enter once on Lace up (until sign-in) | Nobody can make mixes |
 | `DAILY_MIX_CEILING` | Most mixes a day across everyone (E14), reset at UK midnight | 60 |
 | `MIXES_PAUSED` | `true` pauses mix-making at once (E15) | Not paused |

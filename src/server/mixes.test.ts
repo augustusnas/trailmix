@@ -6,7 +6,7 @@ import { classify, setClaudeClientForTests, suggestMix } from "./claude";
 import { CATALOG } from "./fakes";
 import { TOLERANCE_MS, fitToLength, separateArtists } from "./fit";
 import { resetMemoryKV } from "./kv";
-import { MAX_TRACK_MS, appleSongUrl, bestItunesMatch, findLinks, simplify } from "./lookup";
+import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, simplify } from "./lookup";
 import { makeMix, swapTrack } from "./mixes";
 import { mixPrompt, trackPlan } from "./prompt";
 import type { MixRequest } from "./validate";
@@ -67,7 +67,7 @@ describe("F10: fit to length", () => {
   });
 });
 
-describe("track matching (iTunes)", () => {
+describe("track matching (Deezer, then iTunes for Apple links)", () => {
   it("simplifies titles", () => {
     expect(simplify("Gypsy Woman (She's Homeless) [2019 Remaster]")).toBe("gypsy woman she s homeless");
     expect(simplify("Jungle (feat. Someone)")).toBe("jungle");
@@ -76,17 +76,29 @@ describe("track matching (iTunes)", () => {
 
   it("matches the right song by title and artist, not a cover", () => {
     const results = [
-      { kind: "song", trackName: "Show Me Love", artistName: "Karaoke Kings", trackViewUrl: "https://a/1", trackTimeMillis: 1 },
-      { kind: "song", trackName: "Show Me Love (Radio Edit)", artistName: "Robin S", trackViewUrl: "https://a/2", trackTimeMillis: 2 },
+      { title: "Show Me Love", artist: "Karaoke Kings", url: "https://a/1", durationMs: 200_000 },
+      { title: "Show Me Love (Radio Edit)", artist: "Robin S", url: "https://a/2", durationMs: 210_000 },
     ];
-    expect(bestItunesMatch(results, "Show Me Love", "Robin S")?.trackViewUrl).toBe("https://a/2");
-    expect(bestItunesMatch(results, "Imaginary Song", "Nobody")).toBeUndefined();
+    expect(bestMatch(results, "Show Me Love", "Robin S")?.url).toBe("https://a/2");
+    expect(bestMatch(results, "Imaginary Song", "Nobody")).toBeUndefined();
+  });
+
+  it("ignores a leading 'The' and featured artists", () => {
+    const results = [{ title: "Titanium (feat. Sia)", artist: "David Guetta", durationMs: 245_000 }];
+    expect(bestMatch(results, "Titanium", "David Guetta")).toBeDefined();
+    expect(bestMatch([{ title: "Next Episode", artist: "Dr. Dre", durationMs: 160_000 }], "The Next Episode", "Dr. Dre")).toBeDefined();
+  });
+
+  it("skips snippets under 1½ minutes", () => {
+    const snippet = { title: "Bitches Brew", artist: "Miles Davis", durationMs: 54_000 };
+    expect(bestMatch([snippet], "Bitches Brew", "Miles Davis")).toBeUndefined();
+    expect(bestMatch([{ ...snippet, durationMs: MIN_TRACK_MS }], "Bitches Brew", "Miles Davis")).toBeDefined();
   });
 
   it("skips album-length versions over 9 minutes", () => {
-    const long = { kind: "song", trackName: "Chameleon", artistName: "Herbie Hancock", trackViewUrl: "https://a/3", trackTimeMillis: 15.7 * 60_000 };
-    expect(bestItunesMatch([long], "Chameleon", "Herbie Hancock")).toBeUndefined();
-    expect(bestItunesMatch([{ ...long, trackTimeMillis: MAX_TRACK_MS }], "Chameleon", "Herbie Hancock")).toBeDefined();
+    const long = { title: "Chameleon", artist: "Herbie Hancock", durationMs: 15.7 * 60_000 };
+    expect(bestMatch([long], "Chameleon", "Herbie Hancock")).toBeUndefined();
+    expect(bestMatch([{ ...long, durationMs: MAX_TRACK_MS }], "Chameleon", "Herbie Hancock")).toBeDefined();
   });
 
   it("keeps the song in Apple links, not just the album", () => {
@@ -106,7 +118,7 @@ describe("F9: making a mix", () => {
     it(`a ${length}-minute mix is within 5 minutes of ${length} (F10)`, async () => {
       const { mix } = await makeMix(ask({ length }));
       expect(Math.abs(runningMs(mix) - length * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
-      expect(mix.tracks.every((t) => t.appleUrl && t.durationMs > 0)).toBe(true);
+      expect(mix.tracks.every((t) => t.durationMs > 0)).toBe(true);
     });
   }
 
@@ -160,15 +172,15 @@ describe("F9: making a mix", () => {
   });
 });
 
-describe("links (Odesli, then the YouTube fallback)", () => {
-  it("E2: no YouTube match on Odesli → one capped YouTube search; at most 3 per mix", async () => {
-    const noYouTube = CATALOG.filter((t) => t.n % 5 === 0).slice(0, 5);
-    const results = [];
-    for (const t of noYouTube) {
-      results.push(await findLinks({ title: t.title, artist: t.artist, appleUrl: `https://music.apple.com/gb/song/fake/${t.n}` }, "mixAAAA1"));
-    }
-    expect(results.filter((r) => r.links.youtubeId?.startsWith("fallbk"))).toHaveLength(3);
-    expect(results.every((r) => r.links.spotifyUrl)).toBe(true); // Spotify links stay
+describe("Apple Music links (iTunes, in the background)", () => {
+  it("finds the exact song, or settles for an Apple Music search when iTunes doesn't have it", async () => {
+    const [onApple, notOnApple] = [CATALOG.find((t) => t.n % 5 !== 0)!, CATALOG.find((t) => t.n % 5 === 0)!];
+    await makeMix(ask()); // so the tracks are known
+    const a = await findAppleLink(onApple);
+    expect(a.done).toBe(true);
+    expect(a.appleUrl).toMatch(/^https:\/\/music\.apple\.com\/.+\?i=\d+$/);
+    const b = await findAppleLink(notOnApple);
+    expect(b).toMatchObject({ done: true, appleUrl: undefined });
   });
 });
 

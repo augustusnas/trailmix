@@ -10,15 +10,13 @@ import styles from "./shared.module.css";
 /**
  * Leads with the visitor's own music app (remembered on their phone only).
  * No app remembered yet → ask first, with three equal buttons.
- * Track links come from Odesli; a track without a link for that app falls back to a search there.
+ * Spotify and YouTube Music open a search for each song; Apple Music opens the exact song when
+ * iTunes found it, otherwise a search. MILESTONE 4: YouTube Music opens the saved playlist.
  */
 export function SharedPlayer({ mix }: { mix: Mix }) {
   const saved = useSaved();
   const app = MUSIC_APPS.find((a) => a.id === saved?.musicApp);
   const first = mix.tracks[0];
-  const ids = mix.tracks.map((t) => t.youtubeId);
-  // "Open the whole playlist" only when every track has a YouTube video id.
-  const wholePlaylist = ids.every(Boolean) ? `https://www.youtube.com/watch_videos?video_ids=${ids.join(",")}` : null;
 
   return (
     <>
@@ -41,19 +39,17 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
                 Play it in
               </p>
               <a
-                href={app.id === "ytm" && wholePlaylist ? wholePlaylist : trackHref(app, first)}
+                href={trackHref(app, first)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="cta cta--large"
                 style={{ background: "var(--orange)", color: "var(--ink)" }}
                 data-testid="lead-app"
               >
-                <span>{app.id === "ytm" && wholePlaylist ? "Open the whole playlist" : app.openAction}</span>
+                <span>{app.openAction}</span>
                 <Icon name="arrowUpRight" size={22} />
               </a>
-              {!(app.id === "ytm" && wholePlaylist) && (
-                <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35 }}>Then tap any track below to open it in {app.name}.</p>
-              )}
+              <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35 }}>Then tap any track below to open it in {app.name}.</p>
               <p className="mono" style={{ letterSpacing: "0.14em", paddingTop: 8 }}>
                 Or play it in
               </p>
@@ -95,10 +91,9 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
   );
 }
 
-/** The track's own link for that app, or a search there if Odesli didn't have one. */
+/** The exact Apple Music song when known; otherwise a search for the song in that app. */
 function trackHref(app: MusicApp, t: MixTrack): string {
-  const own = app.id === "ytm" ? (t.youtubeMusicUrl ?? (t.youtubeId ? `https://music.youtube.com/watch?v=${t.youtubeId}` : undefined)) : app.id === "spotify" ? t.spotifyUrl : t.appleUrl;
-  return own ?? app.trackUrl(t.artist, t.title);
+  return (app.id === "apple" && t.appleUrl) || app.trackUrl(t.artist, t.title);
 }
 
 function TrackRow({ n, track, app }: { n: number; track: MixTrack; app?: MusicApp }) {

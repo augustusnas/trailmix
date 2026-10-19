@@ -1,4 +1,4 @@
-// RECORDED STAND-INS for Claude, iTunes, Odesli and YouTube, used only by automated tests
+// RECORDED STAND-INS for Claude, Deezer and iTunes, used only by automated tests
 // (FAKE_SERVICES=1, never in the live app). Deterministic, free, and they never touch real accounts.
 
 import { getRoutine } from "@/data/routines";
@@ -85,24 +85,14 @@ export const fakeClaude = {
   },
 };
 
+/** Deezer: real fake-catalogue tracks exist (with their lengths); "Imaginary Song"s don't. */
+export const fakeCatalogue = (title: string, artist: string) => {
+  const t = findFake(title, artist);
+  return t ? { durationMs: t.durationMs } : null;
+};
+
+/** iTunes: every fifth track isn't on Apple Music, so it falls back to an Apple Music search. */
 export const fakeItunes = (title: string, artist: string) => {
   const t = findFake(title, artist);
-  return t ? { appleUrl: `https://music.apple.com/gb/song/fake/${t.n}`, durationMs: t.durationMs } : null;
-};
-
-/** Every fifth track has no YouTube match on Odesli, so the YouTube search fallback (E2) runs. */
-export const fakeOdesli = (appleUrl: string) => {
-  const n = Number(appleUrl.split("/").pop());
-  const withYouTube = n % 5 !== 0;
-  return {
-    spotifyUrl: `https://open.spotify.com/track/fake${n}`,
-    youtubeMusicUrl: withYouTube ? `https://music.youtube.com/watch?v=fakeyt${String(n).padStart(4, "0")}` : undefined,
-    youtubeUrl: withYouTube ? `https://www.youtube.com/watch?v=fakeyt${String(n).padStart(4, "0")}` : undefined,
-    youtubeId: withYouTube ? `fakeyt${String(n).padStart(4, "0")}` : undefined,
-  };
-};
-
-export const fakeYouTube = (title: string, artist: string) => {
-  const t = findFake(title, artist);
-  return t ? `fallbk${String(t.n).padStart(4, "0")}` : null;
+  return t && t.n % 5 !== 0 ? `https://music.apple.com/gb/album/fake/${t.n}?i=${1000 + t.n}` : null;
 };

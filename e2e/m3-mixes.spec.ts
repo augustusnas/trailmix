@@ -11,7 +11,7 @@ const titles = (page: Page) => page.getByTestId("mix-track").locator(".track-tit
 test.describe("making mixes", () => {
   test.beforeEach(async ({ page }) => seed(page, { ...ONBOARDED, vibes: BOXING_VIBE }));
 
-  test("F9 / N2: progress shows after 2 seconds, then the real mix, with its links found", async ({ page }) => {
+  test("F9 / N2: progress shows after 2 seconds, then the real mix; Apple Music links follow in the background", async ({ page }) => {
     await switchOn(page, "slow");
     const started = Date.now();
     await page.goto("/mix?routine=boxing-bag-rounds");
@@ -21,8 +21,11 @@ test.describe("making mixes", () => {
     await waitForMix(page);
     const minutes = Number((await page.getByTestId("running-time").textContent())!.match(/\d+/)![0]);
     expect(Math.abs(minutes - 45)).toBeLessThanOrEqual(5);
-    const mix = (await stored(page)).currentMix;
-    expect(mix.tracks.every((t: { appleUrl?: string; spotifyUrl?: string; linksPending?: boolean }) => t.appleUrl && t.spotifyUrl && !t.linksPending)).toBe(true);
+    type T = { appleUrl?: string; linksPending?: boolean };
+    await expect.poll(async () => (await stored(page)).currentMix.tracks.some((t: T) => t.linksPending), { timeout: 15_000 }).toBe(false);
+    const tracks: T[] = (await stored(page)).currentMix.tracks;
+    // The stand-in iTunes has 4 in 5 songs; the rest open an Apple Music search.
+    expect(tracks.filter((t) => t.appleUrl?.startsWith("https://music.apple.com/")).length).toBeGreaterThan(tracks.length / 2);
   });
 
   test("a refresh shows the same mix and doesn't make (or pay for) a new one", async ({ page }) => {
@@ -202,19 +205,28 @@ test.describe("shared mix pages", () => {
     expect(a.id).not.toBe(b.id);
   });
 
-  test("every track links to the visitor's app; YouTube Music opens the whole playlist when every track has a video", async ({ page, request }) => {
+  test("every track opens in the visitor's app: Apple Music's exact song when known, otherwise a search", async ({ page, request }) => {
     const { id, mix } = await makeSharedMix(request);
-    expect(mix.tracks.every((t) => t.youtubeId)).toBe(true);
     await seed(page, { ...ONBOARDED, musicApp: "ytm" });
     await page.goto(`/m/${id}`);
-    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", new RegExp(`^https://www\\.youtube\\.com/watch_videos\\?video_ids=${mix.tracks.map((t) => t.youtubeId).join(",")}$`));
+    const q = (t: { title: string; artist: string }) => encodeURIComponent(`${t.artist} ${t.title}`);
+    const hrefs = () => page.locator("a.track").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", `https://music.youtube.com/search?q=${q(mix.tracks[0])}`);
+    expect(await hrefs()).toEqual(mix.tracks.map((t) => `https://music.youtube.com/search?q=${q(t)}`));
+
     await page.getByRole("group", { name: "Other music apps" }).getByRole("button", { name: "Spotify" }).click();
-    const hrefs = await page.locator("a.track").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
-    expect(hrefs).toHaveLength(mix.tracks.length);
-    expect(hrefs.every((h) => h!.startsWith("https://open.spotify.com/track/"))).toBe(true);
+    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", /^https:\/\/open\.spotify\.com\/search\//);
+    expect(await hrefs()).toEqual(mix.tracks.map((t) => `https://open.spotify.com/search/${q(t)}`));
+
+    await page.getByRole("group", { name: "Other music apps" }).getByRole("button", { name: "Apple Music" }).click();
+    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", /^https:\/\/music\.apple\.com\//);
+    const exact = mix.tracks.filter((t) => t.appleUrl);
+    expect(exact.length).toBeGreaterThan(0);
+    expect(exact.length).toBeLessThan(mix.tracks.length);
+    expect(await hrefs()).toEqual(mix.tracks.map((t) => t.appleUrl ?? `https://music.apple.com/search?term=${q(t)}`));
   });
 
-  test("view-only: opening a shared mix never calls Claude, iTunes, Odesli or YouTube", async ({ page, request }) => {
+  test("view-only: opening a shared mix never calls Claude, Deezer or iTunes", async ({ page, request }) => {
     const { id } = await makeSharedMix(request);
     const calls: string[] = [];
     page.on("request", (r) => calls.push(r.url()));

@@ -92,7 +92,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     void make();
   }, [mix, make, online]);
 
-  // Links for the other apps arrive in the background (Odesli's free limit is about 10 a minute).
+  // Exact Apple Music links arrive in the background (iTunes allows about 20 searches a minute).
+  // Nothing waits for them: until one arrives, that track opens an Apple Music search.
   useEffect(() => {
     if (!mix || linksReady(mix) || !online) return;
     let stop = false;
@@ -209,12 +210,12 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
         {mix && !making && (
           <>
             {mix.shortened && <p className={styles.note}>{MESSAGES.shortened}</p>}
-            {pending > 0 && online && (
+            {pending > 0 && online && app.id === "apple" && (
               <div className={styles.linksProgress} data-testid="links-progress">
                 <p className={styles.note} role="status">
-                  Finding links {mix.tracks.length - pending} of {mix.tracks.length}
+                  Finding Apple Music links {mix.tracks.length - pending} of {mix.tracks.length}
                 </p>
-                <progress max={mix.tracks.length} value={mix.tracks.length - pending} aria-label="Links found" />
+                <progress max={mix.tracks.length} value={mix.tracks.length - pending} aria-label="Apple Music links found" />
               </div>
             )}
             {PHASES.map((p) => {
@@ -265,10 +266,10 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
           type="button"
           className={styles.keep}
           data-testid="mix-action"
-          disabled={!mix || busy !== null || !online || pending > 0}
+          disabled={!mix || busy !== null || !online}
           onClick={keep}
         >
-          {busy === "keeping" ? "Saving…" : pending > 0 ? `${app.mixAction} (finding links…)` : app.mixAction}
+          {busy === "keeping" ? "Saving…" : app.mixAction}
         </button>
       </div>
     </>

@@ -33,7 +33,6 @@ export function SavedScreen() {
   if (!routine || !saved || !mix) return null;
   const app = appOrDefault(saved.musicApp);
   const genres = mix.genres.map(genreLabel).join(" · ");
-  const wholePlaylist = mix.tracks.every((t) => t.youtubeId);
 
   return (
     <>
@@ -49,7 +48,7 @@ export function SavedScreen() {
         <div className={styles.card}>
           <div className={`mono ${styles.cardTop}`}>
             <span style={{ color: "var(--lime)" }}>Trailmix</span>
-            <span>{app.id === "ytm" && wholePlaylist ? "Whole playlist" : "Track by track"}</span>
+            <span>Track by track</span>
           </div>
           <div className={styles.cardName}>{mix.name}</div>
           <div className={styles.bars} aria-hidden="true">

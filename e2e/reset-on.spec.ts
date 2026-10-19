@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { ONBOARDED, sawWelcome, seed, stored, watchForWelcome } from "./helpers";
 
-// Runs against the app with BETA_RESET_PAGE=on (see playwright.config.ts).
+// Runs against the app with SHOW_RESET_PAGE=true (see playwright.config.ts).
 
 const SIX = ["tabata", "yoga-flow", "emom", "amrap", "pull-day", "spin-bike"];
 const pinIds = (page: Page) =>

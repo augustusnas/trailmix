@@ -6,9 +6,9 @@ export function isOn(value: string | undefined): boolean {
 }
 
 /**
- * BETA_RESET_PAGE: the beta reset page (/reset) and its hidden way in
+ * SHOW_RESET_PAGE=true: the beta reset page (/reset) and its hidden way in
  * (tapping "The library." 5 times). Switch off before sending beta invites.
  */
 export function resetPageEnabled(): boolean {
-  return isOn(process.env.BETA_RESET_PAGE);
+  return isOn(process.env.SHOW_RESET_PAGE);
 }

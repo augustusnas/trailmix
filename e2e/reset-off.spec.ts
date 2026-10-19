@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { ONBOARDED, seed } from "./helpers";
 
-// The app as beta users get it: BETA_RESET_PAGE is not set, so the reset page is off.
+// The app as beta users get it: SHOW_RESET_PAGE is not set, so the reset page is off.
 
-test("the reset page doesn't exist when BETA_RESET_PAGE is off", async ({ page, request }) => {
+test("the reset page doesn't exist when SHOW_RESET_PAGE is off", async ({ page, request }) => {
   expect((await request.get("/reset")).status()).toBe(404);
   await page.goto("/reset");
   await expect(page.getByRole("button", { name: /Reset to a fresh install|Damage/ })).toHaveCount(0);

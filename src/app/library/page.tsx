@@ -5,7 +5,7 @@ import { LibraryScreen } from "./LibraryScreen";
 
 export const metadata: Metadata = { title: "Library" };
 
-// Checked on every visit, so the BETA_RESET_PAGE setting decides whether the hidden reset tap works.
+// Checked on every visit, so the SHOW_RESET_PAGE setting decides whether the hidden reset tap works.
 export const dynamic = "force-dynamic";
 
 // Library: search, filters and pins, remembered on this phone.

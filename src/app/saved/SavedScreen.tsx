@@ -25,7 +25,7 @@ export function SavedScreen() {
           {trackCount(mix)} tracks · {mix.runningMinutes} min
         </span>
       </div>
-      <Headline text={app.id === "ytm" ? `${mix.name} is in YouTube Music.` : `${mix.name} is ready for ${app.name}.`} size="saved" style={{ lineHeight: 0.9, letterSpacing: "-0.04em" }} />
+      <Headline text={app.id === "ytm" ? `${mix.name} is in YouTube Music.` : `Your mix is ready to play in ${app.name}, track by track.`} size="saved" style={{ lineHeight: 0.9, letterSpacing: "-0.04em" }} />
 
       <div className={styles.cardWrap}>
         <div className={styles.card}>

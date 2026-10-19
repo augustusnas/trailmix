@@ -19,7 +19,7 @@ import styles from "./library.module.css";
 const SEARCH_HINT = "Tabata, push day, rowing…";
 const ORDERED = CATEGORY_ORDER.flatMap((c) => ROUTINES.filter((r) => r.category === c));
 
-/** Beta only, when BETA_RESET_PAGE is on: tap the headline this many times quickly to open the reset page. */
+/** Beta only, when SHOW_RESET_PAGE is on: tap the headline this many times quickly to open the reset page. */
 const RESET_TAPS = 5;
 
 export function LibraryScreen({ feedbackEmail, resetEnabled = false }: { feedbackEmail?: string; resetEnabled?: boolean }) {
@@ -35,7 +35,7 @@ export function LibraryScreen({ feedbackEmail, resetEnabled = false }: { feedbac
   const shown = searchRoutines(ORDERED, query, filter);
 
   const tapHeadline = () => {
-    if (!resetEnabled) return; // BETA_RESET_PAGE is off: the hidden way in does nothing
+    if (!resetEnabled) return; // SHOW_RESET_PAGE is off: the hidden way in does nothing
     const now = Date.now();
     taps.current = [...taps.current.filter((t) => now - t < 2500), now];
     if (taps.current.length >= RESET_TAPS) router.push("/reset");

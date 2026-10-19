@@ -6,13 +6,13 @@ describe("on/off settings", () => {
     for (const v of ["on", "ON", "true", "Yes", "1", " on "]) expect(isOn(v), v).toBe(true);
   });
 
-  it("the reset page follows BETA_RESET_PAGE", () => {
-    const before = process.env.BETA_RESET_PAGE;
-    delete process.env.BETA_RESET_PAGE;
+  it("the reset page follows SHOW_RESET_PAGE", () => {
+    const before = process.env.SHOW_RESET_PAGE;
+    delete process.env.SHOW_RESET_PAGE;
     expect(resetPageEnabled()).toBe(false);
-    process.env.BETA_RESET_PAGE = "on";
+    process.env.SHOW_RESET_PAGE = "true";
     expect(resetPageEnabled()).toBe(true);
-    if (before === undefined) delete process.env.BETA_RESET_PAGE;
-    else process.env.BETA_RESET_PAGE = before;
+    if (before === undefined) delete process.env.SHOW_RESET_PAGE;
+    else process.env.SHOW_RESET_PAGE = before;
   });
 });

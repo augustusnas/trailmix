@@ -237,7 +237,7 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Spotify");
   await page.getByTestId("mix-action").click();
   await expect(page.getByTestId("saved-action")).toHaveText("Open in Spotify");
-  await expect(page.getByRole("heading", { name: "Press Play is ready for Spotify." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your mix is ready to play in Spotify, track by track." })).toBeVisible();
 
   // Change it in the Library: the label updates at once, no reload.
   await page.goto("/library");

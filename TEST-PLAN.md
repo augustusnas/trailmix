@@ -9,7 +9,7 @@ The full plan is copied from the Trailmix build brief's Test plan tab, so Claude
 | Layer | Who runs it | When | What it catches |
 | --- | --- | --- | --- |
 | Automated tests | Claude Code writes them; they run on every push via GitHub Actions | Every change | Logic: pin cap, input validation, naming, lookup fallbacks, error handling |
-| Fake services | Built into the automated tests | Every change | Claude, iTunes, Odesli and YouTube replaced with recorded responses, so tests cost nothing and never touch my accounts |
+| Fake services | Built into the automated tests | Every change | Claude, Deezer, iTunes and YouTube replaced with recorded responses, so tests cost nothing and never touch my accounts |
 | Phone checklist | Me, on my iPhone | End of each milestone | Real look and feel, sign-in, a real playlist in YouTube Music |
 | Friend trial | Two invited test users | After Milestone 5 | Sign-in as someone else; opening a shared mix page in Spotify and Apple Music |
 
@@ -23,12 +23,12 @@ The full plan is copied from the Trailmix build brief's Test plan tab, so Claude
 | F9 | A generated mix has a fun name, warm-up, main block and cool-down, and every track was found by the lookup |
 | F10 | For 30, 45, 60 and 90 minutes, the mix's total length is within 5 minutes of the target |
 | F11 | Swap changes only that track; the new one is in the same phase and not already in the list |
-| F12 | Remix gives a new list and name, and uses no YouTube quota (apart from the capped fallback search) |
-| F15 | Share creates one mix page link; opening it signed out shows the mix and lets the visitor pick YouTube Music, Spotify or Apple Music; each track opens in that app; the visitor's saved app leads |
+| F12 | Remix gives a new list and name, and uses no YouTube quota |
+| F15 | Share creates one mix page link; opening it signed out shows the mix and lets the visitor pick YouTube Music, Spotify or Apple Music; each track opens in that app (a search for the song in Spotify and YouTube Music; the exact song in Apple Music when iTunes found it, otherwise a search); the visitor's saved app leads |
 | F18 | Given 10 previous mixes, at least 70% of a new mix's tracks aren't in them; the freshness percentage is recorded |
 | F21 | The chosen routine still carries through Set the vibe, The mix, Saved and the shared mix page |
-| E1 | A track iTunes can't find is swapped up to 2 times in the same phase, then dropped; with 3+ dropped, the "a little shorter" message shows |
-| E2 | Odesli down or rate-limited → requests queue, then fall back to YouTube search (capped at 3 per mix, 30 a day); no error shown |
+| E1 | A suggested track Deezer can't find (wrong title or artist, or no version between 1½ and 10 minutes) is replaced up to 2 times in the same phase, then dropped; with 3+ dropped, the "a little shorter" message shows; every suggestion and failure is added to the bad-track count |
+| E2 | Deezer down or busy → each lookup is tried 3 times; if most tracks still can't be checked, "The mix didn't come together. Try again" with a button and the vibe kept, never an empty mix. iTunes busy → Apple Music links wait for the next minute while those tracks open an Apple Music search; no error |
 | E3 | Broken JSON or a 20-second timeout from Claude → one retry, then "The mix didn't come together. Try again" |
 | E4 | Claude down or out of credit → "Mix-making is resting right now. Try again later", with the vibe settings kept |
 | E9 | Past 20 mixes an hour → "That's a lot of mixes. Back in a few minutes" |
@@ -92,8 +92,8 @@ Every failure keeps my current mix on screen, explains itself in one plain sente
 
 | ID | Situation | What the app does | What I see | Milestone |
 | --- | --- | --- | --- | --- |
-| E1 | Track not found by iTunes or Odesli | Asks Claude for a same-phase swap, up to 2 tries, then drops it | Nothing, unless 3+ tracks drop: "A few tracks couldn't be found, so this mix is a little shorter" | 3 |
-| E2 | Odesli down or rate-limited | Queues, then falls back to YouTube search for that track | A progress bar; no error | 3 |
+| E1 | Track not found by Deezer (or only as a version under 1½ or over 10 minutes) | Asks Claude for a same-phase replacement, up to 2 tries, then drops it; counts it in the bad-track rate | Nothing, unless 3+ tracks drop: "A few tracks couldn't be found, so this mix is a little shorter" | 3 |
+| E2 | Deezer down or busy; iTunes busy | Deezer: tries each lookup 3 times, then stops the mix if most tracks can't be checked, keeping my vibe settings. iTunes: Apple Music links wait for the next minute; those tracks open an Apple Music search meanwhile | Deezer: "The mix didn't come together. Try again" with a button. iTunes: Apple Music users see a progress bar, no error | 3 |
 | E3 | Claude returns broken JSON or times out (20s) | Retries once | "The mix didn't come together. Try again" with a button | 3 |
 | E4 | Claude API down or out of credit | Stops; keeps my vibe settings | "Mix-making is resting right now. Try again later" | 3 |
 | E5 | YouTube daily quota reached | Blocks Keep it; mixes can still be made and opened via the mix page | "YouTube's daily limit is used up. Try tomorrow or share the list" | 4 |

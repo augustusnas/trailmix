@@ -16,6 +16,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Making, swapping and fitting mixes | `src/server/mixes.ts`, `src/server/fit.ts` |
 | Track lookup (cache → Deezer; exact Apple Music links from iTunes in the background) | `src/server/lookup.ts` |
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
+| Bad-track count (running totals in Upstash, shown at the end of each mix log line) | `src/server/stats.ts` |
 | Who may make mixes (Milestone 4 swaps in sign-in here) | `src/server/access.ts`, `src/lib/access.ts` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
 | Recorded stand-ins used by tests | `src/server/fakes.ts` |
@@ -54,7 +55,7 @@ One record in `localStorage` under the key `trailmix`: `{ version, onboarded, mu
 
 Upstash's own settings (`UPSTASH_REDIS_REST_URL`/`_TOKEN` or `KV_REST_API_URL`/`_TOKEN`) come from Vercel's Upstash integration. Without them (on a Mac), counts, the track cache and shared mixes live in memory.
 
-**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E3, E4, E5, E9, E10, E14, E15).
+**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E2, E3, E4, E5, E9, E10, E14, E15).
 
 ## Settings (environment variables)
 

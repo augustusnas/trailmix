@@ -4,7 +4,7 @@
 
 Milestones 0–2 are done. Milestone 0 saved a real YouTube playlist (Groove Miles). Milestone 1 put all eight screens on my phone. Milestone 2 made pins, the Library, vibe memory and the music app choice work, all saved on the phone.
 
-This milestone makes Trailmix **actually make mixes**. Set the vibe → Make the mix calls Claude, every track is checked as real and given links for all three music apps, the mix is fitted to the length I chose, and swap and Remix work. The shared mix page becomes real: stored mixes, at real links, for 90 days.
+This milestone makes Trailmix **actually make mixes**. Set the vibe → Make the mix calls Claude, every track is checked as real (Deezer) and opens in all three music apps, the mix is fitted to the length I chose, and swap and Remix work. The shared mix page becomes real: stored mixes, at real links, for 90 days.
 
 **Still not in this milestone:** Google sign-in, the guest list, and saving playlists to YouTube. Those are Milestone 4.
 
@@ -23,7 +23,7 @@ I want to **test this on my phone tomorrow (17 Oct)**, so build in the order of 
 
 - **Live address:** `https://trailmix.augustusnas.com`. **Repo:** `augustusnas/trailmix`, which deploys on every push to main.
 - **Upstash Redis** is connected to the Vercel project. Its environment variables are already set.
-- **Odesli:** I asked for an API key on 5 Oct and haven't had a reply. Build for the free tier (about 10 requests a minute) and read an optional `ODESLI_API_KEY` when it arrives.
+- **Track services:** Deezer's search (free, no key, 50 searches every 5 seconds) checks tracks and gives lengths. The iTunes Search API (free, no key, about 20 searches a minute) gives exact Apple Music links, in the background. Spotify and YouTube Music get search links, which need no service at all.
 - Keep everything earlier milestones established: design tokens, large-text behaviour, safe areas, the beta label setting, the credit, the feedback button, the CSP headers, `noindex` on mix pages, and no cookies.
 
 ## Protecting my Claude credit before sign-in exists
@@ -45,6 +45,8 @@ Without sign-in, the new server routes would be open to anyone who finds them, a
 - **Prompt requirements (keep them in one file, so they can be improved later):**
   - Return strict JSON only: a fun mix name, then tracks with title, artist and phase (warm-up, main block, cool-down).
   - Real, released tracks only. Match the genres and energy.
+  - Only tracks Claude is confident exist, credited to the artist who released them, and only artists it knows well. Deeper cuts come from those artists' own catalogues, never from obscure artists.
+  - The usual released version, not a live recording, under 10 minutes.
   - An energy arc across the phases. Energy keeps building through the main block so it never sags midway.
   - No artist twice in a row.
   - At least 70% of tracks not in my recent mixes, with a couple of deeper cuts.
@@ -55,29 +57,29 @@ Without sign-in, the new server routes would be open to anyone who finds them, a
 
 ### 2. Track lookup (E1, E2)
 Run lookups when a mix is generated, so the preview only shows tracks that exist.
-1. **Cache first:** title + artist → IDs, links and duration, stored in Upstash (shared by everyone, so popular tracks get faster).
-2. **iTunes Search API:** search title + artist. A match gives the Apple link and the **real duration**. No match means the track probably doesn't exist, so ask Claude for a replacement in the same phase, up to 2 tries, then drop it (E1). If 3 or more tracks drop: "A few tracks couldn't be found, so this mix is a little shorter".
-3. **Odesli:** send the Apple link to get the YouTube Music, YouTube and Spotify links plus the YouTube video ID. Queue requests to stay under the free limit.
-4. **YouTube search fallback** (E2): only when Odesli has no YouTube match or is down. Prefer the Music category. **Each search costs 100 of my 10,000 daily YouTube units**, so cap it at 3 searches per mix and 30 a day overall. Past the cap, the track keeps its Apple and Spotify links and gets no YouTube link.
-5. Store the result in the cache.
+1. **Cache first:** title + artist → length and Apple Music link, stored in Upstash (shared by everyone, so popular tracks get faster). Found tracks are kept 30 days; tracks that weren't found, 1 day.
+2. **Deezer search:** search artist + title and take the first result that's the same song by the same artist (not a cover or karaoke version), between **1½ and 10 minutes** long. A match gives the **real duration**. All the tracks in a mix are checked at once, so this takes about a second.
+3. **No match (E1):** the track probably doesn't exist as named, so ask Claude for a replacement in the same phase, up to 2 tries, then drop it. Replacements for all three phases are asked for at the same time. If 3 or more tracks drop: "A few tracks couldn't be found, so this mix is a little shorter".
+4. **Deezer busy or down (E2):** each lookup is tried 3 times (straight away, after 1 second, after 2½ seconds). If Deezer still can't check most of the tracks, the mix stops with "The mix didn't come together. Try again" and a Try again button, keeping the vibe settings. It never shows an empty or half-checked mix.
+5. **Links:** Spotify and YouTube Music open a search for that exact song (`open.spotify.com/search/…`, `music.youtube.com/search?q=…`), built on the phone with no service call. Apple Music opens the exact song.
+6. **Apple Music links, in the background:** after the mix is on screen, the iTunes Search API finds each track's exact Apple Music song, paced to 15 searches a minute shared by everyone, and cached. Until a track's link arrives, it opens an Apple Music search, so nothing ever waits for it. Apple Music users see "Finding Apple Music links 6 of 14" with a progress bar; there's no error if iTunes is busy, it just carries on the next minute.
+7. **No YouTube calls when a mix is made, swapped or remixed.** YouTube video IDs (100 units per search) are only needed to save a playlist, which is Milestone 4.
 
-**Speed problem to solve (N2: mix on screen within 30 seconds, progress shown after 2).** Odesli's free limit of 10 a minute means a fresh 14-track mix can't get all its links in 30 seconds. So:
-- Show the mix as soon as **iTunes has confirmed every track and the length is fitted** (iTunes is fast and gives durations).
-- Fetch the Odesli links **in the background** with a visible progress indicator ("Finding links 6 of 14").
-- Keep it / Open in… and Share become available once the links are ready.
-- Tell me the real timings you measure. If this still feels slow, I'll chase Odesli for the key.
+**Measured speed (N2: mix on screen within 30 seconds, progress shown after 2):** first mix 5–9 seconds, remix 6–8 seconds, swap about 1½ seconds. Apple Music links for a whole mix arrive within about 10 seconds.
 
-A YouTube search key is needed for step 4. Walk me through creating a separate **API key restricted to the YouTube Data API**, and to the server only, in my Google Cloud project, and adding it to Vercel as `YOUTUBE_API_KEY`.
+**Bad-track count:** every mix, remix and swap adds to two running totals in Upstash, `stats:suggested` (tracks Claude suggested) and `stats:failed` (ones that failed the check). Each server log line ends with `trackCheck`: this request's numbers and the running total with its failure percentage. The stats page can show it later.
+
+A YouTube API key restricted to the YouTube Data API, server only, is in Vercel as `YOUTUBE_API_KEY`. Nothing uses it until Milestone 4.
 
 ### 3. Fit to length (F10)
-- Claude doesn't decide length. Use real durations from iTunes, or from YouTube for fallback tracks.
+- Claude doesn't decide length. Use real durations from Deezer.
 - Keep the warm-up and cool-down whole, then fill the main block in Claude's order until the total is **within 5 minutes** of the chosen length.
 - Still short: ask Claude for more main-block tracks. One long track overshooting: swap it for a shorter one in the same phase.
 - Show the real running time on The mix ("44 min").
 
 ### 4. Swap and Remix (F11, F12)
 - **Swap:** replaces only that track, with one in the **same phase**, not already in the list, run through the same lookup. Re-check the length after the swap.
-- **Remix:** a new list and a new name for the same settings. It never touches YouTube except the capped fallback.
+- **Remix:** a new list and a new name for the same settings. It never touches YouTube.
 - Both count towards the hourly limit and the daily ceiling.
 
 ### 5. Recent mixes and freshness (F18)
@@ -90,24 +92,24 @@ A YouTube search key is needed for step 4. Walk me through creating a separate *
 - **Share with friends** opens the iPhone share sheet with the mix page link (F15).
 
 ### 7. Real shared mix pages (F15, E16, E17)
-- Stored in Upstash under a **long random ID that can't be guessed**, kept for **90 days**. View-only: the page never calls Claude or YouTube.
+- Stored in Upstash under a **long random ID that can't be guessed**, kept for **90 days**. View-only: the page never calls Claude, Deezer, iTunes or YouTube.
 - Shows the fun name, "Shared by" (a placeholder first name until Milestone 4 supplies the Google one), the phased track list, and the three apps. **The visitor's own app leads**, as built in Milestone 2.
-- YouTube Music shows **"Open the whole playlist"** only when every track has a YouTube video ID (build a `watch_videos` link from the IDs). Otherwise it opens track by track. Spotify and Apple Music always open track by track.
+- Every app opens track by track: Spotify and YouTube Music open a search for each song, and Apple Music opens the exact song when iTunes found it (otherwise a search). A YouTube Music "Open the whole playlist" waits for Milestone 4, when kept mixes are saved as real playlists.
 - **E16:** an expired or mistyped link shows the friendly "This mix has moved on. Ask whoever shared it for a fresh one." page in Trailmix colours.
 - **E17 / N16:** limit 60 page views a minute per visitor IP, and 20 shares a day per access code. Over the limit, show the friendly messages from the test plan.
-- Keep the footer: "Trailmix is in invite-only beta", "Track links by Songlink/Odesli", and the credit.
+- Keep the footer: "Trailmix is in invite-only beta", "Track details from Deezer and Apple Music", and the credit.
 
 ### 8. Offline (E10)
 Make the mix and Keep it are disabled offline, with a "You're offline" banner. Home, the Library and Set the vibe keep working.
 
 ## Tests, written alongside
 
-- **Fake services:** Claude, iTunes, Odesli and YouTube replaced with recorded answers, so tests cost nothing and never touch my accounts.
+- **Fake services:** Claude, Deezer and iTunes replaced with recorded answers, so tests cost nothing and never touch my accounts.
 - F9, F10 (within 5 minutes for 30, 45, 60 and 90), F11, F12, F15, F18 (70% freshness), F21 still passing.
-- E1, E2, E3, E4, E9, E10, E11, E12, E14, E15, E16, E17, including the YouTube search caps.
+- E1, E2, E3, E4, E9, E10, E11, E12, E14, E15, E16, E17, plus the 1½–10 minute track lengths and the bad-track count.
 - Access code: every new server route refuses requests without it (this stands in for N6 until Milestone 4).
 - N5: a secret scan, plus a check that no key appears in anything sent to the browser.
-- **Test switches** so I can force E3, E5, E10, E14 and E15 on my phone during the friend trial. Keep them behind the same `SHOW_RESET_PAGE` setting.
+- **Test switches** so I can force E1, E2, E3, E4, E5, E9, E10, E14 and E15 on my phone during the friend trial. Keep them behind the same `SHOW_RESET_PAGE` setting.
 - If a test fails, tell me in plain English what it means.
 
 ## Build plan (push after each step so I can test tomorrow)

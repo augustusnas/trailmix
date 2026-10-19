@@ -57,14 +57,14 @@ export function simplify(s: string) {
     .trim();
 }
 
-/** Album-length jams (15-minute "Chameleon") would swallow a workout; a shorter version usually exists. */
-export const MAX_TRACK_MS = 9 * 60_000;
+/** Album-length jams (15-minute "Chameleon") would swallow a workout; extended house and techno often run 9–10. */
+export const MAX_TRACK_MS = 10 * 60_000;
 /** Shorter than this is an intro, edit or snippet (a 54-second "Bitches Brew"), not the song. */
 export const MIN_TRACK_MS = 90_000;
 
 export type Candidate = { title: string; artist: string; durationMs: number; url?: string };
 
-/** The first result that's the same song by the same artist (not a cover or karaoke), 1½ to 9 minutes long. */
+/** The first result that's the same song by the same artist (not a cover or karaoke), 1½ to 10 minutes long. */
 export function bestMatch<C extends Candidate>(results: C[], title: string, artist: string): C | undefined {
   const t = simplify(title);
   const a = simplify(artist);
@@ -86,7 +86,8 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 type DeezerResult = { title?: string; title_short?: string; duration?: number; readable?: boolean; artist?: { name?: string } };
 
 /** "unavailable" means Deezer didn't answer properly (busy or down), which is not the same as "doesn't exist". */
-async function deezerSearch(title: string, artist: string): Promise<{ durationMs: number } | null | "unavailable"> {
+async function deezerSearch(title: string, artist: string, forced?: string | null): Promise<{ durationMs: number } | null | "unavailable"> {
+  if (forced === "e2") return "unavailable"; // test switch: the catalogue is down
   if (config.fakeServices()) return fakeCatalogue(title, artist);
   const url = `https://api.deezer.com/search?${new URLSearchParams({ q: `${artist} ${title}`, limit: "25" })}`;
   for (const wait of [0, 1000, 2500]) {
@@ -110,11 +111,11 @@ async function deezerSearch(title: string, artist: string): Promise<{ durationMs
 }
 
 /** Before showing a mix: cache, then Deezer. Returns null when the track doesn't seem to exist (E1). */
-export async function confirmTrack(title: string, artist: string): Promise<TrackInfo | null | "unavailable"> {
+export async function confirmTrack(title: string, artist: string, forced?: string | null): Promise<TrackInfo | null | "unavailable"> {
   const key = trackKey(title, artist);
-  const cached = await readCache(key);
+  const cached = forced === "e2" ? null : await readCache(key);
   if (cached) return "missing" in cached ? null : cached;
-  const found = await deezerSearch(title, artist);
+  const found = await deezerSearch(title, artist, forced);
   if (found === "unavailable") return found;
   if (!found) {
     await writeCache(key, { missing: true });

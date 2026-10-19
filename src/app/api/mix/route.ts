@@ -2,7 +2,8 @@ import { checkAccess } from "@/server/access";
 import { MixError } from "@/server/claude";
 import { clientIp, fail, ok, readJson } from "@/server/http";
 import { mixAllowed } from "@/server/limits";
-import { makeMix } from "@/server/mixes";
+import { makeMix, newNotes } from "@/server/mixes";
+import { trackCheckLog } from "@/server/stats";
 import { testSwitch } from "@/server/testSwitch";
 import { cleanTracks, validateMixRequest } from "@/server/validate";
 import { cleanText } from "@/server/validate";
@@ -24,14 +25,16 @@ export async function POST(req: Request) {
   const refused = await mixAllowed(access.who, forced);
   if (refused) return fail(refused, refused === "paused" ? 503 : 429);
 
+  const notes = newNotes();
   try {
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-    const { mix, timings, notes } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName);
-    console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, tracks: mix.tracks.length, usage, timings, notes }));
+    const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes);
+    // trackCheck (last): this mix's suggestions that failed the catalogue check, and the running total.
+    console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, tracks: mix.tracks.length, usage, timings, notes, trackCheck: await trackCheckLog(notes) }));
     return ok({ mix });
   } catch (err) {
     const kind = err instanceof MixError ? err.kind : "failed";
-    console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200) }));
+    console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
     return fail(kind, kind === "resting" ? 503 : 502);
   }
 }

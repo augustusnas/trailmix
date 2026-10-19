@@ -14,18 +14,20 @@ const AVERAGE_MS = 3.7 * 60_000;
 type Found = TrackInfo & { phase: PhaseId };
 const refKey = (t: TrackRef) => trackKey(t.title, t.artist);
 
-/** For the server log: which suggestions Deezer didn't find, and how many it was too busy to check. */
-export type LookupNotes = { notFound: string[]; busy: number };
+/** For the server log: how many suggestions were checked, which Deezer didn't find, and how many it was too busy to check. */
+export type LookupNotes = { suggested: number; notFound: string[]; busy: number };
+export const newNotes = (): LookupNotes => ({ suggested: 0, notFound: [], busy: 0 });
 
-async function confirmAll(list: SuggestedTrack[], notes?: LookupNotes): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
-  const results = await inBatches(list, 4, (t) => confirmTrack(t.title, t.artist));
+async function confirmAll(list: SuggestedTrack[], notes: LookupNotes, forced?: string | null): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
+  const results = await inBatches(list, 4, (t) => confirmTrack(t.title, t.artist, forced));
+  notes.suggested += list.length;
   const found: Found[] = [];
   const missing: SuggestedTrack[] = [];
   results.forEach((r, i) => {
     if (r && r !== "unavailable") return found.push({ ...r, phase: list[i].phase });
     missing.push(list[i]);
-    if (r === "unavailable") notes && notes.busy++;
-    else notes?.notFound.push(`${list[i].title} — ${list[i].artist}`);
+    if (r === "unavailable") notes.busy++;
+    else notes.notFound.push(`${list[i].title} — ${list[i].artist}`);
   });
   return { found, missing };
 }
@@ -46,17 +48,24 @@ const byPhase = (tracks: Found[]) =>
   (["warm-up", "main", "cool-down"] as PhaseId[]).flatMap((p) => tracks.filter((t) => t.phase === p));
 
 /** F9: a new mix (or a Remix, when `exclude` and `avoidName` are given). */
-export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: string): Promise<{ mix: Mix; timings: Record<string, number>; notes: LookupNotes }> {
+/** `notes` collects what the catalogue check found, for the log, even if making the mix fails. */
+export async function makeMix(
+  a: Ask,
+  exclude: TrackRef[] = [],
+  avoidName?: string,
+  notes: LookupNotes = newNotes(),
+): Promise<{ mix: Mix; timings: Record<string, number>; notes: LookupNotes }> {
   const started = Date.now();
   const timings: Record<string, number> = {};
-  const notes: LookupNotes = { notFound: [], busy: 0 };
   const lap = (name: string) => (timings[name] = Date.now() - started);
   const late = () => Date.now() - started > BUDGET_MS;
 
   const suggestion = await suggestMix(a, exclude, avoidName);
   lap("claude");
-  let { found, missing } = await confirmAll(suggestion.tracks, notes);
-  lap("itunes");
+  let { found, missing } = await confirmAll(suggestion.tracks, notes, a.forced);
+  lap("check");
+  // E2: the catalogue is down or too busy to check most tracks, even after retrying.
+  if (notes.busy > found.length) throw new MixError("failed");
   const used = () => [...exclude, ...suggestion.tracks, ...found];
 
   // E1: replace tracks that can't be found, in the same phase, up to 2 tries; then drop them.
@@ -64,8 +73,8 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
   const replace = async (phase: PhaseId): Promise<number> => {
     let need = missing.filter((m) => m.phase === phase).length;
     for (let tries = 0; need > 0 && tries < 2 && !late(); tries++) {
-      const more = await suggestMore(a, phase, need, used(), "replacing tracks that couldn't be found");
-      const r = await confirmAll(more.slice(0, need), notes);
+      const more = await suggestMore(a, phase, need, used(), "replacing tracks that couldn't be found in the catalogue, so pick well-known recordings you're certain of");
+      const r = await confirmAll(more.slice(0, need), notes, a.forced);
       found = [...found, ...r.found];
       need -= r.found.length;
       missing = [...missing, ...r.missing];
@@ -80,7 +89,7 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
   for (let round = 0; fit.status === "short" && round < 2 && !late(); round++) {
     const deficit = a.req.length * 60_000 - TOLERANCE_MS / 2 - fit.totalMs;
     const more = await suggestMore(a, "main", Math.ceil(deficit / AVERAGE_MS) + 2, used(), "the playlist is too short");
-    const r = await confirmAll(more, notes);
+    const r = await confirmAll(more, notes, a.forced);
     found = [...found, ...r.found];
     fit = fitToLength(byPhase(found), a.req.length);
   }
@@ -106,7 +115,7 @@ export async function makeMix(a: Ask, exclude: TrackRef[] = [], avoidName?: stri
 }
 
 /** F11: replace one track with another real one in the same phase, keeping the length within 5 minutes. */
-export async function swapTrack(a: Ask, mix: Mix, index: number): Promise<Mix> {
+export async function swapTrack(a: Ask, mix: Mix, index: number, notes: LookupNotes = newNotes()): Promise<Mix> {
   const old = mix.tracks[index];
   const others = mix.tracks.reduce((n, t, i) => (i === index ? n : n + t.durationMs), 0);
   const target = mix.length * 60_000;
@@ -116,7 +125,7 @@ export async function swapTrack(a: Ask, mix: Mix, index: number): Promise<Mix> {
   let best: Found | undefined;
   for (let tries = 0; tries < 2 && !best?.durationMs; tries++) {
     const candidates = await suggestMore(a, old.phase, 3, exclude, `swapping out "${old.title}" by ${old.artist}`);
-    const { found } = await confirmAll(candidates);
+    const { found } = await confirmAll(candidates, notes, a.forced);
     exclude.push(...candidates);
     const ok = found.find((f) => fits(f.durationMs));
     // If none keeps the length within 5 minutes, take the closest.

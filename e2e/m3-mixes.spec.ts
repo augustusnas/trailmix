@@ -72,6 +72,15 @@ test.describe("making mixes", () => {
     await expect(page.getByText("A few tracks couldn't be found, so this mix is a little shorter.")).toBeVisible();
   });
 
+  test("E2: the track catalogue is down → a friendly message and Try again, which works", async ({ page }) => {
+    await switchOn(page, "e2");
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await expect(page.getByTestId("mix-problem")).toContainText("The mix didn't come together. Try again.");
+    await page.evaluate(() => sessionStorage.setItem("trailmix-test-switch", ""));
+    await page.getByRole("button", { name: "Try again" }).click();
+    await waitForMix(page);
+  });
+
   test("E3: no usable answer → a friendly message and Try again, which works", async ({ page }) => {
     await switchOn(page, "e3");
     await page.goto("/mix?routine=boxing-bag-rounds");

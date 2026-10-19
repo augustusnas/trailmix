@@ -3,7 +3,8 @@ import { checkAccess } from "@/server/access";
 import { MixError } from "@/server/claude";
 import { clientIp, fail, ok, readJson } from "@/server/http";
 import { mixAllowed } from "@/server/limits";
-import { swapTrack } from "@/server/mixes";
+import { newNotes, swapTrack } from "@/server/mixes";
+import { trackCheckLog } from "@/server/stats";
 import { testSwitch } from "@/server/testSwitch";
 import { validateMixRequest } from "@/server/validate";
 
@@ -26,10 +27,11 @@ export async function POST(req: Request) {
   const refused = await mixAllowed(access.who, forced);
   if (refused) return fail(refused, refused === "paused" ? 503 : 429);
 
+  const notes = newNotes();
   try {
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-    const swapped = await swapTrack({ req: mixReq, usage, forced }, mix, index);
-    console.log(JSON.stringify({ event: "swap", usage }));
+    const swapped = await swapTrack({ req: mixReq, usage, forced }, mix, index, notes);
+    console.log(JSON.stringify({ event: "swap", usage, notes, trackCheck: await trackCheckLog(notes) }));
     return ok({ mix: swapped });
   } catch (err) {
     const kind = err instanceof MixError ? err.kind : "failed";

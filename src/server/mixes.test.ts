@@ -7,7 +7,9 @@ import { CATALOG } from "./fakes";
 import { TOLERANCE_MS, fitToLength, separateArtists } from "./fit";
 import { resetMemoryKV } from "./kv";
 import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, simplify } from "./lookup";
-import { makeMix, swapTrack } from "./mixes";
+import { MixError } from "./claude";
+import { makeMix, newNotes, swapTrack } from "./mixes";
+import { recordTrackChecks } from "./stats";
 import { mixPrompt, trackPlan } from "./prompt";
 import type { MixRequest } from "./validate";
 
@@ -95,7 +97,7 @@ describe("track matching (Deezer, then iTunes for Apple links)", () => {
     expect(bestMatch([{ ...snippet, durationMs: MIN_TRACK_MS }], "Bitches Brew", "Miles Davis")).toBeDefined();
   });
 
-  it("skips album-length versions over 9 minutes", () => {
+  it("skips album-length versions over 10 minutes", () => {
     const long = { title: "Chameleon", artist: "Herbie Hancock", durationMs: 15.7 * 60_000 };
     expect(bestMatch([long], "Chameleon", "Herbie Hancock")).toBeUndefined();
     expect(bestMatch([{ ...long, durationMs: MAX_TRACK_MS }], "Chameleon", "Herbie Hancock")).toBeDefined();
@@ -169,6 +171,31 @@ describe("F9: making a mix", () => {
     expect(mix.tracks.map((t) => t.key)).not.toContain(swapped.tracks[i].key);
     swapped.tracks.forEach((t, k) => k !== i && expect(t).toEqual(mix.tracks[k]));
     expect(Math.abs(runningMs(swapped) - 45 * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
+  });
+});
+
+describe("E2 and the bad-track count", () => {
+  it("E2: when the catalogue can't check the tracks, the mix fails nicely instead of coming out empty", async () => {
+    await expect(makeMix(ask({}, "e2"))).rejects.toEqual(new MixError("failed"));
+  });
+
+  it("counts every suggestion checked and every one that failed, for this mix and in a running total", async () => {
+    const notes = newNotes();
+    const { mix } = await makeMix(ask(), [], undefined, notes);
+    expect(notes.notFound.length).toBeGreaterThanOrEqual(1); // the stand-in always makes one up
+    expect(notes.suggested).toBeGreaterThanOrEqual(mix.tracks.length + notes.notFound.length);
+    const first = (await recordTrackChecks(notes))!;
+    expect(first).toEqual({ suggested: notes.suggested, failed: notes.notFound.length, failedPercent: Math.round((notes.notFound.length / notes.suggested) * 1000) / 10 });
+    const second = (await recordTrackChecks({ suggested: 10, notFound: ["a", "b"], busy: 3 }))!;
+    expect(second.suggested).toBe(first.suggested + 10);
+    expect(second.failed).toBe(first.failed + 2); // busy isn't a failure
+  });
+
+  it("swaps count their suggestions too", async () => {
+    const { mix } = await makeMix(ask());
+    const notes = newNotes();
+    await swapTrack(ask(), mix, 3, notes);
+    expect(notes.suggested).toBeGreaterThanOrEqual(3);
   });
 });
 

@@ -8,6 +8,7 @@ import { TEST_SWITCH_KEY } from "@/lib/access";
 const SWITCHES = [
   { id: "", label: "Everything normal" },
   { id: "e1", label: "E1 · Tracks can't be found (mix comes out shorter)" },
+  { id: "e2", label: "E2 · Track catalogue (Deezer) is down" },
   { id: "e3", label: "E3 · The mix doesn't come together" },
   { id: "e4", label: "E4 · Mix-making is resting (Claude down)" },
   { id: "e5", label: "E5 · YouTube's daily limit used up (Keep it)" },

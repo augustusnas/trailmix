@@ -41,7 +41,7 @@
   padding: 6px;
 }
 
-.phases {
+.list {
   padding: 18px calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
   display: flex;
   flex-direction: column;

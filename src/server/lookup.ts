@@ -6,7 +6,8 @@
 
 import { trackKey } from "@/lib/mixTypes";
 import { config } from "./config";
-import { fakeCatalogue, fakeItunes } from "./fakes";
+import { fakeItunes, fakeSearch } from "./fakes";
+import type { GenreInfo } from "./genres";
 import { getKV } from "./kv";
 
 export type TrackInfo = {
@@ -17,12 +18,17 @@ export type TrackInfo = {
   appleUrl?: string;
   /** iTunes has been asked (whether or not it found the song). */
   appleDone?: boolean;
-};
+  /** Deezer's id for the track, for its tempo. */
+  deezerId?: number;
+  /** Tempo in beats a minute; 0 when Deezer hasn't measured it; undefined when not asked yet. */
+  bpm?: number;
+} & GenreInfo;
 
-type Cached = TrackInfo | { missing: true };
+type Cached = TrackInfo | { missing: true; reason?: Rejection };
 
 const CACHE_DAYS = 30;
-const cacheKey = (key: string) => `track:${key}`;
+// "track2": entries from before the genre check (Milestone 4) lack genres, so they aren't reused.
+const cacheKey = (key: string) => `track2:${key}`;
 
 async function readCache(key: string): Promise<Cached | null> {
   try {
@@ -48,66 +54,152 @@ export function simplify(s: string) {
   return s
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     // one bracketed note at a time: "(feat. X)", "[2019 Remaster]", "(Radio Edit)"…
     .replace(/\s*[([][^)\]]*\b(feat|ft|with|remaster(ed)?|version|edit|mix|live|radio)\b[^)\]]*[)\]]/g, "")
     .replace(/\s+(feat\.?|ft\.?|featuring)\s.*$/, "")
     .replace(/^the\s+/, "")
     .replace(/\b2pac\b/, "tupac") // Deezer's name for him
     .replace(/(\w)\.(?=\w)/g, "$1") // "Still D.R.E." is "Still DRE"
+    .replace(/['’`]/g, "") // "Man's Not Hot" is "Mans Not Hot"
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
 
-/** Album-length jams (15-minute "Chameleon") would swallow a workout; extended house and techno often run 9–10. */
-export const MAX_TRACK_MS = 10 * 60_000;
+/**
+ * Q2: the song itself, whatever the version. "Pow", "Pow! (Forward)", "Pow (Radio Edit)" and
+ * "Pow - Extended Mix" are all one song.
+ */
+export function songKey(title: string) {
+  return title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s*[([][^)\]]*[)\]]/g, " ") // every bracketed part
+    .replace(/\s+-\s+.*$/, "") // "Song - Radio Edit"
+    .replace(/\s+(feat\.?|ft\.?|featuring)\s.*$/, "")
+    .replace(/(\w)\.(?=\w)/g, "$1")
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(remix(ed)?|edit|version|radio|extended|original|mix|remaster(ed)?|vip|clean|explicit)\b/g, " ")
+    .replace(/^the\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Different names for the same artist (after tidying). */
+const ALIASES: Record<string, string> = {
+  "2pac": "tupac",
+  "tupac shakur": "tupac",
+  "wiz kid": "wizkid",
+  "starboy wizkid": "wizkid",
+  "puff daddy": "diddy",
+  "sean combs": "diddy",
+  "p diddy": "diddy",
+  "snoop doggy dogg": "snoop dogg",
+  "mos def": "yasiin bey",
+  "kanye west": "ye",
+  "maphorisa": "dj maphorisa",
+};
+
+/** One artist name, tidied: case, accents, dots, apostrophes, "$" (A$AP), a leading "The", "DJ" or "MC", then the alias list. */
+export function artistName(s: string) {
+  const n = s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\$/g, "s")
+    .replace(/[.'’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/^(the|dj|mc)\s+/, ""); // "DJ Zinc" is "Zinc", "MC Big Shaq" is "Big Shaq"
+  return ALIASES[n] ?? n;
+}
+
+/** Every artist in a credit: "Chase & Status", "Sub Focus x Dimension", "Ghetts feat. Jaykae" → their names. */
+export function artistNames(credit: string): string[] {
+  const whole = artistName(credit.replace(/\s+(feat\.?|ft\.?|featuring)\s.*$/i, ""));
+  const parts = credit
+    .split(/\s*(?:,|&|\+|\/|\band\b|\bx\b|\bvs\.?|\bwith\b|\bfeat\.?|\bft\.?|\bfeaturing\b)\s*/i)
+    .map(artistName)
+    .filter(Boolean);
+  return [...new Set([whole, ...parts])];
+}
+
+/**
+ * Q1: the same artist. Whole credits match after tidying ("The Prodigy" / "Prodigy", "Bob Marley" /
+ * "Bob Marley & The Wailers"), or one named artist is in both. A name inside another name isn't
+ * enough ("Sting" isn't "Stingray", "Dave" isn't "Dave Matthews Band").
+ */
+export function sameArtist(claude: string, found: string) {
+  const ours = artistNames(claude);
+  const theirs = new Set(artistNames(found));
+  return ours.some((n) => theirs.has(n));
+}
+
+/** Longest a track may be (Q4): longer versions would swallow a workout. */
+export const MAX_TRACK_MS = 7 * 60_000;
 /** Shorter than this is an intro, edit or snippet (a 54-second "Bitches Brew"), not the song. */
 export const MIN_TRACK_MS = 90_000;
 
-export type Candidate = { title: string; artist: string; durationMs: number; url?: string };
+export type Candidate = { title: string; artist: string; durationMs: number; url?: string; fullTitle?: string };
 
-/** The first result that's the same song by the same artist (not a cover or karaoke), 1½ to 10 minutes long. */
+const titleMatches = (found: string, wanted: string) => {
+  const ct = simplify(found);
+  const t = simplify(wanted);
+  return ct === t || ct.startsWith(`${t} `) || t.startsWith(`${ct} `);
+};
+/** Remixes, live takes and the like, when the original is there too. */
+const isVersion = (c: Candidate) => /\b(remix|live|version|vip|acoustic|instrumental|sped up|slowed|extended)\b/i.test(c.fullTitle ?? c.title);
+const isEdit = (c: Candidate) => /\b(radio|single)\s+edit\b|\bedit\)/i.test(c.fullTitle ?? c.title);
+/** Over this, a radio edit of the same recording is used instead, so the mix fits enough tracks (drum & bass originals often run 5–7 minutes). */
+const EDIT_OVER_MS = 5 * 60_000;
+
+/** Why a suggestion failed the catalogue check. */
+export type Rejection = "notFound" | "wrongArtist" | "length";
+
+/**
+ * The same song by the same artist (not a cover or karaoke), 1½ to 7 minutes, preferring the original
+ * recording over remixes. Otherwise why not: the title exists only by someone else (wrongArtist),
+ * only in versions that are too short or too long (length), or not at all (notFound).
+ */
+export function matchResult<C extends Candidate>(results: C[], title: string, artist: string): C | Rejection {
+  const sameSong = results.filter((c) => titleMatches(c.title, title));
+  const byArtist = sameSong.filter((c) => c.artist.length > 0 && sameArtist(artist, c.artist));
+  const timed = byArtist.filter((c) => c.durationMs >= MIN_TRACK_MS && c.durationMs <= MAX_TRACK_MS);
+  if (timed.length) {
+    const original = timed.find((c) => !isVersion(c) && !isEdit(c)) ?? timed.find((c) => !isVersion(c)) ?? timed[0];
+    const edit = timed.find((c) => isEdit(c) && !isVersion(c) && c.durationMs <= EDIT_OVER_MS);
+    return original.durationMs > EDIT_OVER_MS && edit ? edit : original;
+  }
+  if (byArtist.length) return "length";
+  return sameSong.length ? "wrongArtist" : "notFound";
+}
+
+/** The matching result, or undefined (used for Apple Music links, where the reason doesn't matter). */
 export function bestMatch<C extends Candidate>(results: C[], title: string, artist: string): C | undefined {
-  const t = simplify(title);
-  const a = simplify(artist);
-  const titleOk = (c: C) => {
-    const ct = simplify(c.title);
-    return ct === t || ct.startsWith(`${t} `) || t.startsWith(`${ct} `);
-  };
-  const artistOk = (c: C) => {
-    const ca = simplify(c.artist);
-    return ca.length > 0 && (ca.includes(a) || a.includes(ca));
-  };
-  return results.find((c) => c.durationMs >= MIN_TRACK_MS && c.durationMs <= MAX_TRACK_MS && titleOk(c) && artistOk(c));
+  const m = matchResult(results, title, artist);
+  return typeof m === "string" ? undefined : m;
 }
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ---------- Deezer: does it exist, and how long is it ----------
+// ---------- Deezer: does it exist, how long is it, which genre, how fast ----------
 
-type DeezerResult = { title?: string; title_short?: string; duration?: number; readable?: boolean; artist?: { name?: string } };
-
-/** "unavailable" means Deezer didn't answer properly (busy or down), which is not the same as "doesn't exist". */
-async function deezerSearch(title: string, artist: string, forced?: string | null, deadline = Infinity): Promise<{ durationMs: number } | null | "unavailable"> {
-  if (forced === "e2") return "unavailable"; // test switch: the catalogue is down
-  if (config.fakeServices()) return fakeCatalogue(title, artist);
-  const url = `https://api.deezer.com/search?${new URLSearchParams({ q: `${artist} ${title}`, limit: "25" })}`;
+/** One Deezer request, retried when Deezer is busy. "unavailable": no proper answer in time. */
+async function deezerGet<T>(path: string, deadline: number): Promise<T | "unavailable"> {
   for (const wait of [0, 1000, 2500]) {
     // Never run past the request's time limit: a busy answer is better than no answer.
     const left = deadline - Date.now() - wait;
     if (left < 800) break;
     if (wait) await pause(wait);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(Math.min(5000, left)), cache: "no-store" });
+      const res = await fetch(`https://api.deezer.com/${path}`, { signal: AbortSignal.timeout(Math.min(5000, left)), cache: "no-store" });
       if (!res.ok) continue;
       // Deezer reports being busy inside a normal answer: { error: { code: 4, ... } }
-      const data = (await res.json()) as { data?: DeezerResult[]; error?: unknown };
-      if (data.error || !Array.isArray(data.data)) continue;
-      const candidates = data.data
-        .filter((r) => r.readable !== false)
-        .map((r) => ({ title: r.title_short ?? r.title ?? "", artist: r.artist?.name ?? "", durationMs: (r.duration ?? 0) * 1000 }));
-      const m = bestMatch(candidates, title, artist);
-      return m ? { durationMs: m.durationMs } : null;
+      const data = (await res.json()) as T & { error?: unknown };
+      if (data.error) continue;
+      return data;
     } catch {
       // timed out or unreadable: try again
     }
@@ -115,23 +207,113 @@ async function deezerSearch(title: string, artist: string, forced?: string | nul
   return "unavailable";
 }
 
+type DeezerResult = {
+  id?: number;
+  title?: string;
+  title_short?: string;
+  duration?: number;
+  readable?: boolean;
+  artist?: { id?: number; name?: string };
+  album?: { id?: number };
+};
+
+export type DeezerTrack = { id: number; title: string; artist: string; durationMs: number; artistId?: number; albumId?: number };
+
+/** Deezer's search results for a suggestion, ready for matching. */
+async function deezerSearch(title: string, artist: string, deadline: number): Promise<(Candidate & DeezerTrack)[] | "unavailable"> {
+  const data = await deezerGet<{ data?: DeezerResult[] }>(`search?${new URLSearchParams({ q: `${artist} ${title}`, limit: "25" })}`, deadline);
+  if (data === "unavailable" || !Array.isArray(data.data)) return "unavailable";
+  return data.data
+    .filter((r) => r.readable !== false && r.id)
+    .map((r) => ({
+      id: r.id!,
+      title: r.title_short ?? r.title ?? "",
+      fullTitle: r.title,
+      artist: r.artist?.name ?? "",
+      durationMs: (r.duration ?? 0) * 1000,
+      artistId: r.artist?.id,
+      albumId: r.album?.id,
+    }));
+}
+
+/** An artist's catalogue on Deezer: how many albums in each genre, and each album's genre. Cached. */
+type ArtistGenres = { counts: Record<string, number>; albums: Record<string, number> };
+
+async function artistGenres(artistId: number, deadline: number): Promise<ArtistGenres | null> {
+  const key = `dzartist:${artistId}`;
+  const cached = await getKV().get<ArtistGenres>(key).catch(() => null);
+  if (cached) return cached;
+  const data = await deezerGet<{ data?: { id?: number; genre_id?: number }[] }>(`artist/${artistId}/albums?limit=100`, deadline);
+  if (data === "unavailable") return null;
+  const out: ArtistGenres = { counts: {}, albums: {} };
+  for (const al of data.data ?? []) {
+    if (!al.id || !al.genre_id || al.genre_id <= 0) continue;
+    out.albums[al.id] = al.genre_id;
+    out.counts[al.genre_id] = (out.counts[al.genre_id] ?? 0) + 1;
+  }
+  await getKV().set(key, out, CACHE_DAYS * 86400).catch(() => {});
+  return out;
+}
+
+/** The track's tempo, 0 when Deezer hasn't measured it. */
+async function deezerBpm(trackId: number, deadline: number): Promise<number | undefined> {
+  const data = await deezerGet<{ bpm?: number }>(`track/${trackId}`, deadline);
+  return data === "unavailable" ? undefined : (data.bpm ?? 0);
+}
+
 /** Test switches "mostfail" and "short": two in three tracks "aren't in the catalogue" (the same ones every time). */
 export const failsOnPurpose = (key: string) => [...key].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 7) % 3 !== 0;
 
-/** Before showing a mix: cache, then Deezer. Returns null when the track doesn't seem to exist (E1). */
-export async function confirmTrack(title: string, artist: string, forced?: string | null, deadline?: number): Promise<TrackInfo | null | "unavailable"> {
+export type Checked = TrackInfo | { rejected: Rejection } | "unavailable";
+
+/**
+ * Before showing a mix: cache, then Deezer (Q1, Q4). The track keeps Claude's title and takes
+ * Deezer's artist credit, and carries what the genre and tempo checks need (Q3, Q5).
+ * `tempo`: also find the tempo (for Driven and Feral).
+ */
+export async function confirmTrack(title: string, artist: string, forced?: string | null, deadline = Infinity, tempo = false): Promise<Checked> {
   const key = trackKey(title, artist);
-  if ((forced === "mostfail" || forced === "short") && failsOnPurpose(key)) return null;
-  const cached = forced === "e2" ? null : await readCache(key);
-  if (cached) return "missing" in cached ? null : cached;
-  const found = await deezerSearch(title, artist, forced, deadline);
-  if (found === "unavailable") return found;
-  if (!found) {
-    await writeCache(key, { missing: true });
-    return null;
+  if ((forced === "mostfail" || forced === "short") && failsOnPurpose(key)) return { rejected: "notFound" };
+  if (forced === "e2") return "unavailable"; // test switch: the catalogue is down
+  let info = await readCache(key);
+  if (info && "missing" in info) return { rejected: info.reason ?? "notFound" };
+  if (!info) {
+    const fake = config.fakeServices();
+    const results: (Candidate & DeezerTrack & { albumGenre?: number; bpm?: number })[] | "unavailable" = fake
+      ? fakeSearch(title)
+      : await deezerSearch(title, artist, deadline);
+    if (results === "unavailable") return results;
+    const m = matchResult(results, title, artist);
+    if (typeof m === "string") {
+      await writeCache(key, { missing: true, reason: m });
+      return { rejected: m };
+    }
+    if (fake) {
+      info = { title, artist: m.artist, durationMs: m.durationMs, deezerId: m.id, albumGenre: m.albumGenre, bpm: m.bpm };
+    } else {
+      const genres = m.artistId ? await artistGenres(m.artistId, deadline) : null;
+      info = {
+        title,
+        artist: m.artist,
+        durationMs: m.durationMs,
+        deezerId: m.id,
+        albumGenre: m.albumId ? genres?.albums[m.albumId] : undefined,
+        artistGenres: genres?.counts,
+      };
+    }
+    // Without the artist's genres (Deezer busy), look again next time rather than caching a gap.
+    if (fake || !m.artistId || info.artistGenres) await writeCache(key, info);
   }
-  const info: TrackInfo = { title, artist, ...found };
-  await writeCache(key, info);
+  if (tempo && info.bpm === undefined && !config.fakeServices() && info.deezerId) {
+    const bpm = await deezerBpm(info.deezerId, deadline);
+    if (bpm !== undefined) {
+      info = { ...info, bpm };
+      await writeCache(key, info);
+    }
+  }
+  // Apple links are looked up under the name shown in the mix (Deezer's artist credit).
+  const shownKey = trackKey(info.title, info.artist);
+  if (shownKey !== key && !(await readCache(shownKey))) await writeCache(shownKey, info);
   return info;
 }
 

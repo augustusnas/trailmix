@@ -16,7 +16,7 @@ const sampleMix = {
   energy: "feral",
   length: 30,
   createdAt: "2026-10-19T10:00:00Z",
-  tracks: [{ title: "Song", artist: "Band", phase: "main", durationMs: 200000, key: "band|song", appleUrl: "https://music.apple.com/gb/song/fake/1" }],
+  tracks: [{ title: "Song", artist: "Band", durationMs: 200000, key: "band|song", appleUrl: "https://music.apple.com/gb/song/fake/1" }],
 };
 let shareId = "";
 

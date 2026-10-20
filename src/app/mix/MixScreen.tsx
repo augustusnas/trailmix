@@ -7,7 +7,6 @@ import { BackLink } from "@/components/CtaLink";
 import { Headline } from "@/components/Headline";
 import { Icon } from "@/components/Icon";
 import { PlaylistTitle } from "@/components/PlaylistTitle";
-import { PHASE_STYLE } from "@/components/phaseStyle";
 import { appOrDefault } from "@/data/apps";
 import { CATEGORIES } from "@/data/categories";
 import type { Routine } from "@/data/routines";
@@ -15,7 +14,7 @@ import type { ApiResult } from "@/lib/access";
 import { energyLabel, genreLabel } from "@/lib/format";
 import { MESSAGES, type ErrorCode } from "@/lib/messages";
 import { fetchLinks, linksReady, requestMix, requestSwap, shareMix } from "@/lib/mixClient";
-import { PHASES, cameOutShort, runningMinutes, type Mix } from "@/lib/mixTypes";
+import { cameOutShort, runningMinutes, type Mix } from "@/lib/mixTypes";
 import { STAGES, type StageId } from "@/lib/progress";
 import { addRecentMix, load, rememberArtists, setCurrentMix, useSaved, type VibeSettings } from "@/lib/store";
 import { shareLink } from "@/lib/share";
@@ -194,7 +193,7 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
         </p>
       )}
 
-      <div className={styles.phases} aria-busy={making}>
+      <div className={styles.list} aria-busy={making}>
         {quotaId && mix && (
           <div className={styles.problem} role="alert" data-testid="youtube-quota">
             <p>{MESSAGES.youtubeQuota}</p>
@@ -216,12 +215,10 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 
         {mix && !making && (
           <>
-            {cameOutShort(mix) ? (
+            {cameOutShort(mix) && (
               <p className={styles.note} data-testid="length-note">
                 This one came out at {runningMinutes(mix)} minutes.
               </p>
-            ) : (
-              mix.shortened && <p className={styles.note}>{MESSAGES.shortened}</p>
             )}
             {pending > 0 && online && app.id === "apple" && (
               <div className={styles.linksProgress} data-testid="links-progress">
@@ -231,42 +228,29 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
                 <progress max={mix.tracks.length} value={mix.tracks.length - pending} aria-label="Apple Music links found" />
               </div>
             )}
-            {PHASES.map((p) => {
-              const tracks = mix.tracks.map((t, i) => ({ t, i })).filter(({ t }) => t.phase === p.id);
-              if (!tracks.length) return null;
-              const ps = PHASE_STYLE[p.id];
-              return (
-                <section key={p.id} className="phase" aria-label={p.label}>
-                  <div className="phase-head">
-                    <span className="mono tag" style={{ background: ps.bg, color: ps.fg }}>
-                      {p.label}
+            <section className="tracklist" aria-label="Tracks">
+              {mix.tracks.map((t, i) => {
+                const swapping = typeof busy === "object" && busy?.swapping === i;
+                return (
+                  <div key={t.key} className="track" data-testid="mix-track">
+                    <span className="track-n">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="track-text">
+                      <span className="track-title">{swapping ? "Finding another…" : t.title}</span>
+                      <span className="track-artist">{swapping ? "" : t.artist}</span>
                     </span>
-                    <span className="phase-note">{p.note}</span>
+                    <button
+                      type="button"
+                      className={styles.swap}
+                      aria-label={`Swap ${t.title} by ${t.artist}`}
+                      disabled={busy !== null || !online}
+                      onClick={() => swap(i)}
+                    >
+                      <Icon name="swap" size={20} stroke={2.2} />
+                    </button>
                   </div>
-                  {tracks.map(({ t, i }) => {
-                    const swapping = typeof busy === "object" && busy?.swapping === i;
-                    return (
-                      <div key={t.key} className="track" data-testid="mix-track" data-phase={t.phase}>
-                        <span className="track-n">{String(i + 1).padStart(2, "0")}</span>
-                        <span className="track-text">
-                          <span className="track-title">{swapping ? "Finding another…" : t.title}</span>
-                          <span className="track-artist">{swapping ? "" : t.artist}</span>
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.swap}
-                          aria-label={`Swap ${t.title} by ${t.artist}`}
-                          disabled={busy !== null || !online}
-                          onClick={() => swap(i)}
-                        >
-                          <Icon name="swap" size={20} stroke={2.2} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </section>
-              );
-            })}
+                );
+              })}
+            </section>
           </>
         )}
       </div>

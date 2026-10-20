@@ -2,17 +2,10 @@
 
 import { currentGenres } from "@/data/vibe";
 
-export type PhaseId = "warm-up" | "main" | "cool-down";
-export const PHASES: { id: PhaseId; label: string; note: string }[] = [
-  { id: "warm-up", label: "Warm-up", note: "easing in" },
-  { id: "main", label: "Main block", note: "building all the way" },
-  { id: "cool-down", label: "Cool-down", note: "bring it home" },
-];
-
+/** One track. A mix is one flowing list in playing order (Milestone 4 dropped warm-up, main block and cool-down). */
 export type MixTrack = {
   title: string;
   artist: string;
-  phase: PhaseId;
   /** Real length, from Deezer. */
   durationMs: number;
   /** Cache key for this track's lookup. */
@@ -33,17 +26,15 @@ export type Mix = {
   length: number;
   tracks: MixTrack[];
   createdAt: string;
-  /** 3+ tracks couldn't be found, so it's shorter than asked. */
-  shortened?: boolean;
   /** Share of tracks not in the previous 10 mixes, 0–100. */
   freshness?: number;
   /** Set once stored as a shared mix page. */
   shareId?: string;
 };
 
-/** F10: a mix counts as the right length within 5 minutes either way. */
+/** F10: a mix may be at most 5 minutes out; the aim is within 2½ (see server/fit.ts). */
 export const LENGTH_TOLERANCE_MS = 5 * 60_000;
-/** More than 5 minutes short of the chosen length. */
+/** More than 5 minutes short of the chosen length: the only time The mix says how long it came out (Q8). */
 export const cameOutShort = (m: Pick<Mix, "tracks" | "length">) => runningMs(m) < m.length * 60_000 - LENGTH_TOLERANCE_MS;
 
 export const runningMs = (m: Pick<Mix, "tracks">) => m.tracks.reduce((n, t) => n + t.durationMs, 0);
@@ -62,7 +53,11 @@ const url = (v: unknown) => {
   return s && /^https:\/\//.test(s) ? s : undefined;
 };
 
-/** Cleans a mix read from the phone or from storage; returns null if it isn't a mix. */
+/**
+ * Cleans a mix read from the phone or from storage; returns null if it isn't a mix.
+ * Mixes from before Milestone 4 have a phase on each track; it's ignored, and the tracks (already
+ * stored in playing order) show as one list.
+ */
 export function sanitizeMix(v: unknown): Mix | null {
   if (!isObj(v) || !Array.isArray(v.tracks)) return null;
   const tracks: MixTrack[] = [];
@@ -70,13 +65,11 @@ export function sanitizeMix(v: unknown): Mix | null {
     if (!isObj(t)) continue;
     const title = str(t.title, 120);
     const artist = str(t.artist, 120);
-    const phase = PHASES.some((p) => p.id === t.phase) ? (t.phase as PhaseId) : undefined;
     const durationMs = typeof t.durationMs === "number" && t.durationMs > 0 && t.durationMs < 3_600_000 ? t.durationMs : undefined;
-    if (!title || !artist || !phase || !durationMs) continue;
+    if (!title || !artist || !durationMs) continue;
     tracks.push({
       title,
       artist,
-      phase,
       durationMs,
       key: str(t.key) ?? trackKey(title, artist),
       appleUrl: url(t.appleUrl)?.startsWith("https://music.apple.com/") ? url(t.appleUrl) : undefined,
@@ -96,7 +89,6 @@ export function sanitizeMix(v: unknown): Mix | null {
     length: typeof v.length === "number" ? v.length : 45,
     tracks,
     createdAt: str(v.createdAt, 40) ?? new Date(0).toISOString(),
-    shortened: v.shortened === true || undefined,
     freshness: typeof v.freshness === "number" && v.freshness >= 0 && v.freshness <= 100 ? v.freshness : undefined,
     shareId: str(v.shareId, 64),
   };

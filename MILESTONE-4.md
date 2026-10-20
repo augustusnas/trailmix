@@ -1,113 +1,139 @@
-# Trailmix · Milestone 4: sign-in, saving and one tap to play
+# Trailmix · Milestone 4: better mixes, sign-in, saving and one tap to play
+
+**This is the single, consolidated brief for Milestone 4 (written 19 Oct, evening).** It replaces every earlier Milestone 4 note and prompt. Read it with **TEST-PLAN.md**, which has been rewritten to match. If anything still conflicts, this brief wins, and tell me.
 
 ## Context for Claude Code
+Milestones 0–3 are done. Real mixes generate in about 11 seconds, are checked against Deezer, reach their length, and can be swapped, remixed and shared. The privacy page is live (commit "Privacy page, linked from the Welcome footer").
 
-Milestones 0–3 are done. Real mixes generate in about 11 seconds, are checked against Deezer, fit their length (to within 2½ minutes), and can be swapped, remixed and shared as mix pages. Milestone 0 proved that saving a playlist to YouTube works.
+My phone test on 19 Oct found two problems:
+- **Mixes contain the wrong artists and wrong genres:** Taylor Swift, Sting and Bob Marley in UK rap & grime / drum & bass mixes, and the same song twice ("Pow" and "Pow (Forward)").
+- **It takes three screens to reach YouTube Music.**
 
-This milestone makes Trailmix **personal and finished**:
-- real Google sign-in, with a guest list, replacing the temporary access code;
-- "Keep it" creating a real, unlisted YouTube Music playlist;
-- **one tap to play**: no hopping between screens.
+I've also decided to **drop warm-up, main block and cool-down**.
 
-It's the last big build before the friend trial on **22 Oct**. Launch is **24 Oct**.
+This milestone fixes the mixes first, then adds Google sign-in, real YouTube playlists and one tap to play. The friend trial is **22 Oct**; launch is **24 Oct**.
 
 **I have no coding experience.** Explain each step in plain English, tell me exactly what to click in Google Cloud and Vercel, ask before installing anything on my Mac, and never ask me to paste a secret into chat.
 
-Read **TEST-PLAN.md** alongside this brief. Where they disagree, this brief wins, and tell me.
+If you already started any of Part A from my earlier prompts, say what's done and carry on from there.
 
-## Decisions since Milestone 3
+## Decisions in force
 
 | Topic | Decision |
 | --- | --- |
-| Model | **Default to `claude-sonnet-5-5`** (Haiku made up about 49% of suggestions; Sonnet about 26% in one test). Haiku stays as the automatic fallback. I'll set `CLAUDE_MODEL` and `DAILY_MIX_CEILING=30` in Vercel. |
+| Mix shape | **One flowing list. No warm-up, main block or cool-down labels anywhere.** A gentle energy shape stays in the background only (a little lighter at the start, a peak through the middle, easing off on the last track or two). |
+| Model | `claude-sonnet-5-5` by default; Haiku as the automatic fallback. I set `CLAUDE_MODEL` and `DAILY_MIX_CEILING=30` in Vercel. |
 | Lookup | Deezer checks tracks; iTunes gives Apple links in the background; Spotify and YouTube Music use search links. No Odesli. |
-| YouTube quota | Video IDs are looked up **only on Keep it**, then cached for everyone. I've applied for more quota, but assume we stay at 10,000 a day for the beta. |
+| Genres | The 12 broad genres, up to 3 per mix. |
+| YouTube quota | Video IDs are looked up only on Keep it and cached for everyone. We stay at 10,000 units a day for the beta (an increase has been requested). |
+| Sign-in | Google sign-in plus a guest list replaces the temporary access code. |
 | "Shared by" | The sharer's Google first name. |
-| Guest list | Me plus two friends for the trial (I'll add their emails as a Vercel variable). |
 
-## 1. Google sign-in and the guest list (F1, F2, E7, E13, N6, N7)
+---
+
+## Part A: mixes that fit (do this first, and push before Part B)
+
+1. **The artist must match.** Accept a Deezer result only if its artist matches Claude's artist after normalising (case, "The", "&"/"and", featured artists) or through a short alias list (2Pac/Tupac and similar). A title match with a different artist is a failure. This is the likely cause of the Taylor Swift, Sting and Bob Marley tracks.
+2. **No duplicates.** Treat titles as the same song after removing brackets, "feat.", "remix", "edit" and "version".
+3. **Genre check.** Map our 12 genres to Deezer's genres, and reject tracks whose album or artist genre is clearly outside the chosen ones. Log when Deezer has no genre.
+4. **One flowing list.**
+   - Remove the phase labels from The mix, Saved, the mix page and the playlist description.
+   - Keep the background energy shape described in "Decisions in force".
+   - Older stored mixes and shared pages must still display, as one list.
+5. **Track rules.**
+   - Minimum track counts: 8 for 30 minutes, 12 for 45, 16 for 60, 24 for 90.
+   - No track over 7 minutes; shortest 1½ minutes.
+   - For Driven and Feral, no slow tracks anywhere (use Deezer's BPM if it has one, and tell me if it doesn't).
+   - Length within 2½ minutes of the target, up to 3 top-up rounds.
+6. **Swap** picks a track of similar energy and the same genres (not "same phase"), with the existing 15-second limit.
+7. **Messages.** Never show "A few tracks couldn't be found". Only if a mix is still more than 5 minutes short, show "This one came out at X minutes."
+8. **Keep** the 2-per-artist rule, the recent-artists list, the "only real tracks" prompt rule and the bad-track count.
+9. **Quality report.** On Sonnet, make 5 mixes each at 30 and 45 minutes, Driven, for:
+   - UK rap & grime
+   - Drum & bass
+   - Afrobeats & amapiano
+   - all three together
+
+   For each mix, report: wrong-artist rejections, genre rejections, duplicates removed, track count, final length, and any track you think is still off-genre.
+
+**Push Part A on its own and send me the quality report before starting Part B**, so I can test the mixes on my phone while you build sign-in.
+
+---
+
+## Part B: Google sign-in and the guest list (F1, F2, E7, E13, N6, N7)
 - Auth.js with Google, using the "Trailmix Web Client" OAuth client. Allowed redirect URIs are `https://trailmix.augustusnas.com/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`. If Auth.js needs a different path, tell me and I'll change it in Google Cloud.
-- **Sign-in asks for basic profile only** (name and email). Don't ask for YouTube access at sign-in; see section 2.
-- **Guest list:** a `GUEST_EMAILS` environment variable (comma-separated). Anyone not on it is signed out straight away, and Welcome explains that Trailmix is invite-only (E13). Check the guest list on the server for **every** request, not just at sign-in.
-- "Lace up" on Welcome becomes **Sign in with Google**. After the first sign-in, the flow is Where do you listen → Home (F1). Returning users go straight to Home (F2).
-- **Remove the temporary access code** and its module. Every server route now refuses requests without a signed-in guest (N6), and a test calls each route signed out.
-- Session cookie: HTTP-only, Secure, SameSite=Lax (N7). Google tokens are encrypted, server-side only, and never readable by the page.
-- **Testing-mode warning:** while the Google app is in Testing mode, Google expires refresh tokens after **7 days**. When that happens, handle it as E7: "Quick sign-in needed, your mix is safe", then sign in and return to the same mix. Tell me in plain English what my testers will see.
-- Per-person limits now use the Google account instead of the access code: 20 mixes and 10 saves an hour (E9), and 20 shares a day.
+- **Sign-in asks only for basic profile** (name and email). YouTube permission comes later; see Part C.
+- **Guest list:** a `GUEST_EMAILS` variable, comma-separated.
+  - Check it on the server for **every** request.
+  - Anyone not on it is signed out, and Welcome explains that Trailmix is invite-only (E13).
+- "Lace up" becomes **Sign in with Google**. After the first sign-in: Where do you listen → Home (F1). Returning users go straight to Home (F2).
+- **Remove the temporary access code and its module.** Every server route refuses requests without a signed-in guest (N6).
+- **Cookie and tokens (N7):**
+  - The session cookie is HTTP-only, Secure, SameSite=Lax.
+  - Google tokens are encrypted, server-side only, and never readable by the page.
+- **Google Testing mode expires refresh tokens after 7 days.** Handle that as E7: "Quick sign-in needed, your mix is safe", then return to the same mix. Tell me word for word what my testers will see.
+- **Limits move to the Google account:** 20 mixes and 10 saves an hour (E9), and 20 shares a day.
 
-## 2. Keep it → a real YouTube Music playlist (F13, F14, E5, E6, E8, N4, N14)
-- The **first** time someone taps "Keep it in YouTube Music", ask Google for YouTube permission (incremental consent, the `youtube` scope). Explain it in one line first: "Trailmix needs permission to add this playlist to your YouTube account."
-- If they deny it (E8): "Without YouTube access I can't save playlists, but you can share the list." Then offer **Switch music app** or **Open the track list**.
-- Create a **new, unlisted** playlist each time (F14) named `Trailmix · <Routine> · <Fun name> · <Day Mon>`. Description: routine, energy, length and genres, plus "Made with Trailmix".
-- For each track, get the YouTube video ID: **cache first** (Upstash, shared by everyone), then `search.list` (prefer the Music category), then cache the result. Respect the daily search cap (`YOUTUBE_SEARCH_DAILY_CAP`, default 60). Add tracks in mix order.
-- **E6, save fails partway:** keep the playlist and show "Saved 8 of 11 tracks", with a Retry button that adds only the missing ones.
-- **E5, quota or search cap used up:** block Keep it with "YouTube's daily limit is used up. Try tomorrow or share the list". Make the mix and mix pages keep working.
-- Save within 15 seconds when most tracks are cached (N4). Log the units each save uses (N14), and tell me the real numbers for a fresh and a cached save.
-- Store the playlist ID with the mix, so the mix page can offer "Open the whole playlist".
+## Part C: Keep it → a real YouTube Music playlist (F13, F14, E5, E6, E8, N4, N14)
+- **The first time someone taps "Keep it in YouTube Music"**, show one line: "Trailmix needs permission to add this playlist to your YouTube account." Then request the `youtube` scope (incremental consent).
+- **If they deny it (E8):** "Without YouTube access I can't save playlists, but you can share the list", with **Switch music app** and **Open the track list**.
+- **The playlist itself:**
+  - A **new, unlisted** playlist each time (F14).
+  - Named `Trailmix · <Routine> · <Fun name> · <Day Mon>`.
+  - Description: routine, energy, length and genres, plus "Made with Trailmix" (no phase wording).
+  - Tracks in mix order.
+- **Video IDs:** check the cache first (Upstash, shared by everyone), then `search.list` (prefer the Music category), then cache the result. Respect `YOUTUBE_SEARCH_DAILY_CAP` (default 60).
+- **E6:** keep the partial playlist and show "Saved 8 of 11 tracks", with a Retry button that adds only the missing ones.
+- **E5:** when YouTube's quota or the search cap is used up, block Keep it with "YouTube's daily limit is used up. Try tomorrow or share the list". Mix-making and mix pages keep working.
+- **Speed and units:** save within 15 seconds when most tracks are cached (N4). Log the units each save uses (N14), and report real numbers for a fresh and a cached save.
+- Store the playlist ID with the mix.
 
-## 3. One tap to play (my phone test, 19 Oct)
-Today it takes three screens to reach YouTube Music. Fix the flow:
+## Part D: one tap to play
 
 | Music app | Main button on The mix | What one tap does |
 | --- | --- | --- |
-| YouTube Music | Keep it in YouTube Music | Short "Saving to YouTube Music…" progress, then **opens the new playlist straight in the YouTube Music app**. When I come back to Trailmix, Saved is waiting (Share with friends, Back to home). |
-| Spotify / Apple Music | Open in Spotify / Apple Music | Goes **straight to the track list** (the mix page, with my app leading); each track is one tap from the app. **No Saved screen in between.** Share with friends is on that page. |
+| YouTube Music | Keep it in YouTube Music | "Saving to YouTube Music…" progress, then **opens the new playlist straight in the YouTube Music app**. Coming back to Trailmix shows Saved (Share with friends, Back to home). |
+| Spotify / Apple Music | Open in Spotify / Apple Music | Goes **straight to the track list** (the mix page, with my app leading). **No Saved screen.** Share with friends is on that page. |
 
-- Remove the stand-in that sends Saved's "Open in YouTube Music" to the mix page. On Saved it now reopens the real playlist.
-- **Mix page:** show the big "Open in YouTube Music" / "Open the whole playlist" button only when a real playlist exists. Otherwise remove the button and its "Then tap any track below" line, and leave just the per-track arrows.
-- Test on a real iPhone, in the installed app, that the YouTube Music link opens the **app** rather than a browser tab. If iOS needs a particular link format for that, use it and tell me.
+- Remove the stand-in that sends Saved's "Open in YouTube Music" to the mix page. It now reopens the real playlist.
+- **Mix page:** show the big "Open the whole playlist" button only when a real playlist exists. Otherwise remove the button and its "Then tap any track below" line; the per-track arrows are enough.
+- Confirm on a real iPhone, from the installed app, that the YouTube Music link opens the **app** rather than a browser tab. If iOS needs a particular link format for that, use it and tell me.
 
-## 4. Better mixes: one flowing playlist (decided 19 Oct)
-- **No more warm-up, main block and cool-down.** People decide their own warm-up and cool-down, so the app shouldn't guess at them. Remove the phase labels from The mix, Saved, the mix page and the playlist description. A mix is one numbered list.
-- In the background, keep a **gentle energy shape**: open a little lighter, peak through the middle, ease off over the last track or two. Never label it, and never let it override the genre or energy chosen.
-- **Swap** replaces a track with one of similar energy and the same genres. Remove "same phase" from swap and from the tests.
-- Track count: enough to fill the length, with no track over 7 minutes, and at least 8 tracks for 30 minutes (scale up for longer). For Driven and Feral, no slow tracks anywhere in the mix.
-- Keep the 2-per-artist rule, the recent-artists list, the "only real tracks" rule, and the artist-match, duplicate and genre checks from the fix round.
-- Update TEST-PLAN.md: F9 ("a fun name and a single list"), F11 (similar energy, not same phase), E1 (no phase wording).
-
-## 5. Shared mix pages
-- "Shared by <first name>", from the sharer's Google account.
-- Mixes that have a saved playlist show "Open the whole playlist" in YouTube Music.
-- Share is available from Saved (YouTube users) and from the track list (Spotify and Apple users).
-
-## 6. Privacy page
-Add a simple `/privacy` page in the Trailmix style. It should cover:
-- what's stored on the phone: pins, vibe settings, recent mixes and recent artists;
-- what's stored on the server: shared mixes for 90 days, anonymous daily counters, and the track and video caches;
-- that Google sign-in and YouTube access are used only to create playlists the user asks for, and that nothing is sold or used for ads;
-- how to revoke access at myaccount.google.com/permissions;
-- links to YouTube's Terms of Service and Google's Privacy Policy;
-- the contact email in a `CONTACT_EMAIL` variable.
-
-Link it from the Welcome footer next to the credit, and from the mix page footer.
+## Part E: shared mix pages and privacy
+- The mix page shows "Shared by <Google first name>", and "Open the whole playlist" when the mix has a saved playlist.
+- Share is available from Saved (YouTube Music users) and from the track list (Spotify and Apple Music users).
+- **Privacy page** (already live; update it, don't rebuild it):
+  - Change "will soon use Google sign-in" to the present tense.
+  - Remove the mention of access codes.
+  - Add the Google account data actually stored (name, email, and encrypted tokens), and how long it's kept.
+  - Read the contact email from `CONTACT_EMAIL`.
+  - Link the page from the mix page footer as well.
 
 ## Environment variables to walk me through
-`GUEST_EMAILS`, `AUTH_SECRET` (secret), the Google client ID and secret (secret), `CONTACT_EMAIL`, `YOUTUBE_SEARCH_DAILY_CAP`. **Remove** `BETA_ACCESS_CODE` once sign-in works. Tell me which to mark as secret.
+`GUEST_EMAILS`, `AUTH_SECRET` (secret), Google client ID and secret (secret), `CONTACT_EMAIL`, `YOUTUBE_SEARCH_DAILY_CAP`. **Remove** `BETA_ACCESS_CODE` once sign-in works. Tell me which to mark as secret.
 
 ## Google Cloud steps to walk me through
-Add the `youtube` scope to the consent screen, and add my two friends as **test users** (I'll give you their emails when you ask). Confirm the consent screen shows **Trailmix**, and tell me exactly what "unverified app" warning my friends will see, so I can warn them in the invite.
+- Add the `youtube` scope to the consent screen.
+- Add my two friends as test users (ask me for their emails when you need them).
+- Confirm the consent screen shows **Trailmix**.
+- Tell me the exact "unverified app" warning my friends will see, so I can warn them in the invite.
 
 ## Tests
-- F1, F2, F13, F14, F15 (with the real "Shared by"), F20, F21; E5, E6, E7, E8, E9, E13; N4, N6, N7, N14.
-- One-tap flow: from The mix, YouTube users reach the playlist with no intermediate screen, and Spotify and Apple users reach the track list without Saved.
-- Minimum track counts and the 7-minute cap at all four lengths; no phase labels anywhere.
-- No route works without a signed-in guest; nobody outside `GUEST_EMAILS` can do anything.
+- Write the tests alongside each part, and **update TEST-PLAN.md** wherever the build differs from it.
 - Keep the test switches (behind `SHOW_RESET_PAGE`) for E5, E6, E7 and E10, so I can force them during the friend trial.
-- Update TEST-PLAN.md for anything that changed.
 
-## Build order (push after each step)
-1. Sign-in and the guest list; remove the access code.
-2. Keep it → playlist, with the video cache and E5, E6 and E8.
-3. The one-tap flow, and the mix page button rule.
-4. The single-list change, energy rules and the Sonnet rerun.
-5. "Shared by", privacy page, tests and docs.
+## Build order (push after each)
+1. Part A, then the quality report. **Stop here and send it to me.**
+2. Part B: sign-in and guest list; remove the access code.
+3. Part C: Keep it → playlist.
+4. Part D: one tap to play.
+5. Part E, then TEST-PLAN.md updates.
 
 ## Out of scope
 The check-in card, the stats page, the welcome animation (Milestone 5), saving to Spotify or Apple Music, and Google app verification.
 
 ## When you finish, tell me
-- How to test it on my phone, step by step, including signing in as a non-guest (I'll use another Google account).
-- Real save timings, and YouTube units for a fresh and a cached save.
-- Sonnet vs Haiku failure counts.
+- How to test it on my phone, step by step, including signing in as a non-guest.
+- Save timings, and YouTube units for a fresh and a cached save.
 - What my friends will see when they sign in, word for word, so I can write the invite.
 - Anything I need to do before the friend trial on 22 Oct.

@@ -4,14 +4,16 @@ import { getRoutine } from "@/data/routines";
 import { cameOutShort, runningMs, trackKey } from "@/lib/mixTypes";
 import { FALLBACK_MODEL, classify, currentModel, resetModelFallbackForTests, setClaudeClientForTests, suggestMix, thinkingFor } from "./claude";
 import { CATALOG } from "./fakes";
-import { TOLERANCE_MS, fitToLength, separateArtists } from "./fit";
-import { resetMemoryKV } from "./kv";
-import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, simplify } from "./lookup";
+import { AIM_MS, TOLERANCE_MS, fitToLength, minTracks, separateArtists } from "./fit";
+import { DEEZER, genreVerdict, tooSlow } from "./genres";
+import { getKV, resetMemoryKV } from "./kv";
+import { readShare } from "./shares";
+import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, matchResult, sameArtist, simplify, songKey } from "./lookup";
 import { morePrompt } from "./prompt";
 import { MixError } from "./claude";
-import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
+import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, failedChecks, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
 import { recordTrackChecks } from "./stats";
-import { SYSTEM_PROMPT, mixPrompt, trackPlan } from "./prompt";
+import { SYSTEM_PROMPT, mixPrompt, trackCount } from "./prompt";
 import type { MixRequest } from "./validate";
 
 const env = { ...process.env };
@@ -38,42 +40,52 @@ const ask = (over: Partial<MixRequest> = {}, forced: string | null = null) => ({
   forced,
 });
 
-describe("F10: fit to length", () => {
-  const t = (phase: "warm-up" | "main" | "cool-down", min: number) => ({ phase, durationMs: min * 60_000, artist: "a" });
+describe("F10 and Q4: fit to length", () => {
+  const t = (min: number, artist = "a") => ({ durationMs: min * 60_000, artist });
+  const many = (n: number, min: number) => Array.from({ length: n }, () => t(min));
 
-  it("keeps warm-up and cool-down whole and fills the main block in order", () => {
-    const tracks = [t("warm-up", 4), t("warm-up", 4), ...Array.from({ length: 12 }, () => t("main", 4)), t("cool-down", 4)];
-    const fit = fitToLength(tracks, 45);
+  it("fills in order until within 2½ minutes, keeping the ending at the end", () => {
+    const ending = [t(3.5, "end1"), t(3.5, "end2")];
+    const fit = fitToLength(many(14, 3.5), ending, 45);
     expect(fit.status).toBe("ok");
-    expect(fit.tracks.filter((x) => x.phase === "warm-up")).toHaveLength(2);
-    expect(fit.tracks.filter((x) => x.phase === "cool-down")).toHaveLength(1);
-    expect(Math.abs(fit.totalMs - 45 * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
+    expect(fit.tracks.slice(-2)).toEqual(ending);
+    expect(Math.abs(fit.totalMs - 45 * 60_000)).toBeLessThanOrEqual(AIM_MS);
   });
 
   it("skips one long track that would overshoot, using a shorter spare", () => {
-    const tracks = [t("warm-up", 5), ...Array.from({ length: 4 }, () => t("main", 4)), t("main", 12), t("main", 3), t("cool-down", 4)];
-    const fit = fitToLength(tracks, 30);
+    const fit = fitToLength([...many(4, 4), t(12), ...many(4, 3.5)], [], 30);
     expect(fit.tracks.some((x) => x.durationMs === 12 * 60_000)).toBe(false);
     expect(fit.status).toBe("ok");
   });
 
   it("reports short when there aren't enough tracks", () => {
-    expect(fitToLength([t("warm-up", 4), t("main", 4)], 60).status).toBe("short");
+    expect(fitToLength([t(4)], [t(4)], 60).status).toBe("short");
+  });
+
+  it("Q4: minimum track counts are 8, 12, 16 and 24", () => {
+    expect([30, 45, 60, 90].map(minTracks)).toEqual([8, 12, 16, 24]);
+  });
+
+  it("Q4: long tracks are skipped so the minimum count still fits in the length", () => {
+    // 6½-minute tracks first: taking them would reach 30 minutes in five tracks.
+    const fit = fitToLength([...many(3, 6.5), ...many(10, 3.5)], [], 30);
+    expect(fit.tracks.length).toBeGreaterThanOrEqual(8);
+    expect(fit.status).toBe("ok");
+  });
+
+  it("Q4: too few tracks counts as short, even when the length is right", () => {
+    expect(fitToLength(many(6, 5), [], 30).status).toBe("short");
   });
 
   it("never puts the same artist twice in a row when it can avoid it", () => {
-    const tracks = [
-      { phase: "main" as const, durationMs: 1, artist: "A" },
-      { phase: "main" as const, durationMs: 1, artist: "A" },
-      { phase: "main" as const, durationMs: 1, artist: "B" },
-    ];
-    expect(separateArtists(tracks).map((x) => x.artist)).toEqual(["A", "B", "A"]);
+    const tracks = [t(1, "A"), t(1, "A"), t(1, "B")];
+    expect(separateArtists(tracks, 0).map((x) => x.artist)).toEqual(["A", "B", "A"]);
   });
 });
 
 describe("track matching (Deezer, then iTunes for Apple links)", () => {
   it("simplifies titles", () => {
-    expect(simplify("Gypsy Woman (She's Homeless) [2019 Remaster]")).toBe("gypsy woman she s homeless");
+    expect(simplify("Gypsy Woman (She's Homeless) [2019 Remaster]")).toBe("gypsy woman shes homeless");
     expect(simplify("Jungle (feat. Someone)")).toBe("jungle");
     expect(simplify("Beyoncé")).toBe("beyonce");
   });
@@ -99,7 +111,7 @@ describe("track matching (Deezer, then iTunes for Apple links)", () => {
     expect(bestMatch([{ ...snippet, durationMs: MIN_TRACK_MS }], "Bitches Brew", "Miles Davis")).toBeDefined();
   });
 
-  it("skips album-length versions over 10 minutes", () => {
+  it("Q4: skips versions over 7 minutes", () => {
     const long = { title: "Chameleon", artist: "Herbie Hancock", durationMs: 15.7 * 60_000 };
     expect(bestMatch([long], "Chameleon", "Herbie Hancock")).toBeUndefined();
     expect(bestMatch([{ ...long, durationMs: MAX_TRACK_MS }], "Chameleon", "Herbie Hancock")).toBeDefined();
@@ -113,36 +125,36 @@ describe("track matching (Deezer, then iTunes for Apple links)", () => {
 });
 
 describe("F9: making a mix", () => {
-  it("plans about 20% more tracks than the length needs", () => {
-    const p = trackPlan(45);
-    expect(p["warm-up"] + p.main + p["cool-down"]).toBe(Math.round((45 / 3.7) * 1.2));
+  it("asks for about 30% more tracks than the minimum count", () => {
+    expect([30, 45, 60, 90].map(trackCount)).toEqual([11, 16, 21, 32]);
+    expect(mixPrompt(request())).toContain("Make a playlist of 16 tracks, in playing order.");
   });
 
   for (const length of [30, 45, 60, 90]) {
-    it(`a ${length}-minute mix is within 5 minutes of ${length} (F10)`, async () => {
+    it(`a ${length}-minute mix is within 2½ minutes of ${length}, with at least ${minTracks(length)} tracks (F10, Q4)`, async () => {
       const { mix } = await makeMix(ask({ length }));
-      expect(Math.abs(runningMs(mix) - length * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
-      expect(mix.tracks.every((t) => t.durationMs > 0)).toBe(true);
+      expect(Math.abs(runningMs(mix) - length * 60_000)).toBeLessThanOrEqual(AIM_MS);
+      expect(mix.tracks.length).toBeGreaterThanOrEqual(minTracks(length));
+      expect(mix.tracks.every((t) => t.durationMs >= MIN_TRACK_MS && t.durationMs <= MAX_TRACK_MS)).toBe(true);
     });
   }
 
-  it("has a fun name, phases in order, and no artist twice in a row", async () => {
+  it("has a fun name, one list with no phases, and no artist twice in a row", async () => {
     const { mix } = await makeMix(ask());
     expect(mix.name).toBe("Gloves On, Volume Up");
-    const order = mix.tracks.map((t) => t.phase);
-    expect(order).toEqual([...order].sort((a, b) => ["warm-up", "main", "cool-down"].indexOf(a) - ["warm-up", "main", "cool-down"].indexOf(b)));
+    expect(mix.tracks.every((t) => !("phase" in t))).toBe(true);
     for (let i = 1; i < mix.tracks.length; i++) expect(mix.tracks[i].artist).not.toBe(mix.tracks[i - 1].artist);
   });
 
-  it("E1: a track that doesn't exist is replaced in the same phase", async () => {
+  it("E1: a track that doesn't exist is left out and the length is topped up", async () => {
     const { mix } = await makeMix(ask());
     expect(mix.tracks.some((t) => t.title.startsWith("Imaginary"))).toBe(false);
-    expect(mix.shortened).toBeUndefined();
+    expect(cameOutShort(mix)).toBe(false);
   });
 
-  it("E1: when 3 or more can't be found or replaced, the mix says it's a little shorter", async () => {
+  it("Q8: a mix never carries the old \"a few tracks couldn't be found\" note", async () => {
     const { mix } = await makeMix(ask({}, "e1"));
-    expect(mix.shortened).toBe(true);
+    expect("shortened" in mix).toBe(false);
     expect(mix.tracks.some((t) => t.title.startsWith("Imaginary"))).toBe(false);
   });
 
@@ -164,12 +176,11 @@ describe("F9: making a mix", () => {
     expect(again.genres).toEqual(first.genres);
   });
 
-  it("F11: Swap replaces only that track, in the same phase, with a new one, and keeps the length", async () => {
+  it("F11: Swap replaces only that track with a new one, and keeps the length", async () => {
     const { mix } = await makeMix(ask());
-    const i = mix.tracks.findIndex((t) => t.phase === "main");
+    const i = 4;
     const swapped = await swapTrack(ask(), mix, i);
     expect(swapped.tracks).toHaveLength(mix.tracks.length);
-    expect(swapped.tracks[i].phase).toBe("main");
     expect(mix.tracks.map((t) => t.key)).not.toContain(swapped.tracks[i].key);
     swapped.tracks.forEach((t, k) => k !== i && expect(t).toEqual(mix.tracks[k]));
     expect(Math.abs(runningMs(swapped) - 45 * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
@@ -189,7 +200,7 @@ describe("F10 when most suggestions fail the check", () => {
     it(`two in three failing: still within 5 minutes of ${length}, in at most ${LENGTH_ROUNDS} rounds of extras`, async () => {
       const notes = newNotes();
       const { mix, timings } = await makeMix(ask({ length }, "mostfail"), [], undefined, notes);
-      expect(notes.notFound.length / notes.suggested).toBeGreaterThan(0.5);
+      expect(failedChecks(notes) / notes.suggested).toBeGreaterThan(0.5);
       expect(Math.abs(runningMs(mix) - length * 60_000)).toBeLessThanOrEqual(TOLERANCE_MS);
       expect(timings.lengthRounds).toBeLessThanOrEqual(LENGTH_ROUNDS);
       expect(cameOutShort(mix)).toBe(false);
@@ -207,6 +218,189 @@ describe("F10 when most suggestions fail the check", () => {
     const stages: Stage[] = [];
     await makeMix(ask(), [], undefined, newNotes(), (s) => stages.push(s));
     expect(stages).toEqual(["picking", "energy", "fitting"]);
+  });
+});
+
+describe("Q1: the artist must match", () => {
+  it("a title match by a different artist is rejected as the wrong artist", () => {
+    const results = [{ title: "Shake It Off", artist: "Taylor Swift", durationMs: 219_000 }];
+    expect(matchResult(results, "Shake It Off", "Skepta")).toBe("wrongArtist");
+    expect(matchResult([], "Shake It Off", "Skepta")).toBe("notFound");
+  });
+
+  it("a name inside another name isn't the same artist", () => {
+    expect(sameArtist("Sting", "Stingray")).toBe(false);
+    expect(sameArtist("Dave", "Dave Matthews Band")).toBe(false);
+    expect(sameArtist("Kano", "Kanon")).toBe(false);
+    expect(sameArtist("Bob Marley", "Ziggy Marley")).toBe(false);
+  });
+
+  it("allows case, a leading The, &/and, dots, $ and featured artists", () => {
+    expect(sameArtist("the prodigy", "The Prodigy")).toBe(true);
+    expect(sameArtist("Prodigy", "The Prodigy")).toBe(true);
+    expect(sameArtist("Chase and Status", "Chase & Status")).toBe(true);
+    expect(sameArtist("Bob Marley", "Bob Marley & The Wailers")).toBe(true);
+    expect(sameArtist("Ghetts feat. Jaykae", "Ghetts")).toBe(true);
+    expect(sameArtist("Ms. Banks", "Ms Banks")).toBe(true);
+    expect(sameArtist("A$AP Rocky", "ASAP Rocky")).toBe(true);
+    expect(sameArtist("Beyoncé", "Beyonce")).toBe(true);
+  });
+
+  it("ignores apostrophes and a leading DJ or MC", () => {
+    expect(bestMatch([{ title: "Man's Not Hot", artist: "Big Shaq", durationMs: 186_000 }], "Mans Not Hot", "MC Big Shaq")).toBeDefined();
+    expect(bestMatch([{ title: "Don't Panic", artist: "Kano", durationMs: 200_000 }], "Dont Panic", "Kano")).toBeDefined();
+    expect(sameArtist("Zinc", "DJ Zinc")).toBe(true);
+    expect(sameArtist("DJ Hype", "Hype")).toBe(true);
+  });
+
+  it("uses the radio edit when the original runs over 5 minutes", () => {
+    const results = [
+      { title: "Watercolour", fullTitle: "Watercolour", artist: "Pendulum", durationMs: 305_000 },
+      { title: "Watercolour", fullTitle: "Watercolour (Radio Edit)", artist: "Pendulum", durationMs: 214_000 },
+    ];
+    expect(bestMatch(results, "Watercolour", "Pendulum")?.durationMs).toBe(214_000);
+    const short = [{ ...results[0], durationMs: 240_000 }, results[1]];
+    expect(bestMatch(short, "Watercolour", "Pendulum")?.durationMs).toBe(240_000);
+  });
+
+  it("knows a few other names for the same artist", () => {
+    expect(sameArtist("Tupac", "2Pac")).toBe(true);
+    expect(sameArtist("Wiz Kid", "Wizkid")).toBe(true);
+    expect(sameArtist("Puff Daddy", "Diddy")).toBe(true);
+  });
+
+  it("prefers the original recording over a remix with the same title", () => {
+    const results = [
+      { title: "Endorphins", fullTitle: "Endorphins (Fred V & Grafix Remix)", artist: "Sub Focus", durationMs: 300_000 },
+      { title: "Endorphins", fullTitle: "Endorphins", artist: "Sub Focus", durationMs: 250_000 },
+    ];
+    expect(bestMatch(results, "Endorphins", "Sub Focus")?.durationMs).toBe(250_000);
+  });
+
+  it("in a mix: the stand-in's wrong-artist credit is rejected and logged", async () => {
+    const notes = newNotes();
+    const { mix } = await makeMix(ask(), [], undefined, notes);
+    expect(notes.wrongArtist).toHaveLength(1);
+    expect(notes.wrongArtist[0]).toContain("Someone Else Entirely");
+    expect(mix.tracks.some((t) => t.artist === "Someone Else Entirely")).toBe(false);
+  });
+});
+
+describe("Q2: no song twice", () => {
+  it("titles are the same song without brackets, feat., remix, edit or version", () => {
+    const key = songKey("Pow");
+    for (const t of ["Pow (Forward)", "Pow! (Forward)", "POW (Radio Edit)", "Pow - Extended Mix", "Pow (feat. Someone)", "Pow [VIP]", "Pow (Remix)", "Pow (2011 Version)"]) {
+      expect(songKey(t)).toBe(key);
+    }
+    expect(songKey("Shutdown")).not.toBe(songKey("Shut Up"));
+  });
+
+  it("in a mix: the stand-in's second version of a song is removed", async () => {
+    const notes = newNotes();
+    const { mix } = await makeMix(ask(), [], undefined, notes);
+    expect(notes.duplicates).toHaveLength(1);
+    expect(notes.duplicates[0]).toContain("(Radio Edit)");
+    const songs = mix.tracks.map((t) => songKey(t.title));
+    expect(new Set(songs).size).toBe(songs.length);
+  });
+});
+
+describe("Q3: genre check", () => {
+  const D = DEEZER;
+  it("rejects a track whose album and artist are filed outside the chosen genres", () => {
+    const taylor = { albumGenre: D.pop, artistGenres: { [D.pop]: 67, [D.country]: 16, [D.alternative]: 12 } };
+    expect(genreVerdict(taylor, ["uk-rap", "dnb"])).toBe("off");
+    const marley = { albumGenre: D.reggae, artistGenres: { [D.reggae]: 66, [D.dance]: 4, [D.pop]: 3 } };
+    expect(genreVerdict(marley, ["uk-rap"])).toBe("off");
+  });
+
+  it("keeps a UK rap track on a Pop-filed album when the artist is filed under Rap", () => {
+    const pow = { albumGenre: D.pop, artistGenres: { [D.rap]: 5, [D.pop]: 1 } };
+    expect(genreVerdict(pow, ["uk-rap"])).toBe("fits");
+  });
+
+  it("an artist's occasional genre (under 20% of their albums) doesn't count", () => {
+    expect(genreVerdict({ artistGenres: { [D.reggae]: 66, [D.dance]: 4 } }, ["house"])).toBe("off");
+  });
+
+  it("keeps tracks Deezer has no genre for, so they can be logged", () => {
+    expect(genreVerdict({}, ["afro"])).toBe("unknown");
+    expect(genreVerdict({ albumGenre: -1, artistGenres: {} }, ["afro"])).toBe("unknown");
+  });
+
+  it("several chosen genres allow any of their Deezer genres", () => {
+    expect(genreVerdict({ albumGenre: D.african }, ["uk-rap", "afro"])).toBe("fits");
+    expect(genreVerdict({ albumGenre: D.african }, ["uk-rap", "dnb"])).toBe("off");
+  });
+
+  it("afro-pop filed under Pop fits Afrobeats & amapiano", () => {
+    expect(genreVerdict({ albumGenre: D.pop, artistGenres: { [D.pop]: 25, [D.electro]: 3 } }, ["afro"])).toBe("fits");
+  });
+
+  it("in a mix: Classical-filed stand-in tracks are rejected and logged, no-genre ones counted", async () => {
+    const notes = newNotes();
+    const { mix } = await makeMix(ask({ length: 90 }), [], undefined, notes);
+    expect(notes.offGenre.length).toBeGreaterThan(0);
+    const classical = new Set(CATALOG.filter((t) => t.albumGenre === DEEZER.classical).map((t) => t.title));
+    expect(mix.tracks.some((t) => classical.has(t.title))).toBe(false);
+    expect(notes.noGenre).toBeGreaterThan(0);
+  });
+});
+
+describe("Q5: no slow tracks for Driven and Feral", () => {
+  it("half-speed readings never count as slow for grime, drum & bass, hip-hop or afrobeats", () => {
+    expect(tooSlow(70, "driven", ["uk-rap"])).toBe(false); // grime's 140 read as 70
+    expect(tooSlow(87, "driven", ["dnb"])).toBe(false); // a 174 bpm drum & bass track read as 87
+    expect(tooSlow(75, "feral", ["hiphop"])).toBe(false);
+    expect(tooSlow(55, "driven", ["afro"])).toBe(false);
+  });
+
+  it("only clearly slow for the genre counts, and doubling to a normal tempo isn't slow", () => {
+    expect(tooSlow(84, "driven", ["afro"])).toBe(true); // afrobeats sits at 95–125
+    expect(tooSlow(100, "driven", ["afro"])).toBe(false);
+    expect(tooSlow(62, "driven", ["house"])).toBe(false); // 124 at half speed
+    expect(tooSlow(95, "driven", ["house"])).toBe(true);
+    expect(tooSlow(75, "driven", ["pop"])).toBe(true);
+    expect(tooSlow(75, "driven", ["pop", "uk-rap"])).toBe(false); // slow for pop, but fine if it's the grime
+  });
+
+  it("only Driven and Feral are checked, and no measurement is never slow", () => {
+    expect(tooSlow(75, "steady", ["pop"])).toBe(false);
+    expect(tooSlow(0, "driven", ["pop"])).toBe(false);
+    expect(tooSlow(undefined, "feral", ["pop"])).toBe(false);
+  });
+
+  it("in a mix: slow stand-in tracks (70 bpm) are left out of a Driven pop mix, kept for Easy", async () => {
+    const slow = new Set(CATALOG.filter((t) => t.bpm === 70).map((t) => t.title));
+    const driven = newNotes();
+    const { mix } = await makeMix(ask({ length: 90, genres: ["pop"] }), [], undefined, driven);
+    expect(driven.slow.length).toBeGreaterThan(0);
+    expect(mix.tracks.some((t) => slow.has(t.title))).toBe(false);
+    resetMemoryKV();
+    const easy = newNotes();
+    await makeMix(ask({ length: 90, energy: "easy", genres: ["pop"] }), [], undefined, easy);
+    expect(easy.slow).toHaveLength(0);
+  });
+
+  it("the prompt asks for one flowing list with no slow songs for Driven and Feral", () => {
+    expect(SYSTEM_PROMPT).toMatch(/One flowing list, no sections/);
+    expect(SYSTEM_PROMPT).toMatch(/For Driven and Feral every track is still fast and intense/);
+    expect(SYSTEM_PROMPT).toMatch(/never over 7/);
+    expect(SYSTEM_PROMPT).not.toMatch(/warm-up|main block|cool-down/i);
+  });
+});
+
+describe("Q7: shared pages from before Milestone 4", () => {
+  it("a stored mix with warm-up, main block and cool-down opens as one list, in the same order", async () => {
+    const id = "A".repeat(22);
+    const track = (title: string, phase: string) => ({ title, artist: `By ${title}`, phase, durationMs: 200_000, key: title });
+    await getKV().set(`share:${id}`, {
+      id: "x", name: "Old Share", routineId: "push-day", genres: ["uk-rap"], energy: "driven", length: 30, createdAt: "2026-10-12",
+      tracks: [track("One", "warm-up"), track("Two", "main"), track("Three", "cool-down")],
+    });
+    const mix = (await readShare(id))!;
+    expect(mix.tracks.map((t) => t.title)).toEqual(["One", "Two", "Three"]);
+    expect(mix.tracks.every((t) => !("phase" in t))).toBe(true);
   });
 });
 
@@ -250,7 +444,7 @@ describe("artists: at most 2 per mix, and steering away from recent ones", () =>
     expect(SYSTEM_PROMPT).toMatch(/Only pick tracks you are confident exist/);
     expect(SYSTEM_PROMPT).toMatch(/at most 2 tracks by any one artist/);
     expect(mixPrompt(request())).not.toContain("last few mixes");
-    const more = morePrompt(request({ avoidArtists: ["Skepta"] }), "main", 3, [], "", ["Dave"]);
+    const more = morePrompt(request({ avoidArtists: ["Skepta"] }), 3, [], "", ["Dave"]);
     expect(more).toContain("Already twice in the playlist, so don't use these artists: Dave");
     expect(more).toContain("Skepta");
   });
@@ -265,10 +459,11 @@ describe("E2 and the bad-track count", () => {
     const notes = newNotes();
     const { mix } = await makeMix(ask(), [], undefined, notes);
     expect(notes.notFound.length).toBeGreaterThanOrEqual(1); // the stand-in always makes one up
-    expect(notes.suggested).toBeGreaterThanOrEqual(mix.tracks.length + notes.notFound.length);
+    const failed = failedChecks(notes);
+    expect(notes.suggested).toBeGreaterThanOrEqual(mix.tracks.length + failed);
     const first = (await recordTrackChecks(notes))!;
-    expect(first).toEqual({ suggested: notes.suggested, failed: notes.notFound.length, failedPercent: Math.round((notes.notFound.length / notes.suggested) * 1000) / 10 });
-    const second = (await recordTrackChecks({ suggested: 10, notFound: ["a", "b"], busy: 3 }))!;
+    expect(first).toEqual({ suggested: notes.suggested, failed, failedPercent: Math.round((failed / notes.suggested) * 1000) / 10 });
+    const second = (await recordTrackChecks({ ...newNotes(), suggested: 10, notFound: ["a"], offGenre: ["b"], busy: 3 }))!;
     expect(second.suggested).toBe(first.suggested + 10);
     expect(second.failed).toBe(first.failed + 2); // busy isn't a failure
   });
@@ -297,7 +492,7 @@ describe("Claude errors (E3, E4)", () => {
   const goodAnswer = {
     stop_reason: "end_turn",
     usage: { input_tokens: 10, output_tokens: 10 },
-    content: [{ type: "text", text: JSON.stringify({ name: "Test Mix", tracks: [1, 2, 3].map((n) => ({ title: `Song ${n}`, artist: `Band ${n}`, phase: "main" })) }) }],
+    content: [{ type: "text", text: JSON.stringify({ name: "Test Mix", tracks: [1, 2, 3].map((n) => ({ title: `Song ${n}`, artist: `Band ${n}` })) }) }],
   };
   const realMode = () => {
     process.env.FAKE_SERVICES = "0";

@@ -13,10 +13,11 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Category colours | `src/data/categories.ts` |
 | Genres, energy levels, lengths | `src/data/vibe.ts` |
 | The mix prompt (everything Claude is told) | `src/server/prompt.ts` |
-| Making, swapping and fitting mixes | `src/server/mixes.ts`, `src/server/fit.ts` |
-| Track lookup (cache → Deezer; exact Apple Music links from iTunes in the background) | `src/server/lookup.ts` |
+| Making, swapping and fitting mixes (one flowing list; minimum track counts) | `src/server/mixes.ts`, `src/server/fit.ts` |
+| Track lookup (cache → Deezer: right artist, same-song check, 1½–7 minutes, tempo; exact Apple Music links from iTunes in the background) | `src/server/lookup.ts` |
+| Genre check (our 12 genres → Deezer's) and the slow-track rule | `src/server/genres.ts` |
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
-| Bad-track count (running totals in Upstash, shown at the end of each mix log line) | `src/server/stats.ts` |
+| Bad-track count (running totals in Upstash, shown at the end of each mix log line; the line's `notes` say why each failed) | `src/server/stats.ts` |
 | Who may make mixes (Milestone 4 swaps in sign-in here) | `src/server/access.ts`, `src/lib/access.ts` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
 | Recorded stand-ins used by tests | `src/server/fakes.ts` |

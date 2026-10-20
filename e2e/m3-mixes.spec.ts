@@ -177,17 +177,15 @@ test.describe("making mixes", () => {
     expect(mixCalls).toBe(1);
   });
 
-  test("F11: Swap changes only that track, keeps its phase and keeps the length within 5 minutes", async ({ page }) => {
+  test("F11: Swap changes only that track and keeps the length within 5 minutes", async ({ page }) => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await waitForMix(page);
     const before = await titles(page);
-    const phases = await page.getByTestId("mix-track").evaluateAll((els) => els.map((e) => e.getAttribute("data-phase")));
     await page.getByRole("button", { name: `Swap ${before[3]} by` , exact: false }).click();
     await expect.poll(async () => (await titles(page))[3]).not.toBe(before[3]);
     const after = await titles(page);
     after.forEach((t, i) => i !== 3 && expect(t).toBe(before[i]));
     expect(before).not.toContain(after[3]);
-    expect(await page.getByTestId("mix-track").evaluateAll((els) => els.map((e) => e.getAttribute("data-phase")))).toEqual(phases);
     const minutes = Number((await page.getByTestId("running-time").textContent())!.match(/\d+/)![0]);
     expect(Math.abs(minutes - 45)).toBeLessThanOrEqual(5);
   });
@@ -203,10 +201,20 @@ test.describe("making mixes", () => {
     await expect(page.getByTestId("routine-name")).toContainText("45 min · Driven", { ignoreCase: true });
   });
 
-  test("E1: when 3 or more tracks can't be found, the mix says it's a little shorter", async ({ page }) => {
+  test("Q8: when tracks can't be found, The mix never says \"A few tracks couldn't be found\"", async ({ page }) => {
     await switchOn(page, "e1");
     await page.goto("/mix?routine=boxing-bag-rounds");
-    await expect(page.getByText("A few tracks couldn't be found, so this mix is a little shorter.")).toBeVisible();
+    await waitForMix(page);
+    await expect(page.getByText(/couldn.t be found/)).toHaveCount(0);
+  });
+
+  test("Q7: The mix is one numbered list with no warm-up, main block or cool-down labels", async ({ page }) => {
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await waitForMix(page);
+    await expect(page.getByRole("region", { name: "Tracks" })).toHaveCount(1);
+    await expect(page.getByText(/warm-up|main block|cool-down/i)).toHaveCount(0);
+    const numbers = await page.locator(".track-n").allTextContents();
+    expect(numbers).toEqual(numbers.map((_, i) => String(i + 1).padStart(2, "0")));
   });
 
   test("E2: the track catalogue is down → a friendly message and Try again, which works", async ({ page }) => {

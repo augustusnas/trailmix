@@ -5,7 +5,6 @@
 // with a warning in the log, instead of failing every mix.
 
 import Anthropic from "@anthropic-ai/sdk";
-import { PHASES, type PhaseId } from "@/lib/mixTypes";
 import { config } from "./config";
 import { fakeClaude } from "./fakes";
 import { MIX_SCHEMA, MORE_SCHEMA, SYSTEM_PROMPT, mixPrompt, morePrompt } from "./prompt";
@@ -18,7 +17,7 @@ export class MixError extends Error {
   }
 }
 
-export type SuggestedTrack = TrackRef & { phase: PhaseId };
+export type SuggestedTrack = TrackRef;
 export type ClaudeUsage = { inputTokens: number; outputTokens: number; calls: number };
 
 const TIMEOUT_MS = 20_000;
@@ -138,8 +137,7 @@ function cleanTracks(raw: unknown): SuggestedTrack[] {
   for (const t of list) {
     const title = cleanText(t?.title);
     const artist = cleanText(t?.artist);
-    const phase = PHASES.find((p) => p.id === t?.phase)?.id;
-    if (title && artist && phase) out.push({ title, artist, phase });
+    if (title && artist) out.push({ title, artist });
   }
   return out;
 }
@@ -170,10 +168,10 @@ export async function suggestMix(a: Ask, exclude: TrackRef[] = [], avoidName?: s
 }
 
 /** `full`: artists already in the playlist twice. */
-export async function suggestMore(a: Ask, phase: PhaseId, count: number, exclude: TrackRef[], note = "", full: string[] = []) {
+export async function suggestMore(a: Ask, count: number, exclude: TrackRef[], note = "", full: string[] = []) {
   checkTime(a);
   const raw = config.fakeServices()
-    ? await fakeClaude.more(a, phase, count, exclude)
-    : await ask(morePrompt(a.req, phase, count, exclude, note, full), MORE_SCHEMA, 2000, a);
-  return cleanTracks(raw).map((t) => ({ ...t, phase }));
+    ? await fakeClaude.more(a, count, exclude)
+    : await ask(morePrompt(a.req, count, exclude, note, full), MORE_SCHEMA, 2000, a);
+  return cleanTracks(raw);
 }

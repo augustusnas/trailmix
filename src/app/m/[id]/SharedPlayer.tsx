@@ -1,9 +1,8 @@
 "use client";
 
 import { Icon } from "@/components/Icon";
-import { PHASE_STYLE } from "@/components/phaseStyle";
 import { MUSIC_APPS, type MusicApp } from "@/data/apps";
-import { PHASES, type Mix, type MixTrack } from "@/lib/mixTypes";
+import type { Mix, MixTrack } from "@/lib/mixTypes";
 import { setMusicApp, useSaved } from "@/lib/store";
 import styles from "./shared.module.css";
 
@@ -65,27 +64,12 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
         </div>
       </div>
 
-      <div className={styles.phases}>
-        {PHASES.map((p) => {
-          const tracks = mix.tracks.map((t, i) => ({ t, i })).filter(({ t }) => t.phase === p.id);
-          if (!tracks.length) return null;
-          const ps = PHASE_STYLE[p.id];
-          return (
-            <section key={p.id} className="phase" aria-label={p.label}>
-              <div className="phase-head">
-                <span
-                  className="mono tag"
-                  style={p.id === "main" ? { background: "var(--orange)", color: "var(--ink)" } : { background: ps.bg, color: ps.fg }}
-                >
-                  {p.label}
-                </span>
-              </div>
-              {tracks.map(({ t, i }) => (
-                <TrackRow key={t.key} n={i + 1} track={t} app={app} />
-              ))}
-            </section>
-          );
-        })}
+      <div className={styles.list}>
+        <section className="tracklist" aria-label="Tracks">
+          {mix.tracks.map((t, i) => (
+            <TrackRow key={t.key} n={i + 1} track={t} app={app} />
+          ))}
+        </section>
       </div>
     </>
   );

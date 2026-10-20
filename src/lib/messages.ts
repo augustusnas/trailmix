@@ -11,7 +11,6 @@ export const MESSAGES = {
   failed: "The mix didn't come together. Try again.",
   resting: "Mix-making is resting right now. Try again later.",
   offline: "You're offline.",
-  shortened: "A few tracks couldn't be found, so this mix is a little shorter.",
   /** Generate or Remix ran past its time limit (45 seconds on the phone). */
   timeout: "That took too long. Try again.",
   /** Swap ran past its 15-second limit, or found nothing; the original track stays. */

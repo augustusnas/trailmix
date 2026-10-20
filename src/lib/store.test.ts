@@ -191,6 +191,29 @@ describe("on-device storage", () => {
     expect(sanitize({ version: 2, currentMix: "nope" }).currentMix).toBeNull();
   });
 
+  it("Q7: a mix saved before Milestone 4 (with warm-up, main block and cool-down) shows as one list, in the same order", () => {
+    const old = {
+      id: "old",
+      name: "Old Mix",
+      routineId: "push-day",
+      genres: ["grime"],
+      energy: "driven",
+      length: 30,
+      createdAt: "2026-10-12",
+      shortened: true,
+      tracks: [
+        { title: "One", artist: "A", phase: "warm-up", durationMs: 200000, key: "a|one" },
+        { title: "Two", artist: "B", phase: "main", durationMs: 200000, key: "b|two" },
+        { title: "Three", artist: "C", phase: "cool-down", durationMs: 200000, key: "c|three" },
+      ],
+    };
+    const m = sanitize({ version: 2, currentMix: old }).currentMix!;
+    expect(m.tracks.map((t) => t.title)).toEqual(["One", "Two", "Three"]);
+    expect(m.tracks.every((t) => !("phase" in t))).toBe(true);
+    expect("shortened" in m).toBe(false);
+    expect(m.genres).toEqual(["uk-rap"]);
+  });
+
   it("never crashes when the phone refuses storage (e.g. private browsing)", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("SecurityError");

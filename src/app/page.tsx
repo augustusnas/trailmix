@@ -30,7 +30,7 @@ export default function Welcome() {
         <span className={`${styles.hill} ${styles.hill3}`} />
         <span className={`${styles.hill} ${styles.hill4}`} />
         <span className={`mono ${styles.hillLabel}`} style={{ left: "9%", bottom: 200, color: "var(--sand)" }}>
-          Warm-up
+          Ease in
         </span>
         <span className={`mono ${styles.hillLabel}`} style={{ left: "67%", bottom: 160 }}>
           Peak
@@ -39,7 +39,7 @@ export default function Welcome() {
           Build
         </span>
         <span className={`mono ${styles.hillLabel}`} style={{ left: "64%", bottom: 50 }}>
-          Cool-down
+          Ease off
         </span>
       </div>
 

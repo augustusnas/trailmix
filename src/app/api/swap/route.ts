@@ -10,7 +10,7 @@ import { validateMixRequest } from "@/server/validate";
 
 export const maxDuration = 60;
 
-// F11: swap one track for another in the same phase.
+// F11: swap one track for another of similar energy in the same genres.
 export async function POST(req: Request) {
   const access = checkAccess(req, clientIp(req));
   if (!access.ok) return fail("access", 401);

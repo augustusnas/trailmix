@@ -53,10 +53,18 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const line = (v: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(v)}\n`));
+      let open = true;
+      const line = (v: unknown) => {
+        if (!open) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(v)}\n`));
+        } catch {
+          open = false; // the phone stopped listening (left the screen); the mix still finishes and is logged
+        }
+      };
       const r = await run((stage) => line({ stage }));
       line("mix" in r ? { mix: r.mix } : { error: r.kind, message: MESSAGES[r.kind] });
-      controller.close();
+      if (open) controller.close();
     },
   });
   return new Response(stream, {

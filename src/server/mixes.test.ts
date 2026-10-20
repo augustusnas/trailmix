@@ -2,7 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getRoutine } from "@/data/routines";
 import { cameOutShort, runningMs, trackKey } from "@/lib/mixTypes";
-import { FALLBACK_MODEL, classify, currentModel, resetModelFallbackForTests, setClaudeClientForTests, suggestMix, thinkingFor } from "./claude";
+import { FALLBACK_MODEL, classify, currentModel, resetModelFallbackForTests, reviewGenres, setClaudeClientForTests, suggestMix, thinkingFor } from "./claude";
 import { CATALOG } from "./fakes";
 import { AIM_MS, TOLERANCE_MS, fitToLength, minTracks, separateArtists } from "./fit";
 import { DEEZER, genreVerdict, tooSlow } from "./genres";
@@ -13,7 +13,7 @@ import { morePrompt } from "./prompt";
 import { MixError } from "./claude";
 import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, failedChecks, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
 import { recordTrackChecks } from "./stats";
-import { SYSTEM_PROMPT, mixPrompt, trackCount } from "./prompt";
+import { SYSTEM_PROMPT, mixPrompt, reviewPrompt, trackCount } from "./prompt";
 import type { MixRequest } from "./validate";
 
 const env = { ...process.env };
@@ -125,9 +125,9 @@ describe("track matching (Deezer, then iTunes for Apple links)", () => {
 });
 
 describe("F9: making a mix", () => {
-  it("asks for about 30% more tracks than the minimum count", () => {
-    expect([30, 45, 60, 90].map(trackCount)).toEqual([11, 16, 21, 32]);
-    expect(mixPrompt(request())).toContain("Make a playlist of 16 tracks, in playing order.");
+  it("asks for about 60% more tracks than the minimum count", () => {
+    expect([30, 45, 60, 90].map(trackCount)).toEqual([13, 20, 26, 39]);
+    expect(mixPrompt(request())).toContain("Make a playlist of 20 tracks, in playing order.");
   });
 
   for (const length of [30, 45, 60, 90]) {
@@ -246,6 +246,13 @@ describe("Q1: the artist must match", () => {
     expect(sameArtist("Beyoncé", "Beyonce")).toBe(true);
   });
 
+  it("a longer title that only starts the same way is a different track", () => {
+    expect(matchResult([{ title: "Kano Freestyle", artist: "Kano", durationMs: 200_000 }], "Kano", "Kano")).toBe("notFound");
+    expect(matchResult([{ title: "Skepta Interlude", artist: "Skepta", durationMs: 200_000 }], "Skepta", "Skepta")).toBe("notFound");
+    expect(bestMatch([{ title: "Pow! (Forward)", artist: "Lethal Bizzle", durationMs: 181_000 }], "Pow", "Lethal Bizzle")).toBeDefined();
+    expect(bestMatch([{ title: "Shape of You - Stormzy Remix", artist: "Ed Sheeran", durationMs: 230_000 }], "Shape of You", "Ed Sheeran")).toBeDefined();
+  });
+
   it("ignores apostrophes and a leading DJ or MC", () => {
     expect(bestMatch([{ title: "Man's Not Hot", artist: "Big Shaq", durationMs: 186_000 }], "Mans Not Hot", "MC Big Shaq")).toBeDefined();
     expect(bestMatch([{ title: "Don't Panic", artist: "Kano", durationMs: 200_000 }], "Dont Panic", "Kano")).toBeDefined();
@@ -292,7 +299,9 @@ describe("Q2: no song twice", () => {
     for (const t of ["Pow (Forward)", "Pow! (Forward)", "POW (Radio Edit)", "Pow - Extended Mix", "Pow (feat. Someone)", "Pow [VIP]", "Pow (Remix)", "Pow (2011 Version)"]) {
       expect(songKey(t)).toBe(key);
     }
+    expect(songKey("Pow 2011")).toBe(key); // a year after the title is the same song
     expect(songKey("Shutdown")).not.toBe(songKey("Shut Up"));
+    expect(songKey("Neon Pulse 1")).not.toBe(songKey("Neon Pulse 2"));
   });
 
   it("in a mix: the stand-in's second version of a song is removed", async () => {
@@ -333,8 +342,36 @@ describe("Q3: genre check", () => {
     expect(genreVerdict({ albumGenre: D.african }, ["uk-rap", "dnb"])).toBe("off");
   });
 
-  it("afro-pop filed under Pop fits Afrobeats & amapiano", () => {
+  it("afro-pop filed under Pop or Soul & Funk fits Afrobeats & amapiano", () => {
     expect(genreVerdict({ albumGenre: D.pop, artistGenres: { [D.pop]: 25, [D.electro]: 3 } }, ["afro"])).toBe("fits");
+    // Victony's "Soweto": album and most of his catalogue under Soul & Funk
+    expect(genreVerdict({ albumGenre: D.soulFunk, artistGenres: { [D.soulFunk]: 25, [D.african]: 6, [D.rap]: 3 } }, ["afro"])).toBe("fits");
+  });
+
+  it("the genre review: tracks in the right Deezer genre but the wrong scene are removed and logged", async () => {
+    const notes = newNotes();
+    const { mix } = await makeMix(ask({ length: 90 }), [], undefined, notes);
+    const wrongScene = new Set(CATALOG.filter((t) => t.wrongScene).map((t) => t.title));
+    expect(notes.offGenreReview.length).toBeGreaterThan(0);
+    expect(mix.tracks.some((t) => wrongScene.has(t.title))).toBe(false);
+    expect(failedChecks(notes)).toBeGreaterThanOrEqual(notes.offGenreReview.length);
+  });
+
+  it("the genre review never fails a mix: an error keeps every track", async () => {
+    setClaudeClientForTests({ messages: { create: async () => { throw new Error("down"); } } });
+    delete process.env.FAKE_SERVICES;
+    process.env.ANTHROPIC_API_KEY = "test";
+    const tracks = [{ title: "Song", artist: "Band" }];
+    expect(await reviewGenres({ ...ask(), deadline: Date.now() + 20_000 }, tracks)).toEqual([]);
+    setClaudeClientForTests(null);
+  });
+
+  it("the review prompt gives each genre's meaning and asks only for clear misfits", () => {
+    const p = reviewPrompt(request(), [{ title: "Sicko Mode", artist: "Travis Scott" }]);
+    expect(p).toContain("UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)");
+    expect(p).toContain("not dubstep, EDM");
+    expect(p).toContain("1. Sicko Mode — Travis Scott");
+    expect(p).toMatch(/Only list a track when you're sure it's from a different scene/);
   });
 
   it("in a mix: Classical-filed stand-in tracks are rejected and logged, no-genre ones counted", async () => {
@@ -570,7 +607,7 @@ describe("Claude errors (E3, E4)", () => {
   it("the prompt holds only checked values, recent tracks and the rules", () => {
     const p = mixPrompt(request({ avoid: [{ title: "Show Me Love", artist: "Robin S" }] }));
     expect(p).toContain("Workout: Boxing bag rounds (Combat)");
-    expect(p).toContain("Genres: UK rap & grime, Drum & bass");
+    expect(p).toContain("Genres (at least one per track):\n- UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)\n- Drum & bass: drum & bass and jungle");
     expect(p).toContain("- Show Me Love — Robin S");
   });
 });

@@ -38,7 +38,8 @@ const NOUNS = [
 
 /**
  * 240 fake tracks with fixed lengths of 2.5 to 5 minutes; consecutive tracks never share an artist.
- * Every 11th is filed under Classical (outside every Trailmix genre, Q3) and every 13th is slow (Q5).
+ * Every 11th is filed under Classical (outside every Trailmix genre, Q3), every 13th is slow (Q5),
+ * and every 17th is in the right Deezer genre but the wrong scene, which only the genre review catches.
  */
 export const CATALOG = Array.from({ length: 240 }, (_, i) => ({
   n: i,
@@ -47,6 +48,7 @@ export const CATALOG = Array.from({ length: 240 }, (_, i) => ({
   durationMs: (150 + ((i * 37) % 151)) * 1000,
   albumGenre: i % 11 === 10 ? DEEZER.classical : undefined,
   bpm: i % 13 === 12 ? 70 : 0,
+  wrongScene: i % 17 === 16,
 }));
 const byKey = new Map(
   CATALOG.map((t) => [`${t.artist}|${t.title}`.toLowerCase(), t]),
@@ -97,6 +99,12 @@ const seedOf = (a: Ask) =>
   );
 
 export const fakeClaude = {
+  /** Genre review: the wrong-scene tracks (1-based positions). */
+  review(a: Ask, tracks: TrackRef[]) {
+    a.usage.calls += 1;
+    return { off: tracks.flatMap((t, i) => (findFake(t.title, t.artist)?.wrongScene ? [{ n: i + 1, title: t.title }] : [])) };
+  },
+
   async mix(a: Ask, exclude: TrackRef[], avoidName?: string) {
     a.usage.calls += 1;
     if (a.forced === "slow") await new Promise((r) => setTimeout(r, 3500)); // lets tests see the progress line

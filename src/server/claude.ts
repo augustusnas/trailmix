@@ -7,7 +7,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "./config";
 import { fakeClaude } from "./fakes";
-import { MIX_SCHEMA, MORE_SCHEMA, SYSTEM_PROMPT, mixPrompt, morePrompt } from "./prompt";
+import { MIX_SCHEMA, MORE_SCHEMA, REVIEW_SCHEMA, SYSTEM_PROMPT, mixPrompt, morePrompt, reviewPrompt } from "./prompt";
 import { cleanText, type MixRequest, type TrackRef } from "./validate";
 
 export class MixError extends Error {
@@ -174,4 +174,37 @@ export async function suggestMore(a: Ask, count: number, exclude: TrackRef[], no
     ? await fakeClaude.more(a, count, exclude)
     : await ask(morePrompt(a.req, count, exclude, note, full), MORE_SCHEMA, 2000, a);
   return cleanTracks(raw);
+}
+
+/**
+ * The genre review: the positions (0-based) of tracks Claude says are clearly outside the chosen genres.
+ * Asked twice at once, and only tracks both answers name are removed: one answer alone sometimes
+ * flags a track that fits. It's a second opinion, never a reason to fail: if it errors or time is
+ * short, nothing is removed.
+ */
+export async function reviewGenres(a: Ask, tracks: TrackRef[]): Promise<number[]> {
+  const [x, y] = await Promise.all([reviewOnce(a, tracks), reviewOnce(a, tracks)]);
+  const second = new Set(y);
+  return x.filter((i) => second.has(i));
+}
+
+async function reviewOnce(a: Ask, tracks: TrackRef[]): Promise<number[]> {
+  if (!tracks.length) return [];
+  if (a.deadline !== undefined && a.deadline - Date.now() < 4000) return [];
+  try {
+    const raw = config.fakeServices()
+      ? await fakeClaude.review(a, tracks)
+      : await ask(reviewPrompt(a.req, tracks), REVIEW_SCHEMA, 400, a);
+    const off = (raw as { off?: unknown })?.off;
+    if (!Array.isArray(off)) return [];
+    // Only when the number and the title agree: in a long list a number can be off by one.
+    const same = (x: unknown, y: string) => typeof x === "string" && x.trim().toLowerCase() === y.trim().toLowerCase();
+    const picked = off.flatMap((o) => {
+      const i = Number((o as { n?: unknown })?.n) - 1;
+      return Number.isInteger(i) && i >= 0 && i < tracks.length && same((o as { title?: unknown }).title, tracks[i].title) ? [i] : [];
+    });
+    return [...new Set(picked)];
+  } catch {
+    return [];
+  }
 }

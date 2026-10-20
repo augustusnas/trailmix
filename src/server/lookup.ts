@@ -67,8 +67,8 @@ export function simplify(s: string) {
 }
 
 /**
- * Q2: the song itself, whatever the version. "Pow", "Pow! (Forward)", "Pow (Radio Edit)" and
- * "Pow - Extended Mix" are all one song.
+ * Q2: the song itself, whatever the version. "Pow", "Pow! (Forward)", "Pow (Radio Edit)",
+ * "Pow - Extended Mix" and "Pow 2011" are all one song.
  */
 export function songKey(title: string) {
   return title
@@ -82,6 +82,7 @@ export function songKey(title: string) {
     .replace(/['’`]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\b(remix(ed)?|edit|version|radio|extended|original|mix|remaster(ed)?|vip|clean|explicit)\b/g, " ")
+    .replace(/\s(19|20)\d\d\s*$/, "") // "Pow 2011" is "Pow"
     .replace(/^the\s+/, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -144,10 +145,14 @@ export const MIN_TRACK_MS = 90_000;
 
 export type Candidate = { title: string; artist: string; durationMs: number; url?: string; fullTitle?: string };
 
+/**
+ * The same title, apart from brackets, " - Version" endings, feat. and version words. A longer title
+ * that only starts the same way is a different track ("Kano" isn't "Kano Freestyle").
+ */
 const titleMatches = (found: string, wanted: string) => {
-  const ct = simplify(found);
-  const t = simplify(wanted);
-  return ct === t || ct.startsWith(`${t} `) || t.startsWith(`${ct} `);
+  if (simplify(found) === simplify(wanted)) return true;
+  const k = songKey(wanted);
+  return k.length > 0 && songKey(found) === k;
 };
 /** Remixes, live takes and the like, when the original is there too. */
 const isVersion = (c: Candidate) => /\b(remix|live|version|vip|acoustic|instrumental|sped up|slowed|extended)\b/i.test(c.fullTitle ?? c.title);

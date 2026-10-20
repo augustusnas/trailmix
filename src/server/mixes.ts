@@ -5,7 +5,7 @@
 
 import { randomBytes } from "node:crypto";
 import { trackKey, type Mix, type MixTrack } from "@/lib/mixTypes";
-import { MixError, suggestMix, suggestMore, type Ask, type SuggestedTrack } from "./claude";
+import { MixError, reviewGenres, suggestMix, suggestMore, type Ask, type SuggestedTrack } from "./claude";
 import { AIM_MS, ENDING, TOLERANCE_MS, fitToLength, minTracks, separateArtists, type Fit } from "./fit";
 import { genreVerdict, needsTempo, tooSlow } from "./genres";
 import { artistNames, confirmTrack, inBatches, songKey, type TrackInfo } from "./lookup";
@@ -40,6 +40,8 @@ export type LookupNotes = {
   length: string[];
   /** Q3: Deezer files it (and its artist) outside the chosen genres. */
   offGenre: string[];
+  /** Q3: Deezer's genre fits, but Claude's genre review says it's another scene (US rap in UK rap, dubstep in drum & bass). */
+  offGenreReview: string[];
   /** Q5: Driven or Feral, and Deezer measures it as slow. */
   slow: string[];
   /** Q2: the same song as one already in the mix. */
@@ -48,9 +50,10 @@ export type LookupNotes = {
   noTempo: number;
   busy: number;
 };
-export const newNotes = (): LookupNotes => ({ suggested: 0, notFound: [], wrongArtist: [], length: [], offGenre: [], slow: [], duplicates: [], noGenre: 0, noTempo: 0, busy: 0 });
+export const newNotes = (): LookupNotes => ({ suggested: 0, notFound: [], wrongArtist: [], length: [], offGenre: [], offGenreReview: [], slow: [], duplicates: [], noGenre: 0, noTempo: 0, busy: 0 });
 /** Suggestions that failed a check (Deezer being busy isn't Claude's mistake, so isn't counted). */
-export const failedChecks = (n: LookupNotes) => n.notFound.length + n.wrongArtist.length + n.length.length + n.offGenre.length + n.slow.length + n.duplicates.length;
+export const failedChecks = (n: LookupNotes) =>
+  n.notFound.length + n.wrongArtist.length + n.length.length + n.offGenre.length + n.offGenreReview.length + n.slow.length + n.duplicates.length;
 
 /** The stages the phone shows while a mix is made, in order. */
 export type Stage = "picking" | "energy" | "fitting";
@@ -67,15 +70,20 @@ async function confirmAll(
   extra = false,
 ): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
   const tempo = needsTempo(a.req.energy);
+  // The genre review (Q3) runs alongside the catalogue check: Deezer's genres can't tell UK from US
+  // rap, or drum & bass from dubstep.
+  const review = reviewGenres(a, list);
   const results =
     extra && a.forced === "short"
       ? list.map(() => ({ rejected: "notFound" as const }))
-      : await inBatches(list, 4, (t) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo));
+      : await inBatches(list, 6, (t) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo));
+  const off = new Set(await review);
   notes.suggested += list.length;
   const found: Found[] = [];
   const missing: SuggestedTrack[] = [];
   results.forEach((r, i) => {
     const label = `${list[i].title} — ${list[i].artist}`;
+    const reviewed = off.has(i);
     const fail = (why: keyof LookupNotes) => {
       missing.push(list[i]);
       (notes[why] as string[]).push(label);
@@ -91,6 +99,7 @@ async function confirmAll(
     if (tooSlow(r.bpm, a.req.energy, a.req.genres)) return fail("slow");
     const song = songKey(r.title) || r.title.toLowerCase();
     if (seen.has(song)) return fail("duplicates");
+    if (reviewed) return fail("offGenreReview");
     seen.add(song);
     if (genre === "unknown") notes.noGenre++;
     if (tempo && !r.bpm) notes.noTempo++;
@@ -132,7 +141,8 @@ function toMixTrack(t: Found): MixTrack {
 }
 
 /** Asking for more: what every top-up, replacement and swap reminds Claude of. */
-const MORE_NOTE = "pick tracks you're certain of, credited to their main artist, clearly in the requested genres, mostly 3 to 4 minutes long";
+const MORE_NOTE =
+  "pick tracks you're certain of, credited to their main artist, clearly in the requested genres, mostly 3 to 4 minutes long (radio edits where the usual release is longer)";
 
 /** F9: a new mix (or a Remix, when `exclude` and `avoidName` are given). */
 /** `notes` collects what the checks found, for the log, even if making the mix fails. */
@@ -193,9 +203,9 @@ export async function makeMix(
   const tracksNeeded = (now: Fit<Found>) => {
     const byTime = Math.ceil(Math.max(0, target - AIM_MS - now.totalMs) / AVERAGE_MS);
     const byCount = Math.max(0, min - now.tracks.length);
-    const need = Math.max(byTime, byCount, 1);
+    const need = Math.max(byTime, byCount, 2); // at least 8 suggestions a round: small top-ups often all fail
     const success = Math.max(0.35, 1 - failedChecks(notes) / Math.max(1, notes.suggested));
-    return Math.min(30, Math.ceil(need / success) + 1);
+    return Math.min(30, Math.ceil(need / success) + 2);
   };
 
   // F10 / E1: top up while short (failed tracks are simply not used), up to 3 rounds.

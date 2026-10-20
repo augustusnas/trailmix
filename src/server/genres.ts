@@ -37,8 +37,9 @@ export const DEEZER_GENRES: Record<string, number[]> = {
   electronic: [D.dance, D.electro, D.alternative],
   pop: [D.pop, D.dance, D.rnb, D.electro, D.alternative],
   "rnb-soul": [D.rnb, D.soulFunk, D.jazz, D.blues],
-  // Afro-pop is usually filed under Pop (Tyla's "Water", Victony's "Soweto"), so Pop counts here.
-  afro: [D.african, D.dance, D.rnb, D.rap, D.reggae, D.pop],
+  // Afro-pop is usually filed under Pop (Tyla's "Water") and often under Soul & Funk (most of
+  // Victony's and many of Asake's albums), so both count here.
+  afro: [D.african, D.dance, D.rnb, D.rap, D.reggae, D.pop, D.soulFunk],
   "rock-indie": [D.rock, D.alternative, D.metal, D.folk, D.blues],
   metal: [D.metal, D.rock, D.alternative],
   "funk-disco": [D.soulFunk, D.dance, D.pop, D.jazz, D.rnb],

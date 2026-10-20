@@ -13,6 +13,6 @@ export const CREDIT_NAME = "Augustus Nas";
 export const CREDIT_URL = "https://www.augustusnas.com";
 
 /** Who to contact about privacy, shown on /privacy. */
-export const CONTACT_EMAIL = "you@example.com"; // PLACEHOLDER: replace with the real address before publishing
+export const CONTACT_EMAIL = "trailmix@augustusnas.com";
 
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";

@@ -371,7 +371,8 @@ describe("Q3: genre check", () => {
     expect(p).toContain("UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)");
     expect(p).toContain("not dubstep, EDM");
     expect(p).toContain("1. Sicko Mode — Travis Scott");
-    expect(p).toMatch(/Only list a track when you're sure it's from a different scene/);
+    expect(p).toMatch(/"no" only if you're sure it's from a different scene/);
+    expect(p).toMatch(/Most playlists have no misfits at all/);
   });
 
   it("in a mix: Classical-filed stand-in tracks are rejected and logged, no-genre ones counted", async () => {

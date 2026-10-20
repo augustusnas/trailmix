@@ -143,22 +143,22 @@ ${genres}
 Here are its tracks, numbered:
 ${tracks.map((t, i) => `${i + 1}. ${t.title} — ${t.artist}`).join("\n")}
 
-Which tracks clearly don't belong to any of those genres? Judge each track by its artist's scene and the track's own sound, by the definitions above. Artists at the heart of a genre's scene count, including their crossover hits and tracks you don't recognise. Only list a track when you're sure it's from a different scene (for example US rap in a UK rap playlist, or dubstep or EDM in a drum & bass one). For each one give its number and its title exactly as written above, or an empty list.`;
+For every track, say whether it fits: "yes" if it belongs to at least one of those genres, "no" only if you're sure it's from a different scene (for example US rap in a UK rap playlist, or dubstep, EDM or pop in a drum & bass one), and "unsure" if you don't know it well. Artists at the heart of a genre's scene always fit, including their crossover hits. Most playlists have no misfits at all.`;
 }
 
 export const REVIEW_SCHEMA = {
   type: "object",
   properties: {
-    off: {
+    tracks: {
       type: "array",
       items: {
         type: "object",
-        properties: { n: { type: "integer" }, title: { type: "string" } },
-        required: ["n", "title"],
+        properties: { n: { type: "integer" }, title: { type: "string" }, fits: { type: "string", enum: ["yes", "no", "unsure"] } },
+        required: ["n", "title", "fits"],
         additionalProperties: false,
       },
     },
   },
-  required: ["off"],
+  required: ["tracks"],
   additionalProperties: false,
 };

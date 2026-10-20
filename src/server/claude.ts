@@ -194,14 +194,15 @@ async function reviewOnce(a: Ask, tracks: TrackRef[]): Promise<number[]> {
   try {
     const raw = config.fakeServices()
       ? await fakeClaude.review(a, tracks)
-      : await ask(reviewPrompt(a.req, tracks), REVIEW_SCHEMA, 400, a);
-    const off = (raw as { off?: unknown })?.off;
-    if (!Array.isArray(off)) return [];
-    // Only when the number and the title agree: in a long list a number can be off by one.
+      : await ask(reviewPrompt(a.req, tracks), REVIEW_SCHEMA, 2500, a);
+    const verdicts = (raw as { tracks?: unknown })?.tracks;
+    if (!Array.isArray(verdicts)) return [];
+    // Only a clear "no", and only when the number and the title agree (in a long list a number can be off by one).
     const same = (x: unknown, y: string) => typeof x === "string" && x.trim().toLowerCase() === y.trim().toLowerCase();
-    const picked = off.flatMap((o) => {
-      const i = Number((o as { n?: unknown })?.n) - 1;
-      return Number.isInteger(i) && i >= 0 && i < tracks.length && same((o as { title?: unknown }).title, tracks[i].title) ? [i] : [];
+    const picked = verdicts.flatMap((v) => {
+      const o = v as { n?: unknown; title?: unknown; fits?: unknown };
+      const i = Number(o?.n) - 1;
+      return o?.fits === "no" && Number.isInteger(i) && i >= 0 && i < tracks.length && same(o.title, tracks[i].title) ? [i] : [];
     });
     return [...new Set(picked)];
   } catch {

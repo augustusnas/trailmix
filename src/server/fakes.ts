@@ -102,7 +102,7 @@ export const fakeClaude = {
   /** Genre review: the wrong-scene tracks (1-based positions). */
   review(a: Ask, tracks: TrackRef[]) {
     a.usage.calls += 1;
-    return { off: tracks.flatMap((t, i) => (findFake(t.title, t.artist)?.wrongScene ? [{ n: i + 1, title: t.title }] : [])) };
+    return { tracks: tracks.map((t, i) => ({ n: i + 1, title: t.title, fits: findFake(t.title, t.artist)?.wrongScene ? "no" : "yes" })) };
   },
 
   async mix(a: Ask, exclude: TrackRef[], avoidName?: string) {

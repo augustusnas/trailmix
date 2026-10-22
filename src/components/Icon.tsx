@@ -5,6 +5,7 @@ const PATHS = {
   arrowLeft: "M19 12H5M11 6l-6 6 6 6",
   arrowUpRight: "M7 17L17 7M9 7h8v8",
   plus: "M12 5v14M5 12h14",
+  close: "M6 6l12 12M18 6L6 18",
   check: "M5 12l5 5 9-10",
   swap: "M7 4v16M7 4L4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3",
   share: "M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6",

@@ -18,6 +18,8 @@ const TEST_ENV = {
   // Every test shares one stand-in YouTube, so its daily caps would run out after a few saves.
   // The caps themselves are checked in src/server/youtube.test.ts; E5 here uses its test switch.
   YOUTUBE_SEARCH_DAILY_CAP: "1000000",
+  // The test guest can open /stats (C1); everyone else gets "page not found".
+  STATS_EMAIL: "guest@trailmix.test",
   YOUTUBE_DAILY_UNITS: "100000000",
 };
 

@@ -19,6 +19,7 @@ import { STAGES, type Progress } from "@/lib/progress";
 import { signInHref } from "@/lib/signIn";
 import { addRecentMix, load, rememberArtists, setCurrentMix, setMusicApp, useSaved, type VibeSettings } from "@/lib/store";
 import { shareLink } from "@/lib/share";
+import { report } from "@/lib/usage";
 import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import { Loading } from "./Loading";
@@ -78,8 +79,10 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
         setProgress((now) => (STAGES.findIndex((s) => s.id === p.stage) < STAGES.findIndex((s) => s.id === now.stage) ? now : { ...(p.stage === now.stage ? now : {}), ...p }));
       const res: ApiResult<{ mix: Mix }> = await requestMix(routine, vibe, load(), remixOf, onProgress);
       if (res.ok) {
-        setCurrentMix(res.data.mix);
-        rememberArtists(res.data.mix); // so the next few mixes for this routine can use other artists
+        // Remixes before a keep (stats page): counted on the phone along the chain of Remixes.
+        const made = remixOf ? { ...res.data.mix, remixes: (remixOf.remixes ?? 0) + 1 } : res.data.mix;
+        setCurrentMix(made);
+        rememberArtists(made); // so the next few mixes for this routine can use other artists
       } else {
         // A Remix that fails (or runs out of time) leaves the current mix on screen.
         setProblem({ error: res.error, message: res.message, retry: () => void make(remixOf) });
@@ -150,7 +153,9 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     setQuotaId(null);
     const kept = await shared(mix);
     if (!kept) return setBusy(null);
+    const counted = () => report({ event: "kept", freshness: kept.freshness ?? 100, remixes: kept.remixes ?? 0 });
     if (app.id !== "ytm") {
+      counted();
       setBusy(null);
       return router.push(`/m/${kept.shareId}`);
     }
@@ -163,6 +168,7 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
       return setProblem({ error: res.error, message: res.message, retry: () => void keep(retryOf), fromSave: true });
     }
     setCurrentMix({ ...kept, playlistId: res.data.playlistId });
+    if (!retryOf) counted(); // a Retry (E6) isn't another keep
     if (res.data.missing.length) return setSaveStep({ kind: "partial", playlistId: res.data.playlistId, saved: res.data.saved, total: res.data.total }); // E6
     // Saved's Open in YouTube Music then opens the playlist. It has to be a real tap: iOS only opens
     // music.youtube.com links in the YouTube Music app when they're tapped, not when a page opens

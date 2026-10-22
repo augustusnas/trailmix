@@ -24,6 +24,16 @@ const openShared = async (page: Page) => {
 };
 
 const SIX_PINS = ["push-day", "incline-treadmill", "hiit-circuit", "tabata", "yoga-flow", "boxing-bag-rounds"];
+/** A mix kept two hours ago, so Home asks how it did (F17). */
+const CHECKIN_DUE = {
+  id: "mix00001",
+  name: "Gloves On, Volume Up",
+  routineId: "boxing-bag-rounds",
+  date: "2026-10-27T09:00:00Z",
+  keptAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
+  freshness: 90,
+  tracks: [{ title: "One", artist: "A" }],
+};
 const onboarded = (extra: object = {}) => record({ ...ONBOARDED, vibes: BOXING_VIBE, ...extra });
 
 // Every screen and every Milestone 2 state, for screenshots, labels, accessibility and security checks.
@@ -43,6 +53,21 @@ export const SCREENS: Screen[] = [
   { name: "home", path: "/home", state: onboarded() },
   { name: "home-full", path: "/home", state: onboarded({ pins: SIX_PINS }) },
   { name: "home-empty", path: "/home", state: onboarded({ pins: [] }) },
+  {
+    name: "home-checkin",
+    path: "/home",
+    state: onboarded({ recentMixes: [CHECKIN_DUE] }),
+    setup: async (page) => void (await page.getByTestId("checkin").waitFor()),
+  },
+  {
+    name: "home-checkin-noted",
+    path: "/home",
+    state: onboarded({ recentMixes: [CHECKIN_DUE] }),
+    setup: async (page) => {
+      await page.getByRole("button", { name: "Carried me" }).click();
+      await page.getByText("Noted. The next mix gets the memo.").waitFor();
+    },
+  },
   { name: "library", path: "/library", state: onboarded() },
   { name: "library-full", path: "/library", state: onboarded({ pins: SIX_PINS }) },
   {
@@ -170,6 +195,8 @@ export const SCREENS: Screen[] = [
   { name: "shared-moved-on", path: "/m/AAAAAAAAAAAAAAAAAAAAAA" },
   { name: "privacy", path: "/privacy" },
   { name: "privacy-returning", path: "/privacy", state: onboarded() },
+  { name: "terms", path: "/terms" },
+  { name: "stats", path: "/stats", state: onboarded(), setup: async (page) => void (await page.getByTestId("measures").waitFor()) },
 ];
 
 export async function open(page: Page, s: Screen) {

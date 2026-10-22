@@ -1,6 +1,7 @@
 "use client";
 
 import { SITE_URL } from "@/config/site";
+import { report } from "./usage";
 
 export const shareUrl = (id: string) => `${SITE_URL}/m/${id}`;
 
@@ -10,6 +11,7 @@ export async function shareLink(id: string, name: string): Promise<"shared" | "c
   if (navigator.share) {
     try {
       await navigator.share({ title: `${name}: a Trailmix`, url });
+      report({ event: "shared" });
       return "shared";
     } catch {
       return "cancelled";
@@ -17,6 +19,7 @@ export async function shareLink(id: string, name: string): Promise<"shared" | "c
   }
   try {
     await navigator.clipboard.writeText(url);
+    report({ event: "shared" });
     return "copied";
   } catch {
     return "cancelled";

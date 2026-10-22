@@ -16,7 +16,17 @@ export const ARTIST_MEMORY_MIXES = 5;
 
 export type MusicAppId = MusicApp["id"];
 export type VibeSettings = { genres: string[]; energy: string; length: number };
-/** A mix you kept or opened: enough to avoid repeats and, later, for the stats page. */
+/** F17's three answers. */
+export const CHECKIN_ANSWERS = [
+  { id: "carried", label: "Carried me" },
+  { id: "dipped", label: "Dipped midway" },
+  { id: "didntLand", label: "Didn't land" },
+] as const;
+export type CheckinAnswer = (typeof CHECKIN_ANSWERS)[number]["id"];
+/** F17: how a kept mix did, or that the card was dismissed. Kept for F19 (after launch). */
+export type Checkin = { answer?: CheckinAnswer; favourite?: boolean; dismissed?: boolean; at: string };
+
+/** A mix you kept or opened: enough to avoid repeats, and to ask how it did (F17). */
 export type RecentMix = {
   name: string;
   routineId: string;
@@ -24,7 +34,14 @@ export type RecentMix = {
   tracks: { title: string; artist: string }[];
   /** Share of tracks not in the previous 10 mixes, 0–100. */
   freshness: number;
+  /** The mix's id, and when it was kept (Milestone 5; older entries have neither and are never asked about). */
+  id?: string;
+  keptAt?: string;
+  checkin?: Checkin;
 };
+
+/** The check-in card shows this long after a mix is kept. */
+export const CHECKIN_AFTER_MS = 60 * 60_000;
 
 export type Saved = {
   version: typeof STORAGE_VERSION;
@@ -64,7 +81,15 @@ function cleanRecent(v: unknown): RecentMix | undefined {
     .slice(0, 40)
     .map((t) => ({ title: t.title.slice(0, 120), artist: t.artist.slice(0, 120) }));
   const freshness = typeof v.freshness === "number" && v.freshness >= 0 && v.freshness <= 100 ? v.freshness : 100;
-  return { name: v.name.slice(0, 80), routineId: v.routineId, date: v.date.slice(0, 40), tracks, freshness };
+  const out: RecentMix = { name: v.name.slice(0, 80), routineId: v.routineId, date: v.date.slice(0, 40), tracks, freshness };
+  if (typeof v.id === "string") out.id = v.id.slice(0, 64);
+  if (typeof v.keptAt === "string" && !Number.isNaN(Date.parse(v.keptAt))) out.keptAt = v.keptAt.slice(0, 40);
+  const c = v.checkin;
+  if (isObject(c) && typeof c.at === "string") {
+    const answer = CHECKIN_ANSWERS.find((a) => a.id === c.answer)?.id;
+    if (answer || c.dismissed === true) out.checkin = { ...(answer ? { answer } : {}), ...(c.favourite === true ? { favourite: true } : {}), ...(c.dismissed === true ? { dismissed: true } : {}), at: c.at.slice(0, 40) };
+  }
+  return out;
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -291,14 +316,36 @@ export function artistsToAvoid(s: Saved, routineId: string): string[] {
 /** Adds a kept or opened mix to the last 10 (newest first; the same mix isn't added twice). */
 export function addRecentMix(mix: Mix): void {
   update((s) => {
+    const same = (m: RecentMix) => (m.id ? m.id === mix.id : m.name === mix.name && m.date === mix.createdAt);
+    const before = s.recentMixes.find(same);
     const entry: RecentMix = {
       name: mix.name,
       routineId: mix.routineId,
       date: mix.createdAt,
       tracks: mix.tracks.map((t) => ({ title: t.title, artist: t.artist })),
       freshness: mix.freshness ?? 100,
+      id: mix.id,
+      keptAt: before?.keptAt ?? new Date().toISOString(),
+      ...(before?.checkin ? { checkin: before.checkin } : {}),
     };
-    const others = s.recentMixes.filter((m) => !(m.name === entry.name && m.date === entry.date));
-    return { ...s, recentMixes: [entry, ...others].slice(0, MAX_RECENT_MIXES) };
+    return { ...s, recentMixes: [entry, ...s.recentMixes.filter((m) => !same(m))].slice(0, MAX_RECENT_MIXES) };
   });
+}
+
+/**
+ * F17: the mix to ask about, if any. Only the most recent kept mix, at least an hour after it was
+ * kept (`now` can skip the wait: the "check-in due now" test switch), and never once answered or dismissed.
+ */
+export function dueCheckin(s: Saved, now = Date.now()): RecentMix | null {
+  const m = s.recentMixes[0];
+  if (!m?.id || !m.keptAt || m.checkin) return null;
+  return now - Date.parse(m.keptAt) >= CHECKIN_AFTER_MS ? m : null;
+}
+
+/** Stores the answer (or a dismissal) with that mix. */
+export function recordCheckin(mixId: string, checkin: Omit<Checkin, "at">): void {
+  update((s) => ({
+    ...s,
+    recentMixes: s.recentMixes.map((m) => (m.id === mixId ? { ...m, checkin: { ...checkin, at: new Date().toISOString() } } : m)),
+  }));
 }

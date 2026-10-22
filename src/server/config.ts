@@ -15,6 +15,8 @@ export const config = {
   /** The "Trailmix Web Client" OAuth client in Google Cloud. */
   googleClientId: () => process.env.AUTH_GOOGLE_ID?.trim() || undefined,
   googleClientSecret: () => process.env.AUTH_GOOGLE_SECRET?.trim() || undefined,
+  /** The one Google account that can open /stats. Not secret. Unset means nobody can. */
+  statsEmail: () => process.env.STATS_EMAIL?.trim().toLowerCase() || undefined,
   /** Who may use Trailmix: comma-separated Google account emails. Unset means nobody gets in. */
   guestEmails: () => process.env.GUEST_EMAILS,
   /** Most YouTube searches (100 units each) a day for finding video ids, for everyone together (E5). */

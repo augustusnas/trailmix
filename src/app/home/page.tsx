@@ -3,11 +3,12 @@ import { Headline } from "@/components/Headline";
 import Link from "next/link";
 import { Wordmark } from "@/components/Beta";
 import { Gate } from "@/components/Gate";
+import { CheckinCard } from "./CheckinCard";
 import { RoutinePicker } from "./RoutinePicker";
 
 export const metadata: Metadata = { title: "Home" };
 
-// Home: the pinned routines, remembered on this phone. The check-in card arrives in Milestone 5.
+// Home: the check-in card when one is due (F17), then the pinned routines, remembered on this phone.
 export default function Home() {
   return (
     <main className="screen">
@@ -19,6 +20,7 @@ export default function Home() {
           Library
         </Link>
       </div>
+      <CheckinCard />
       <Headline text="What’s the terrain today?" size="home" />
       <RoutinePicker />
     </main>

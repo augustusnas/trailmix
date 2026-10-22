@@ -11,6 +11,7 @@ import { config } from "./config";
 import { FAKE_GUEST, refreshAccess, type GoogleTokens } from "./google";
 import { getKV } from "./kv";
 import { seal, unseal } from "./session";
+import { count } from "./usage";
 
 const API = "https://www.googleapis.com/youtube/v3";
 const DAY = 86400;
@@ -141,7 +142,10 @@ function fakeService(forced: string | null, retry: boolean): Service {
 
 const unitsKey = () => `yt:units:${quotaDay()}`;
 const searchesKey = () => `yt:searches:${quotaDay()}`;
-const spend = (units: number) => getKV().incrBy(unitsKey(), units, 2 * DAY);
+const spend = async (units: number) => {
+  await count("youtubeUnits", units); // the stats page's daily total
+  return getKV().incrBy(unitsKey(), units, 2 * DAY);
+};
 
 /** YouTube said the quota is gone: block saves until its day ends. */
 const markExhausted = () => getKV().set(unitsKey(), config.youtubeDailyUnits(), 2 * DAY);

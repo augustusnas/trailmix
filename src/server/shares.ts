@@ -18,7 +18,7 @@ const key = (id: string) => `share:${id}`;
 
 export async function storeShare(mix: Mix, by: Sharer): Promise<string> {
   const id = randomBytes(16).toString("base64url"); // 128 random bits → 22 characters
-  const { shareId: _ignored, ...rest } = mix;
+  const { shareId: _ignored, remixes: _phoneOnly, ...rest } = mix;
   const record: Stored = { ...rest, createdAt: new Date().toISOString(), sharedBy: by.firstName.slice(0, 40), owner: by.who };
   await getKV().set(key(id), record, LIMITS.shareDays * 86400);
   return id;

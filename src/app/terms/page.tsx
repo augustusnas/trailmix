@@ -67,19 +67,20 @@ export default function Terms() {
         <h2 id="delete">Deleting your data</h2>
         <ul>
           <li>On your phone: clear your browser’s website data for Trailmix.</li>
-          <li>
-            Trailmix’s access to your Google account: remove it at{" "}
-            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
-              {breakable("myaccount.google.com/permissions")}
-            </a>
-            . Stored tokens are deleted within 7 days.
-          </li>
+          <li>Trailmix’s access to your Google account: remove it in your Google account (link below). Stored tokens are deleted within 7 days.</li>
           <li>Playlists: delete them in YouTube Music.</li>
           <li>Shared mixes and anything else: email us and we’ll delete it. Shared mixes are deleted after 90 days anyway.</li>
         </ul>
-        <p>
-          <Link href="/privacy">What Trailmix stores, and for how long</Link>
-        </p>
+        <ul className={styles.links}>
+          <li>
+            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+              {breakable("myaccount.google.com/permissions")}
+            </a>
+          </li>
+          <li>
+            <Link href="/privacy">What Trailmix stores, and for how long</Link>
+          </li>
+        </ul>
       </section>
 
       <section className={styles.section} aria-labelledby="contact">

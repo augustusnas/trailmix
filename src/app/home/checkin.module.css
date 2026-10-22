@@ -1,0 +1,88 @@
+/* F17: the check-in card at the top of Home. Lime on the dark Home screen, dark text. */
+
+.card {
+  background: var(--lime);
+  color: var(--ink);
+  border-radius: 24px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.question {
+  margin: 0;
+  font-size: var(--t-21);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.close {
+  flex: 0 0 auto;
+  width: var(--tap);
+  height: var(--tap);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.answer {
+  flex: 1 1 auto;
+  min-height: var(--tap);
+  border-radius: 999px;
+  border: 0;
+  background: var(--ink);
+  color: var(--lime);
+  padding: 6px 14px;
+  font-size: var(--t-15);
+  font-weight: 800;
+}
+
+.favourite {
+  align-self: flex-start;
+  min-height: var(--tap);
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  padding: 4px 14px;
+  font-size: var(--t-15);
+  font-weight: 800;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  text-align: left;
+}
+.favourite[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--lime);
+}
+
+.noted {
+  margin: 0;
+  font-size: var(--t-17);
+  font-weight: 800;
+}
+
+.card :focus-visible {
+  outline-color: var(--ink);
+}

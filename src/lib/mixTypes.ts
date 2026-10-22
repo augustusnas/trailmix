@@ -32,6 +32,8 @@ export type Mix = {
   shareId?: string;
   /** Set once saved as a YouTube playlist (Keep it in YouTube Music). */
   playlistId?: string;
+  /** On the phone only: how many Remixes led to this mix (for the stats page's "Remixes before a keep"). */
+  remixes?: number;
 };
 
 /** F10: a mix may be at most 5 minutes out; the aim is within 2½ (see server/fit.ts). */
@@ -94,5 +96,6 @@ export function sanitizeMix(v: unknown): Mix | null {
     freshness: typeof v.freshness === "number" && v.freshness >= 0 && v.freshness <= 100 ? v.freshness : undefined,
     shareId: str(v.shareId, 64),
     playlistId: typeof v.playlistId === "string" && /^[A-Za-z0-9_-]{10,64}$/.test(v.playlistId) ? v.playlistId : undefined,
+    remixes: typeof v.remixes === "number" && Number.isInteger(v.remixes) && v.remixes > 0 && v.remixes <= 50 ? v.remixes : undefined,
   };
 }

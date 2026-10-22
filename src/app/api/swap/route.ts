@@ -2,6 +2,7 @@ import { sanitizeMix } from "@/lib/mixTypes";
 import { MixError } from "@/server/claude";
 import { fail, ok, readJson } from "@/server/http";
 import { requireGuest } from "@/server/session";
+import { count } from "@/server/usage";
 import { mixAllowed } from "@/server/limits";
 import { newNotes, swapTrack } from "@/server/mixes";
 import { trackCheckLog } from "@/server/stats";
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
     const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
     const swapped = await swapTrack({ req: mixReq, usage, forced }, mix, index, notes);
     console.log(JSON.stringify({ event: "swap", usage, notes, trackCheck: await trackCheckLog(notes) }));
+    await count("swaps");
     return ok({ mix: swapped });
   } catch (err) {
     // Nothing found in time (15 seconds on the phone): the original track stays.

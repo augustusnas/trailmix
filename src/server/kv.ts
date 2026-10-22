@@ -12,6 +12,8 @@ export interface KV {
   /** Adds n to a counter and returns the new total. It never expires (running totals) unless `seconds` is given for a new one. */
   incrBy(key: string, n: number, seconds?: number): Promise<number>;
   del(key: string): Promise<void>;
+  /** Several values at once (missing ones are null), in the same order. */
+  getMany<T>(keys: string[]): Promise<(T | null)[]>;
 }
 
 class UpstashKV implements KV {
@@ -35,6 +37,10 @@ class UpstashKV implements KV {
   }
   async del(key: string) {
     await this.redis.del(key);
+  }
+  async getMany<T>(keys: string[]) {
+    if (!keys.length) return [];
+    return ((await this.redis.mget<(T | null)[]>(...keys)) ?? []).map((v) => v ?? null);
   }
 }
 
@@ -70,8 +76,15 @@ export class MemoryKV implements KV {
   async del(key: string) {
     this.data.delete(key);
   }
+  async getMany<T>(keys: string[]) {
+    return Promise.all(keys.map((k) => this.get<T>(k)));
+  }
   clear() {
     this.data.clear();
+  }
+  /** Tests only: everything stored, to check nothing personal is. */
+  dump(): Record<string, unknown> {
+    return Object.fromEntries([...this.data].map(([k, e]) => [k, e.value]));
   }
 }
 

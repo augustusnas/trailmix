@@ -36,6 +36,7 @@ export default function Privacy() {
           <li>Your pinned routines and the music app you listen on.</li>
           <li>Your vibe settings for each routine (genres, energy, length).</li>
           <li>Your recent mixes: names, track titles and artists, so new mixes stay fresh.</li>
+          <li>Your check-in answers (“Carried me” and the others), kept with each mix.</li>
         </ul>
         <p>
           Trailmix uses one cookie: your sign-in. It holds your Google first name, email address and Google’s id for
@@ -61,6 +62,17 @@ export default function Privacy() {
             <strong>Your YouTube permission</strong>, if you save playlists: Google’s access tokens, encrypted, kept on
             the server only (never on the page), for 7 days. Along with them, which videos went into each playlist
             Trailmix made for you, so Retry can add any that were missed; also 7 days.
+          </li>
+          <li>
+            <strong>Usage counts</strong>, with no names, so we can tell whether Trailmix is working: each day’s totals of
+            mixes made, kept, swapped, remixed and shared, check-in answers, average freshness, songs not found and
+            YouTube units used. They’re totals only, with nothing about who did what, kept for 90 days.
+          </li>
+          <li>
+            <strong>Four milestones per person</strong>: the day you first made a mix, first kept one, first answered
+            “Carried me”, and whether you came back within a week. They’re filed under a scrambled code made from your
+            Google account’s id that can’t be turned back into it; your name, email and Google id aren’t stored. Kept
+            for 180 days after the last change.
           </li>
           <li>
             <strong>Daily counters</strong> that keep usage fair, such as how many mixes were made today. They count by a

@@ -1,0 +1,62 @@
+/* Stats: plain and readable, in the Trailmix style (sand, ink, Space Mono numbers). */
+
+.page h2 {
+  margin: 0 0 8px;
+  font-size: var(--t-19);
+  font-weight: 800;
+}
+
+.page > section {
+  min-width: 0; /* lets a wide table scroll inside its box instead of the whole page */
+}
+.scroll {
+  position: relative; /* keeps the hidden VoiceOver notes inside the scrolling box */
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-15);
+}
+.table th,
+.table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(22, 19, 15, 0.2);
+  text-align: right;
+  vertical-align: top;
+}
+.table th[scope="row"],
+.table thead th:first-child {
+  text-align: left;
+  font-weight: 800;
+}
+.table thead th {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono-11);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.table td {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.good {
+  font-weight: 700;
+  color: #2d5a1e;
+}
+.bad {
+  font-weight: 700;
+  color: #a1360f;
+}
+.none {
+  opacity: 0.5;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--t-15);
+}

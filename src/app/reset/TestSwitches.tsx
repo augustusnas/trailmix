@@ -18,6 +18,7 @@ const SWITCHES = [
   { id: "e5", label: "E5 · YouTube's daily limit used up (Keep it)" },
   { id: "e6", label: "E6 · Playlist saves partway (Retry adds the rest)" },
   { id: "e7", label: "E7 · Sign-in ran out (quick sign-in, mix kept)" },
+  { id: "checkin", label: "F17 · Check-in due now (skip the hour's wait)" },
   { id: "e9", label: "E9 · Hourly limit reached" },
   { id: "e10", label: "E10 · Pretend to be offline" },
   { id: "e14", label: "E14 · Daily ceiling reached" },

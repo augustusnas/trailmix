@@ -12,7 +12,11 @@ import { cleanText, type MixRequest, type TrackRef } from "./validate";
 
 export class MixError extends Error {
   /** "timeout": the time limit for this request ran out (Generate, Remix and Swap each have one). */
-  constructor(public kind: "failed" | "resting" | "timeout") {
+  /** `detail`: what actually went wrong (for the log and problem summaries only, never shown). */
+  constructor(
+    public kind: "failed" | "resting" | "timeout",
+    public detail?: string,
+  ) {
     super(kind);
   }
 }
@@ -68,13 +72,14 @@ export function setClaudeClientForTests(c: unknown) {
 
 export function classify(err: unknown): MixError {
   if (err instanceof MixError) return err;
-  if (err instanceof Anthropic.APIConnectionTimeoutError) return new MixError("failed");
+  const detail = String((err as Error)?.message ?? err).slice(0, 160);
+  if (err instanceof Anthropic.APIConnectionTimeoutError) return new MixError("failed", "Claude timed out");
   if (err instanceof Anthropic.APIError) {
     // 401/403 bad key, 402 out of credit, 429 Anthropic's own limit, 5xx/529 down or overloaded.
-    if (err.status === undefined || [401, 402, 403, 429].includes(err.status) || err.status >= 500) return new MixError("resting");
-    return new MixError("failed");
+    if (err.status === undefined || [401, 402, 403, 429].includes(err.status) || err.status >= 500) return new MixError("resting", `Claude ${err.status}: ${detail}`);
+    return new MixError("failed", `Claude ${err.status}: ${detail}`);
   }
-  return new MixError("failed");
+  return new MixError("failed", detail);
 }
 
 async function askOnce(model: string, prompt: string, schema: object, maxTokens: number, usage: ClaudeUsage, timeout: number): Promise<unknown> {
@@ -92,9 +97,9 @@ async function askOnce(model: string, prompt: string, schema: object, maxTokens:
   usage.calls += 1;
   usage.inputTokens += response.usage.input_tokens;
   usage.outputTokens += response.usage.output_tokens;
-  if (response.stop_reason !== "end_turn") throw new MixError("failed");
+  if (response.stop_reason !== "end_turn") throw new MixError("failed", `Claude stopped: ${response.stop_reason}`);
   const text = response.content.find((b) => b.type === "text");
-  if (!text || text.type !== "text") throw new MixError("failed");
+  if (!text || text.type !== "text") throw new MixError("failed", "Claude gave no text");
   return JSON.parse(text.text);
 }
 
@@ -122,7 +127,7 @@ async function ask(prompt: string, schema: object, maxTokens: number, a: Ask) {
         attempt--; // asking Haiku instead doesn't use up the retry
         continue;
       }
-      const e = err instanceof SyntaxError ? new MixError("failed") : classify(err);
+      const e = err instanceof SyntaxError ? new MixError("failed", "Claude's answer wasn't valid JSON") : classify(err);
       if (e.kind === "resting") throw e;
       if (timeLeft(a.deadline) < 1500) throw new MixError("timeout");
       if (attempt >= 1) throw e;
@@ -132,7 +137,7 @@ async function ask(prompt: string, schema: object, maxTokens: number, a: Ask) {
 
 function cleanTracks(raw: unknown): SuggestedTrack[] {
   const list = (raw as { tracks?: unknown })?.tracks;
-  if (!Array.isArray(list)) throw new MixError("failed");
+  if (!Array.isArray(list)) throw new MixError("failed", "Claude's answer had no track list");
   const out: SuggestedTrack[] = [];
   for (const t of list) {
     const title = cleanText(t?.title);
@@ -163,7 +168,7 @@ export async function suggestMix(a: Ask, exclude: TrackRef[] = [], avoidName?: s
     : await ask(mixPrompt(a.req, exclude, avoidName), MIX_SCHEMA, 4000, a);
   const name = cleanText((raw as { name?: unknown })?.name)?.slice(0, 40);
   const tracks = cleanTracks(raw);
-  if (!name || tracks.length < 3) throw new MixError("failed");
+  if (!name || tracks.length < 3) throw new MixError("failed", `Claude's answer had ${tracks.length} tracks${name ? "" : " and no name"}`);
   return { name, tracks };
 }
 

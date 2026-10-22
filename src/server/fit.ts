@@ -58,16 +58,23 @@ export function fitToLength<T extends Timed>(body: T[], ending: T[], lengthMin: 
   return { tracks: [...chosen, ...ending], status, totalMs: total };
 }
 
-/** Never the same artist twice in a row: swap a clash with the next different track, leaving the ending where it is. */
+/**
+ * Never the same artist twice in a row: swap a clash with the next different track, leaving the
+ * ending where it is. A clash at the very end (no later track to swap with) swaps with an earlier one
+ * that fits there (the latest one, to keep the energy shape).
+ */
 export function separateArtists<T extends { artist: string }>(tracks: T[], ending = ENDING): T[] {
   const out = [...tracks];
   const bodyEnd = Math.max(0, out.length - ending);
-  const same = (x: T, y: T) => x.artist.toLowerCase() === y.artist.toLowerCase();
+  const same = (x: T | undefined, y: T | undefined) => !!x && !!y && x.artist.toLowerCase() === y.artist.toLowerCase();
+  // Putting t at position k doesn't clash with its neighbours (other than position `skip`).
+  const fitsAt = (t: T, k: number, skip: number) => (k - 1 === skip || !same(t, out[k - 1])) && (k + 1 === skip || !same(t, out[k + 1]));
   for (let i = 1; i < out.length; i++) {
     if (!same(out[i], out[i - 1])) continue;
     const limit = i < bodyEnd ? bodyEnd : out.length;
-    const j = out.findIndex((t, k) => k > i && k < limit && !same(t, out[i - 1]));
-    if (j > 0) [out[i], out[j]] = [out[j], out[i]];
+    let j = out.findIndex((t, k) => k > i && k < limit && !same(t, out[i - 1]));
+    if (j < 0) j = out.findLastIndex((t, k) => k < i - 1 && fitsAt(t, i, k) && fitsAt(out[i], k, i));
+    if (j >= 0) [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
 }

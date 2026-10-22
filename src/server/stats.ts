@@ -48,6 +48,8 @@ export async function saveProblem(p: {
   settings: { routine: string; genres: string[]; energy: string; length: number };
   notes: LookupNotes;
   tracks?: number;
+  /** What went wrong, when it failed: Claude's error or stop reason, Deezer busy, under three-quarters of the length. */
+  detail?: string;
   seconds: number;
 }) {
   const n = p.notes;
@@ -56,6 +58,7 @@ export async function saveProblem(p: {
     when,
     event: p.event,
     outcome: p.outcome,
+    detail: p.detail,
     ...p.settings,
     minutes: n.minutes,
     tracks: p.tracks,

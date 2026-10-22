@@ -42,7 +42,7 @@ Rules for every playlist:
 /** What each genre means, so suggestions and the genre review agree on its edges. */
 export const GENRE_MEANING: Record<string, string> = {
   hiphop:
-    "hip-hop and rap from the US, the UK and elsewhere; include UK rap artists you're confident about, but don't force grime in",
+    "hip-hop and rap from the US, the UK and elsewhere; mix in a fair share of UK rap from artists you're confident about (not only US rap), but don't force grime in",
   dance: "dance and electronic music: house, UK garage, techno, drum & bass, jungle, breakbeat, electro, trance and similar",
   pop: "mainstream pop and dance-pop",
   "rnb-soul": "R&B, neo-soul and classic soul",

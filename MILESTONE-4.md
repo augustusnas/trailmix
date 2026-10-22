@@ -108,6 +108,7 @@ If you already started any of Part A from my earlier prompts, say what's done an
   - Add the Google account data actually stored (name, email, and encrypted tokens), and how long it's kept.
   - Read the contact email from `CONTACT_EMAIL`.
   - Link the page from the mix page footer as well.
+- **Terms page** (`/terms`, added 22 Oct), in the Trailmix style: it's a beta, no warranty, use of YouTube is subject to YouTube's Terms of Service, how to delete your data, contact `CONTACT_EMAIL` (trailmix@augustusnas.com). Linked next to Privacy wherever Privacy is linked.
 
 ## Environment variables to walk me through
 `GUEST_EMAILS`, `AUTH_SECRET` (secret), Google client ID and secret (secret), `CONTACT_EMAIL`, `YOUTUBE_SEARCH_DAILY_CAP`. **Remove** `BETA_ACCESS_CODE` once sign-in works. Tell me which to mark as secret.

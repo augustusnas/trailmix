@@ -30,7 +30,7 @@ const D = DEEZER;
 /** For each of our 12 genres, the Deezer genres it can be filed under. */
 export const DEEZER_GENRES: Record<string, number[]> = {
   hiphop: [D.rap, D.rnb, D.dance, D.electro], // grime albums are often filed under Dance
-  dance: [D.dance, D.electro],
+  dance: [D.dance, D.electro, D.alternative], // Moloko, Hot Chip and the like are filed under Alternative
   pop: [D.pop, D.dance, D.rnb, D.electro, D.alternative],
   "rnb-soul": [D.rnb, D.soulFunk, D.jazz, D.blues],
   // Afro-pop is usually filed under Pop (Tyla's "Water") and often under Soul & Funk (most of

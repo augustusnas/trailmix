@@ -196,7 +196,7 @@ export async function makeMix(
   const first = await confirmAll(suggestion.tracks, notes, a, seen);
   lap("check");
   // E2: the catalogue is down or too busy to check most tracks, even after retrying.
-  if (notes.busy > first.found.length) throw new MixError("failed");
+  if (notes.busy > first.found.length) throw new MixError("failed", "Deezer busy for most tracks");
   // Test switches: only enough tracks for about 85% ("short") or half ("tooshort") of the length are found.
   if (a.forced === "short" || a.forced === "tooshort") {
     let sum = 0;
@@ -265,7 +265,7 @@ export async function makeMix(
   }
   lap("fit");
   notes.minutes = Math.round(now.totalMs / 6000) / 10;
-  if (belowFloor(now)) throw new MixError("failed");
+  if (belowFloor(now)) throw new MixError("failed", "under three-quarters of the length");
 
   const tracks = separateArtists(now.tracks).map(toMixTrack);
   const avoid = new Set(a.req.avoid.map(refKey));

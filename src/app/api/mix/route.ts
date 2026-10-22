@@ -34,8 +34,8 @@ export async function POST(req: Request) {
   const notes = newNotes();
   const started = Date.now();
   const settings = { routine: mixReq.routine.id, genres: mixReq.genres, energy: mixReq.energy, length: mixReq.length };
-  const problem = (outcome: Parameters<typeof saveProblem>[0]["outcome"], tracks?: number) =>
-    saveProblem({ event: remix ? "remix" : "mix", outcome, settings, notes, tracks, seconds: Math.round((Date.now() - started) / 100) / 10 });
+  const problem = (outcome: Parameters<typeof saveProblem>[0]["outcome"], tracks?: number, detail?: string) =>
+    saveProblem({ event: remix ? "remix" : "mix", outcome, settings, notes, tracks, detail, seconds: Math.round((Date.now() - started) / 100) / 10 });
   const run = async (onStage?: (s: Stage) => void) => {
     try {
       const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
@@ -47,8 +47,9 @@ export async function POST(req: Request) {
       return { mix } as const;
     } catch (err) {
       const kind = err instanceof MixError ? err.kind : "failed";
-      if (!forced) await problem(kind);
-      console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
+      const detail = err instanceof MixError ? (err.detail ?? kind) : String(err).slice(0, 200);
+      if (!forced) await problem(kind, undefined, detail);
+      console.error(JSON.stringify({ event: "mix-error", kind, detail, notes, trackCheck: await trackCheckLog(notes) }));
       return { kind } as const;
     }
   };

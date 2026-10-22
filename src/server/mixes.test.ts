@@ -81,6 +81,12 @@ describe("F10 and Q4: fit to length", () => {
     const tracks = [t(1, "A"), t(1, "A"), t(1, "B")];
     expect(separateArtists(tracks, 0).map((x) => x.artist)).toEqual(["A", "B", "A"]);
   });
+
+  it("a clash in the ending swaps with an earlier track that fits there", () => {
+    const tracks = [t(1, "A"), t(1, "B"), t(1, "C"), t(1, "D"), t(1, "E"), t(1, "E")];
+    const out = separateArtists(tracks).map((x) => x.artist);
+    expect(out).toEqual(["A", "B", "E", "D", "E", "C"]);
+  });
 });
 
 describe("track matching (Deezer, then iTunes for Apple links)", () => {
@@ -133,7 +139,7 @@ describe("F9: making a mix", () => {
   it("Dance & electronic leans on the energy: house when easy or steady, drum & bass and techno when driven or feral", () => {
     for (const energy of ["easy", "steady"]) expect(mixPrompt(request({ genres: ["dance"], energy }))).toMatch(/for this energy, lean towards house/);
     for (const energy of ["driven", "feral"]) expect(mixPrompt(request({ genres: ["dance"], energy }))).toMatch(/for this energy, lean towards drum & bass/);
-    expect(mixPrompt(request({ genres: ["hiphop"] }))).toContain("include UK rap artists you're confident about, but don't force grime in");
+    expect(mixPrompt(request({ genres: ["hiphop"] }))).toContain("mix in a fair share of UK rap from artists you're confident about (not only US rap), but don't force grime in");
   });
 
   for (const length of [30, 45, 60, 90]) {
@@ -507,7 +513,7 @@ describe("artists: at most 2 per mix, and steering away from recent ones", () =>
 
 describe("E2 and the bad-track count", () => {
   it("E2: when the catalogue can't check the tracks, the mix fails nicely instead of coming out empty", async () => {
-    await expect(makeMix(ask({}, "e2"))).rejects.toEqual(new MixError("failed"));
+    await expect(makeMix(ask({}, "e2"))).rejects.toMatchObject({ kind: "failed", detail: "Deezer busy for most tracks" });
   });
 
   it("counts every suggestion checked and every one that failed, for this mix and in a running total", async () => {

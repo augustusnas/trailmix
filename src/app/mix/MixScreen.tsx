@@ -160,8 +160,10 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     }
     setCurrentMix({ ...kept, playlistId: res.data.playlistId });
     if (res.data.missing.length) return setSaveStep({ kind: "partial", playlistId: res.data.playlistId, saved: res.data.saved, total: res.data.total }); // E6
-    // Part D: one tap. Saved opens the new playlist in YouTube Music straight away; coming back shows Saved.
-    router.push(`${routineHref("/saved", routine.id)}&open=1`);
+    // Saved's Open in YouTube Music then opens the playlist. It has to be a real tap: iOS only opens
+    // music.youtube.com links in the YouTube Music app when they're tapped, not when a page opens
+    // them by itself (that stays in the browser, as the 22 Oct phone test showed).
+    router.push(routineHref("/saved", routine.id));
   };
 
   const openTrackList = async () => {

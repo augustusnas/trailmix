@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { CtaLink } from "@/components/CtaLink";
 import { Headline } from "@/components/Headline";
 import { Icon } from "@/components/Icon";
@@ -25,23 +25,10 @@ export function SavedScreen() {
   const saved = useSaved();
   const mix = saved?.currentMix?.routineId === routine?.id && saved?.currentMix?.shareId ? saved.currentMix : null;
   const [shared, setShared] = useState("");
-  const params = useSearchParams();
-  const openNow = params.get("open") === "1" && saved?.musicApp !== "spotify" && saved?.musicApp !== "apple";
-
   useEffect(() => {
     if (!routine) router.replace("/home");
     else if (saved && !mix) router.replace(routineHref("/mix", routine.id));
   }, [routine, saved, mix, router]);
-
-  // Straight after Keep it: open the playlist (music.youtube.com links open the YouTube Music app).
-  // The address loses `open`, so coming back to Trailmix shows Saved, not another trip out.
-  const opened = useRef(false);
-  useEffect(() => {
-    if (!routine || !openNow || !mix?.playlistId || opened.current) return;
-    opened.current = true;
-    history.replaceState(null, "", routineHref("/saved", routine.id));
-    location.assign(playlistUrl(mix.playlistId));
-  }, [routine, openNow, mix?.playlistId]);
 
   if (!routine || !saved || !mix) return null;
   const app = appOrDefault(saved.musicApp);
@@ -80,7 +67,14 @@ export function SavedScreen() {
       </div>
 
       <div className={styles.actions}>
-        <CtaLink href={app.id === "ytm" && mix.playlistId ? playlistUrl(mix.playlistId) : `/m/${mix.shareId}`} bg="var(--ink)" fg="var(--lime)" icon="arrowUpRight">
+        {/* A tapped music.youtube.com link opens the YouTube Music app (opened by the page itself, it wouldn't). */}
+        <CtaLink
+          href={app.id === "ytm" && mix.playlistId ? playlistUrl(mix.playlistId) : `/m/${mix.shareId}`}
+          external={app.id === "ytm" && !!mix.playlistId}
+          bg="var(--ink)"
+          fg="var(--lime)"
+          icon="arrowUpRight"
+        >
           <span data-testid="saved-action">{app.openAction}</span>
         </CtaLink>
         <button

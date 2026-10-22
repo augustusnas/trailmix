@@ -31,10 +31,10 @@ export function record(state: State) {
   });
 }
 
-/** Keep it opens the new playlist in YouTube Music (Part D): a stand-in page, never the real site. */
+/** Saved's Open in YouTube Music, and the shared page's Open the whole playlist: a stand-in page, never the real site. */
 export async function stubYouTubeMusic(page: Page) {
-  await page.route("https://music.youtube.com/**", (route) =>
-    route.fulfill({ contentType: "text/html", body: "<!doctype html><title>YouTube Music stand-in</title><h1>YouTube Music stand-in</h1><script>setTimeout(() => history.back(), 200)</script>" }),
+  await page.context().route("https://music.youtube.com/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<!doctype html><title>YouTube Music stand-in</title><h1>YouTube Music stand-in</h1>" }),
   );
 }
 
@@ -127,18 +127,14 @@ export async function waitForMix(page: Page) {
   }, undefined, { timeout: 20_000 });
 }
 
-/**
- * Keep it in YouTube Music, all the way: the save, the trip to YouTube Music (the stand-in, which
- * goes straight back), and Saved again.
- */
+/** Keep it in YouTube Music: the save, then Saved, ready to open the playlist with a tap. */
 export async function keepInYouTubeMusic(page: Page) {
   await page.getByTestId("mix-action").click();
   await backFromYouTubeMusic(page);
 }
 
-/** After a save: the trip to the new playlist in (stand-in) YouTube Music, then back on Saved. */
+/** After a save: on Saved. (Named for Part D's first try, which left for YouTube Music by itself.) */
 export async function backFromYouTubeMusic(page: Page) {
-  await page.waitForURL(/^https:\/\/music\.youtube\.com\/playlist/, { timeout: 15_000 });
-  await page.waitForURL(/\/saved\?routine=[\w-]+$/);
+  await page.waitForURL(/\/saved\?routine=[\w-]+$/, { timeout: 15_000 });
   await page.getByTestId("saved-action").waitFor();
 }

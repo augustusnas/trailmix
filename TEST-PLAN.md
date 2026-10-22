@@ -42,7 +42,7 @@
 | F15 | Share gives one mix page link; signed out, it shows "Shared by <first name>", one list, "Tracks open in <the visitor's app>", and "Open the whole playlist" only when a real playlist exists. A link shared before Keep it gets the playlist once the mix is kept. Share with friends is on the page too |
 | F20 | Spotify and Apple Music users see "Open in Spotify / Apple Music" and land on the track list with no Saved screen |
 | F21 | The chosen routine carries through every screen and the playlist name |
-| One tap | YouTube Music users: one tap on Keep it → saving progress → the playlist opens in the YouTube Music app; Saved shows on return |
+| One tap | YouTube Music users: Keep it → "Saving to YouTube Music…" → Saved; one tap on Open in YouTube Music opens the playlist in the YouTube Music app. (Changed 22 Oct: iOS only opens the app for a tapped link; opened automatically after saving, it stayed in the browser.) |
 | E5 | Quota or search cap used up → Keep it blocked with the friendly message; mixes and mix pages still work |
 | E6 | Partial save → "Saved 8 of 11 tracks" with a Retry that adds only the missing ones |
 | E7 | Expired Google session (including the 7-day Testing-mode expiry) → "Quick sign-in needed, your mix is safe", then back to the same mix |
@@ -64,7 +64,7 @@
 - [ ] **Swap and Remix:** swapped tracks fit the energy and genre; Remix brings new artists.
 - [ ] **Sign-in (F1):** reset to a fresh install → Sign in with Google → Where do you listen → Home.
 - [ ] **Non-guest (E13):** sign in with another Google account → refused, with the invite-only message.
-- [ ] **Keep it (F13, one tap):** first time, the permission step; then one tap → the playlist opens in the YouTube Music app, named correctly, tracks in order.
+- [ ] **Keep it (F13):** first time, the permission step; then Keep it → Saved → tap Open in YouTube Music → the playlist opens in the YouTube Music **app** (not a browser tab), named correctly, tracks in order.
 - [ ] **Saved on return:** come back to Trailmix → Saved is shown → Share with friends works.
 - [ ] **Spotify path (F20):** switch the music app to Spotify in the Library → Open in Spotify goes straight to the track list.
 - [ ] **Shared page (F15):** open a shared link in a private Safari window (signed out) → "Shared by Charles" (from Google), "Open the whole playlist" for a kept mix, opening the playlist in YouTube Music.

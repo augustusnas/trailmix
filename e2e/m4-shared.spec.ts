@@ -11,18 +11,20 @@ const playlist = (id: string) => `https://music.youtube.com/playlist?list=${id}`
 test.describe("Part D: one tap to play", () => {
   test.beforeEach(async ({ page }) => seed(page, { ...ONBOARDED, vibes: BOXING_VIBE }));
 
-  test("Keep it saves, then opens the new playlist in YouTube Music; coming back shows Saved", async ({ page }) => {
+  test("Keep it saves, then Saved's Open in YouTube Music opens the playlist with one tap", async ({ page }) => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await waitForMix(page);
     await page.getByTestId("mix-action").click();
-    await page.waitForURL(/^https:\/\/music\.youtube\.com\/playlist\?list=PLfake/);
-    // (the stand-in YouTube Music goes straight back, like returning to Trailmix)
     await expect(page).toHaveURL(/\/saved\?routine=boxing-bag-rounds$/);
-    await expect(page.getByTestId("saved-action")).toHaveText("Open in YouTube Music");
-    await page.waitForTimeout(500);
-    await expect(page).toHaveURL(/\/saved\?routine=boxing-bag-rounds$/); // not sent off again
     const mix = (await stored(page)).currentMix;
-    await expect(page.getByRole("link", { name: "Open in YouTube Music" })).toHaveAttribute("href", playlist(mix.playlistId));
+    // A plain link, so the tap goes to iOS and opens the YouTube Music app (a page can't do that by itself).
+    const open = page.getByRole("link", { name: "Open in YouTube Music" });
+    await expect(open).toHaveAttribute("href", playlist(mix.playlistId));
+    await expect(open).toHaveAttribute("target", "_blank");
+    const [tab] = await Promise.all([page.context().waitForEvent("page"), open.click()]);
+    await tab.waitForLoadState();
+    expect(tab.url()).toBe(playlist(mix.playlistId));
+    await expect(page).toHaveURL(/\/saved\?routine=boxing-bag-rounds$/); // Trailmix stays on Saved
   });
 });
 

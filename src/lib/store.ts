@@ -77,7 +77,7 @@ const energyIds = new Set(ENERGIES.map((e) => e.id));
 function cleanVibe(routineId: string, v: unknown): VibeSettings | undefined {
   if (!isObject(v)) return undefined;
   const routine = ROUTINES.find((r) => r.id === routineId)!;
-  // Genres saved before the new list map to their closest new one (Grime → UK rap & grime).
+  // Genres saved before the new list map to their closest new one (Grime and UK rap → Hip-hop & UK rap, House → Dance & electronic).
   const genres = Array.isArray(v.genres) ? currentGenres(v.genres) : [];
   const energy = typeof v.energy === "string" && energyIds.has(v.energy) ? v.energy : DEFAULT_ENERGY;
   const length = (LENGTHS as readonly unknown[]).includes(v.length) ? (v.length as number) : defaultLength(routine.minutes);

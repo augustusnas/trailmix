@@ -41,12 +41,9 @@ Rules for every playlist:
 
 /** What each genre means, so suggestions and the genre review agree on its edges. */
 export const GENRE_MEANING: Record<string, string> = {
-  hiphop: "hip-hop and rap from any country",
-  "uk-rap": "British rap, grime and UK drill by UK artists (not US rap)",
-  house: "house music (about 118–130 bpm), including deep, tech and UK garage-leaning house",
-  dnb: "drum & bass and jungle (about 160–180 bpm); not dubstep, EDM, trap, house or pop",
-  techno: "techno (about 120–150 bpm), not EDM or pop dance",
-  electronic: "electronic dance music broadly: EDM, dubstep, electro, breakbeat, trance and similar",
+  hiphop:
+    "hip-hop and rap from the US, the UK and elsewhere; include UK rap artists you're confident about, but don't force grime in",
+  dance: "dance and electronic music: house, UK garage, techno, drum & bass, jungle, breakbeat, electro, trance and similar",
   pop: "mainstream pop and dance-pop",
   "rnb-soul": "R&B, neo-soul and classic soul",
   afro: "Afrobeats, afro-fusion, afropop and amapiano by African or African-diaspora artists",
@@ -67,8 +64,22 @@ Artists in my last few mixes for this routine. Where you can, use other artists 
 ${req.avoidArtists.join(", ")}`
     : "";
 
+/** Dance & electronic is broad, so the energy steers it: house when easy or steady, faster and harder when driven or feral. */
+const DANCE_LEAN: Record<string, string> = {
+  easy: "lean towards house, deep house and UK garage (about 115–125 bpm)",
+  steady: "lean towards house, tech house and UK garage (about 120–128 bpm)",
+  driven: "lean towards drum & bass, techno and harder dance (about 128–175 bpm)",
+  feral: "lean towards drum & bass, jungle, hard techno and the hardest dance (about 135–180 bpm)",
+};
+
+/** A genre's meaning for suggestions: Dance & electronic adds the lean for the chosen energy. */
+export const genreMeaning = (g: string, energy: string) =>
+  g === "dance" ? `${GENRE_MEANING.dance}; for this energy, ${DANCE_LEAN[energy]}` : GENRE_MEANING[g];
+
+const label = (g: string) => GENRES.find((x) => x.id === g)!.label;
+
 function describe(req: MixRequest) {
-  const genres = req.genres.map((g) => `- ${GENRES.find((x) => x.id === g)!.label}: ${GENRE_MEANING[g]}`).join("\n");
+  const genres = req.genres.map((g) => `- ${label(g)}: ${genreMeaning(g, req.energy)}`).join("\n");
   const energy = ENERGIES.find((e) => e.id === req.energy)!.label;
   return [
     `Workout: ${req.routine.name} (${CATEGORIES[req.routine.category].label})`,
@@ -139,14 +150,14 @@ export const MORE_SCHEMA = {
  * The catalogue's genres are too broad to tell US rap from UK rap, or dubstep from drum & bass.
  */
 export function reviewPrompt(req: MixRequest, tracks: TrackRef[]): string {
-  const genres = req.genres.map((g) => `- ${GENRES.find((x) => x.id === g)!.label}: ${GENRE_MEANING[g]}`).join("\n");
+  const genres = req.genres.map((g) => `- ${label(g)}: ${GENRE_MEANING[g]}`).join("\n");
   return `A workout playlist must only contain tracks in these genres:
 ${genres}
 
 Here are its tracks, numbered:
 ${tracks.map((t, i) => `${i + 1}. ${t.title} — ${t.artist}`).join("\n")}
 
-For every track, say whether it fits: "yes" if it belongs to at least one of those genres, "no" only if you're sure it's from a different scene (for example US rap in a UK rap playlist, or dubstep, EDM or pop in a drum & bass one), and "unsure" if you don't know it well. Artists at the heart of a genre's scene always fit, including their crossover hits. Most playlists have no misfits at all.`;
+For every track, say whether it fits: "yes" if it belongs to at least one of those genres, "no" only if you're sure it's from a different scene (for example pop or rock in a hip-hop playlist, or pop or R&B in a dance & electronic one), and "unsure" if you don't know it well. Artists at the heart of a genre's scene always fit, including their crossover hits. Most playlists have no misfits at all.`;
 }
 
 export const REVIEW_SCHEMA = {

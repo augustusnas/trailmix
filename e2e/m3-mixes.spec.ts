@@ -247,7 +247,7 @@ test.describe("making mixes", () => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await expect(page.getByTestId("mix-problem")).toContainText("Mix-making is resting right now. Try again later.");
     await page.getByRole("link", { name: "Back to your vibe" }).click();
-    await expect(page.getByRole("button", { name: "UK rap & grime" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Hip-hop & UK rap" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("button", { name: "Driven" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -455,10 +455,20 @@ test("N5: no key reaches the browser (pages, scripts, or API answers)", async ({
 test("E12: genres saved before the new list show as their closest new genre, and mixes still work", async ({ page }) => {
   await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["grime", "jazz-funk", "soul"], energy: "driven", length: 45 } } });
   await page.goto("/vibe?routine=boxing-bag-rounds");
-  for (const g of ["UK rap & grime", "Funk & disco", "R&B & soul"]) await expect(page.getByRole("button", { name: g })).toHaveAttribute("aria-pressed", "true");
+  for (const g of ["Hip-hop & UK rap", "Funk & disco", "R&B & soul"]) await expect(page.getByRole("button", { name: g })).toHaveAttribute("aria-pressed", "true");
   const sent = page.waitForRequest((r) => r.url().endsWith("/api/mix"));
   await page.getByRole("button", { name: "Make the mix" }).click();
-  expect((await sent).postDataJSON().genres).toEqual(["uk-rap", "funk-disco", "rnb-soul"]);
+  expect((await sent).postDataJSON().genres).toEqual(["hiphop", "funk-disco", "rnb-soul"]);
+  await waitForMix(page);
+});
+
+test("E12: the 12 genres of October become 8, and saved vibes and mixes still work", async ({ page }) => {
+  await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["uk-rap", "dnb", "house"], energy: "driven", length: 45 } } });
+  await page.goto("/vibe?routine=boxing-bag-rounds");
+  await expect(page.getByRole("button", { pressed: true, name: /&/ })).toHaveText(["Hip-hop & UK rap", "Dance & electronic"]);
+  const sent = page.waitForRequest((r) => r.url().endsWith("/api/mix"));
+  await page.getByRole("button", { name: "Make the mix" }).click();
+  expect((await sent).postDataJSON().genres).toEqual(["hiphop", "dance"]);
   await waitForMix(page);
 });
 

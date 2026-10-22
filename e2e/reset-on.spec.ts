@@ -40,7 +40,7 @@ test("F1 phone check: Reset to a fresh install goes back to Welcome with nothing
 });
 
 test("phone test switches: E3 forced from the reset page, then back to normal", async ({ page }) => {
-  await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["uk-rap"], energy: "driven", length: 30 } } });
+  await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["hiphop"], energy: "driven", length: 30 } } });
   await openReset(page);
   await page.getByRole("button", { name: /E3 · The mix doesn't come together/ }).click();
   await page.goto("/mix?routine=boxing-bag-rounds");

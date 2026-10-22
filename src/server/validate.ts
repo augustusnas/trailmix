@@ -63,9 +63,11 @@ export function validateMixRequest(body: unknown): MixRequest | null {
   const { genres, energy, length } = body;
   if (!Array.isArray(genres) || genres.length < 1 || genres.length > MAX_GENRES) return null;
   // A phone still running the old app may send an old genre id; it becomes its closest new one.
-  const ids = genres.map(currentGenre);
-  if (!ids.every(Boolean)) return null;
-  if (new Set(ids).size !== ids.length) return null;
+  if (new Set(genres).size !== genres.length) return null;
+  const mapped = genres.map(currentGenre);
+  if (!mapped.every(Boolean)) return null;
+  // Two old ids can become one new one (UK rap & grime and Hip-hop): it's asked for once.
+  const ids = [...new Set(mapped)];
   if (typeof energy !== "string" || !ENERGIES.some((e) => e.id === energy)) return null;
   if (typeof length !== "number" || !(LENGTHS as readonly number[]).includes(length)) return null;
   // Up to 10 recent mixes' worth of tracks.

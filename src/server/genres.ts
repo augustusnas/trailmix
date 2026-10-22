@@ -29,12 +29,8 @@ const D = DEEZER;
 
 /** For each of our 12 genres, the Deezer genres it can be filed under. */
 export const DEEZER_GENRES: Record<string, number[]> = {
-  hiphop: [D.rap, D.rnb],
-  "uk-rap": [D.rap, D.dance, D.electro], // grime albums are often filed under Dance
-  house: [D.dance, D.electro],
-  dnb: [D.dance, D.electro],
-  techno: [D.dance, D.electro],
-  electronic: [D.dance, D.electro, D.alternative],
+  hiphop: [D.rap, D.rnb, D.dance, D.electro], // grime albums are often filed under Dance
+  dance: [D.dance, D.electro],
   pop: [D.pop, D.dance, D.rnb, D.electro, D.alternative],
   "rnb-soul": [D.rnb, D.soulFunk, D.jazz, D.blues],
   // Afro-pop is usually filed under Pop (Tyla's "Water") and often under Soul & Funk (most of
@@ -77,13 +73,10 @@ export function genreVerdict(info: GenreInfo, chosen: string[]): "fits" | "off" 
  */
 type Tempo = { normal: [number, number]; slowBelow: number; halfSpeedUnder80?: boolean };
 export const GENRE_TEMPO: Record<string, Tempo> = {
-  hiphop: { normal: [80, 115], slowBelow: 80, halfSpeedUnder80: true },
-  "uk-rap": { normal: [85, 150], slowBelow: 80, halfSpeedUnder80: true },
-  dnb: { normal: [160, 180], slowBelow: 80, halfSpeedUnder80: true },
+  hiphop: { normal: [80, 150], slowBelow: 80, halfSpeedUnder80: true },
+  // House to drum & bass: drum & bass at 174 is often read as 87.
+  dance: { normal: [110, 180], slowBelow: 100, halfSpeedUnder80: true },
   afro: { normal: [95, 125], slowBelow: 88, halfSpeedUnder80: true },
-  house: { normal: [118, 132], slowBelow: 110 },
-  techno: { normal: [120, 150], slowBelow: 115 },
-  electronic: { normal: [100, 180], slowBelow: 90 },
   pop: { normal: [90, 135], slowBelow: 85 },
   "rnb-soul": { normal: [60, 110], slowBelow: 70 },
   "rock-indie": { normal: [90, 180], slowBelow: 80 },

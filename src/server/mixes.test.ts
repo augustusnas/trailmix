@@ -27,7 +27,7 @@ afterAll(() => {
 
 const request = (over: Partial<MixRequest> = {}): MixRequest => ({
   routine: getRoutine("boxing-bag-rounds")!,
-  genres: ["uk-rap", "dnb"],
+  genres: ["hiphop", "dance"],
   energy: "driven",
   length: 45,
   avoid: [],
@@ -128,6 +128,12 @@ describe("F9: making a mix", () => {
   it("asks for over twice the minimum count up front", () => {
     expect([30, 45, 60, 90].map(trackCount)).toEqual([18, 27, 36, 53]);
     expect(mixPrompt(request())).toContain("Make a playlist of 27 tracks, in playing order.");
+  });
+
+  it("Dance & electronic leans on the energy: house when easy or steady, drum & bass and techno when driven or feral", () => {
+    for (const energy of ["easy", "steady"]) expect(mixPrompt(request({ genres: ["dance"], energy }))).toMatch(/for this energy, lean towards house/);
+    for (const energy of ["driven", "feral"]) expect(mixPrompt(request({ genres: ["dance"], energy }))).toMatch(/for this energy, lean towards drum & bass/);
+    expect(mixPrompt(request({ genres: ["hiphop"] }))).toContain("include UK rap artists you're confident about, but don't force grime in");
   });
 
   for (const length of [30, 45, 60, 90]) {
@@ -328,18 +334,18 @@ describe("Q3: genre check", () => {
   const D = DEEZER;
   it("rejects a track whose album and artist are filed outside the chosen genres", () => {
     const taylor = { albumGenre: D.pop, artistGenres: { [D.pop]: 67, [D.country]: 16, [D.alternative]: 12 } };
-    expect(genreVerdict(taylor, ["uk-rap", "dnb"])).toBe("off");
+    expect(genreVerdict(taylor, ["hiphop", "dance"])).toBe("off");
     const marley = { albumGenre: D.reggae, artistGenres: { [D.reggae]: 66, [D.dance]: 4, [D.pop]: 3 } };
-    expect(genreVerdict(marley, ["uk-rap"])).toBe("off");
+    expect(genreVerdict(marley, ["hiphop"])).toBe("off");
   });
 
   it("keeps a UK rap track on a Pop-filed album when the artist is filed under Rap", () => {
     const pow = { albumGenre: D.pop, artistGenres: { [D.rap]: 5, [D.pop]: 1 } };
-    expect(genreVerdict(pow, ["uk-rap"])).toBe("fits");
+    expect(genreVerdict(pow, ["hiphop"])).toBe("fits");
   });
 
   it("an artist's occasional genre (under 20% of their albums) doesn't count", () => {
-    expect(genreVerdict({ artistGenres: { [D.reggae]: 66, [D.dance]: 4 } }, ["house"])).toBe("off");
+    expect(genreVerdict({ artistGenres: { [D.reggae]: 66, [D.dance]: 4 } }, ["dance"])).toBe("off");
   });
 
   it("keeps tracks Deezer has no genre for, so they can be logged", () => {
@@ -348,8 +354,8 @@ describe("Q3: genre check", () => {
   });
 
   it("several chosen genres allow any of their Deezer genres", () => {
-    expect(genreVerdict({ albumGenre: D.african }, ["uk-rap", "afro"])).toBe("fits");
-    expect(genreVerdict({ albumGenre: D.african }, ["uk-rap", "dnb"])).toBe("off");
+    expect(genreVerdict({ albumGenre: D.african }, ["hiphop", "afro"])).toBe("fits");
+    expect(genreVerdict({ albumGenre: D.african }, ["hiphop", "dance"])).toBe("off");
   });
 
   it("afro-pop filed under Pop or Soul & Funk fits Afrobeats & amapiano", () => {
@@ -378,8 +384,9 @@ describe("Q3: genre check", () => {
 
   it("the review prompt gives each genre's meaning and asks only for clear misfits", () => {
     const p = reviewPrompt(request(), [{ title: "Sicko Mode", artist: "Travis Scott" }]);
-    expect(p).toContain("UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)");
-    expect(p).toContain("not dubstep, EDM");
+    expect(p).toContain("Hip-hop & UK rap: hip-hop and rap from the US, the UK and elsewhere");
+    expect(p).toContain("Dance & electronic: dance and electronic music: house, UK garage, techno, drum & bass");
+    expect(p).not.toContain("lean towards"); // the review uses the whole genre, not the energy's lean
     expect(p).toContain("1. Sicko Mode — Travis Scott");
     expect(p).toMatch(/"no" only if you're sure it's from a different scene/);
     expect(p).toMatch(/Most playlists have no misfits at all/);
@@ -397,8 +404,8 @@ describe("Q3: genre check", () => {
 
 describe("Q5: no slow tracks for Driven and Feral", () => {
   it("half-speed readings never count as slow for grime, drum & bass, hip-hop or afrobeats", () => {
-    expect(tooSlow(70, "driven", ["uk-rap"])).toBe(false); // grime's 140 read as 70
-    expect(tooSlow(87, "driven", ["dnb"])).toBe(false); // a 174 bpm drum & bass track read as 87
+    expect(tooSlow(70, "driven", ["hiphop"])).toBe(false); // grime's 140 read as 70
+    expect(tooSlow(87, "driven", ["dance"])).toBe(false); // a 174 bpm drum & bass track read as 87
     expect(tooSlow(75, "feral", ["hiphop"])).toBe(false);
     expect(tooSlow(55, "driven", ["afro"])).toBe(false);
   });
@@ -406,10 +413,10 @@ describe("Q5: no slow tracks for Driven and Feral", () => {
   it("only clearly slow for the genre counts, and doubling to a normal tempo isn't slow", () => {
     expect(tooSlow(84, "driven", ["afro"])).toBe(true); // afrobeats sits at 95–125
     expect(tooSlow(100, "driven", ["afro"])).toBe(false);
-    expect(tooSlow(62, "driven", ["house"])).toBe(false); // 124 at half speed
-    expect(tooSlow(95, "driven", ["house"])).toBe(true);
+    expect(tooSlow(62, "driven", ["dance"])).toBe(false); // 124 at half speed
+    expect(tooSlow(95, "driven", ["dance"])).toBe(true);
     expect(tooSlow(75, "driven", ["pop"])).toBe(true);
-    expect(tooSlow(75, "driven", ["pop", "uk-rap"])).toBe(false); // slow for pop, but fine if it's the grime
+    expect(tooSlow(75, "driven", ["pop", "hiphop"])).toBe(false); // slow for pop, but fine if it's the grime
   });
 
   it("only Driven and Feral are checked, and no measurement is never slow", () => {
@@ -443,7 +450,7 @@ describe("Q7: shared pages from before Milestone 4", () => {
     const id = "A".repeat(22);
     const track = (title: string, phase: string) => ({ title, artist: `By ${title}`, phase, durationMs: 200_000, key: title });
     await getKV().set(`share:${id}`, {
-      id: "x", name: "Old Share", routineId: "push-day", genres: ["uk-rap"], energy: "driven", length: 30, createdAt: "2026-10-12",
+      id: "x", name: "Old Share", routineId: "push-day", genres: ["hiphop"], energy: "driven", length: 30, createdAt: "2026-10-12",
       tracks: [track("One", "warm-up"), track("Two", "main"), track("Three", "cool-down")],
     });
     const mix = (await readShare(id))!;
@@ -618,7 +625,8 @@ describe("Claude errors (E3, E4)", () => {
   it("the prompt holds only checked values, recent tracks and the rules", () => {
     const p = mixPrompt(request({ avoid: [{ title: "Show Me Love", artist: "Robin S" }] }));
     expect(p).toContain("Workout: Boxing bag rounds (Combat)");
-    expect(p).toContain("Genres (at least one per track):\n- UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)\n- Drum & bass: drum & bass and jungle");
+    expect(p).toContain("Genres (at least one per track):\n- Hip-hop & UK rap: hip-hop and rap from the US, the UK and elsewhere");
+    expect(p).toContain("\n- Dance & electronic: dance and electronic music");
     expect(p).toContain("- Show Me Love — Robin S");
   });
 });
@@ -628,7 +636,7 @@ describe("Traceable failures: problem summaries in Upstash", () => {
     const kv = getKV();
     const set = vi.spyOn(kv, "set");
     const notes = { ...newNotes(), suggested: 27, notFound: ["A — B", "C — D"], busy: 4, step: "fitting" as const, rounds: 3, minutes: 31.2 };
-    const s = await saveProblem({ event: "remix", outcome: "failed", settings: { routine: "hiit-circuit", genres: ["uk-rap"], energy: "driven", length: 45 }, notes, seconds: 24.1 });
+    const s = await saveProblem({ event: "remix", outcome: "failed", settings: { routine: "hiit-circuit", genres: ["hiphop"], energy: "driven", length: 45 }, notes, seconds: 24.1 });
     expect(s).toMatchObject({ event: "remix", outcome: "failed", step: "fitting", rounds: 3, notFound: 2, deezerBusy: 4, minutes: 31.2 });
     const [key, value, seconds] = set.mock.calls.at(-1)!;
     expect(key).toMatch(/^problem:\d{4}-\d\d-\d\dT/);

@@ -15,7 +15,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | The mix prompt (everything Claude is told) | `src/server/prompt.ts` |
 | Making, swapping and fitting mixes (one flowing list; minimum track counts) | `src/server/mixes.ts`, `src/server/fit.ts` |
 | Track lookup (cache → Deezer: right artist, same-song check, 1½–7 minutes, tempo; exact Apple Music links from iTunes in the background) | `src/server/lookup.ts` |
-| Genre check (our 12 genres → Deezer's) and the slow-track rule | `src/server/genres.ts` |
+| Genre check (our 8 genres → Deezer's) and the slow-track rule | `src/server/genres.ts` |
 | What each genre means, and the genre review Claude does after the catalogue check | `src/server/prompt.ts` (`GENRE_MEANING`, `reviewPrompt`) |
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
 | Bad-track count (running totals in Upstash, shown at the end of each mix log line; the line's `notes` say why each failed) | `src/server/stats.ts` |

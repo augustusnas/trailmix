@@ -3,12 +3,8 @@
 export type Option = { id: string; label: string };
 
 export const GENRES: Option[] = [
-  { id: "hiphop", label: "Hip-hop" },
-  { id: "uk-rap", label: "UK rap & grime" },
-  { id: "house", label: "House" },
-  { id: "dnb", label: "Drum & bass" },
-  { id: "techno", label: "Techno" },
-  { id: "electronic", label: "Electronic" },
+  { id: "hiphop", label: "Hip-hop & UK rap" },
+  { id: "dance", label: "Dance & electronic" },
   { id: "pop", label: "Pop" },
   { id: "rnb-soul", label: "R&B & soul" },
   { id: "afro", label: "Afrobeats & amapiano" },
@@ -17,9 +13,17 @@ export const GENRES: Option[] = [
   { id: "funk-disco", label: "Funk & disco" },
 ];
 
-/** Milestone 2–3 genres, so saved vibes and mixes from before the October 2026 list still work (E12). */
+/**
+ * Older genre ids, so saved vibes and mixes from before today's list still work (E12): Milestone 2–3's,
+ * and the 12-genre list of October 2026 (merged to 8 on 22 October).
+ */
 const OLD_GENRES: Record<string, string> = {
-  grime: "uk-rap",
+  grime: "hiphop",
+  "uk-rap": "hiphop",
+  house: "dance",
+  dnb: "dance",
+  techno: "dance",
+  electronic: "dance",
   afrobeats: "afro",
   amapiano: "afro",
   rnb: "rnb-soul",

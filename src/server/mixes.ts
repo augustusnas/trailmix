@@ -197,10 +197,10 @@ export async function makeMix(
   lap("check");
   // E2: the catalogue is down or too busy to check most tracks, even after retrying.
   if (notes.busy > first.found.length) throw new MixError("failed");
-  // Test switches: only enough tracks for 80% ("short") or half ("tooshort") of the length are found.
+  // Test switches: only enough tracks for about 85% ("short") or half ("tooshort") of the length are found.
   if (a.forced === "short" || a.forced === "tooshort") {
     let sum = 0;
-    const share = a.forced === "short" ? 0.8 : 0.5;
+    const share = a.forced === "short" ? 0.88 : 0.5;
     const keep = first.found.filter((t) => (sum += t.durationMs) <= share * target);
     first.missing.push(...first.found.slice(keep.length));
     first.found = keep;

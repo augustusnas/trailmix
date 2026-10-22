@@ -8,5 +8,9 @@ describe("formatting", () => {
       "Trailmix · Boxing · Gloves On, Volume Up · 15 Oct",
     );
   });
-  it("labels genres", () => expect(genreLabel("dnb")).toBe("Drum & bass"));
+  it("labels genres, old ones by their new name", () => {
+    expect(genreLabel("dance")).toBe("Dance & electronic");
+    expect(genreLabel("dnb")).toBe("Dance & electronic");
+    expect(genreLabel("uk-rap")).toBe("Hip-hop & UK rap");
+  });
 });

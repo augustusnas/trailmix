@@ -70,17 +70,17 @@ describe("on-device storage", () => {
     });
     expect(s.pins).toEqual(["tabata"]);
     expect(s.musicApp).toBeNull();
-    expect(s.vibes).toEqual({ tabata: { genres: ["uk-rap", "dnb"], energy: "steady", length: 30 } });
+    expect(s.vibes).toEqual({ tabata: { genres: ["hiphop", "dance"], energy: "steady", length: 30 } });
     expect(s.recentMixes).toEqual([]);
   });
 
   it("keeps at most 3 genres and 10 recent mixes", () => {
     const s = sanitize({
       version: 1,
-      vibes: { tabata: { genres: ["uk-rap", "dnb", "house", "rock-indie"], energy: "easy", length: 30 } },
+      vibes: { tabata: { genres: ["hiphop", "dance", "pop", "rock-indie"], energy: "easy", length: 30 } },
       recentMixes: Array.from({ length: 12 }, (_, i) => ({ name: `Mix ${i}`, routineId: "tabata", date: "2026-10-19", tracks: [], freshness: 80 })),
     });
-    expect(s.vibes.tabata.genres).toEqual(["uk-rap", "dnb", "house"]);
+    expect(s.vibes.tabata.genres).toEqual(["hiphop", "dance", "pop"]);
     expect(s.recentMixes).toHaveLength(10);
   });
 
@@ -142,7 +142,7 @@ describe("on-device storage", () => {
       onboarded: true,
       musicApp: "spotify",
       pins: ["tabata", "yoga-flow"],
-      vibes: { tabata: { genres: ["uk-rap"], energy: "feral", length: 30 } },
+      vibes: { tabata: { genres: ["hiphop"], energy: "feral", length: 30 } },
       recentMixes: [],
     };
     expect(sanitize(v1)).toEqual({ ...v1, version: 2, accessCode: null, currentMix: null, recentArtists: {} });
@@ -211,7 +211,7 @@ describe("on-device storage", () => {
     expect(m.tracks.map((t) => t.title)).toEqual(["One", "Two", "Three"]);
     expect(m.tracks.every((t) => !("phase" in t))).toBe(true);
     expect("shortened" in m).toBe(false);
-    expect(m.genres).toEqual(["uk-rap"]);
+    expect(m.genres).toEqual(["hiphop"]); // saved as UK rap & grime, now Hip-hop & UK rap
   });
 
   it("never crashes when the phone refuses storage (e.g. private browsing)", () => {
@@ -237,8 +237,8 @@ describe("on-device storage", () => {
   });
 
   it("remembers vibes per routine", () => {
-    store.saveVibe("boxing-bag-rounds", { genres: ["uk-rap"], energy: "feral", length: 30 });
-    expect(store.vibeFor(store.load(), "boxing-bag-rounds").genres).toEqual(["uk-rap"]);
+    store.saveVibe("boxing-bag-rounds", { genres: ["hiphop"], energy: "feral", length: 30 });
+    expect(store.vibeFor(store.load(), "boxing-bag-rounds").genres).toEqual(["hiphop"]);
     expect(store.vibeFor(store.load(), "push-day").genres).toEqual([]);
   });
 
@@ -275,18 +275,33 @@ describe("genres from before the new list (E12)", () => {
       },
     });
     expect(s.onboarded).toBe(true);
-    expect(s.vibes.tabata.genres).toEqual(["uk-rap", "funk-disco"]);
+    expect(s.vibes.tabata.genres).toEqual(["hiphop", "funk-disco"]);
     expect(s.vibes["yoga-flow"].genres).toEqual(["rnb-soul", "afro"]);
     expect(s.vibes["push-day"].genres).toEqual(["afro", "rock-indie", "hiphop"]);
-    expect(s.currentMix?.genres).toEqual(["uk-rap", "rnb-soul"]);
+    expect(s.currentMix?.genres).toEqual(["hiphop", "rnb-soul"]);
+  });
+
+  it("the 12 genres of October 2026 become 8: UK rap joins Hip-hop, House, Techno, Drum & bass and Electronic become Dance & electronic", () => {
+    const s = sanitize({
+      version: 2,
+      onboarded: true,
+      vibes: {
+        tabata: { genres: ["uk-rap", "hiphop", "dnb"], energy: "feral", length: 30 },
+        "spin-bike": { genres: ["house", "techno", "electronic"], energy: "steady", length: 45 },
+      },
+      currentMix: { id: "m1", name: "Old Mix", routineId: "tabata", genres: ["uk-rap", "dnb"], energy: "feral", length: 30, tracks: [{ title: "T", artist: "A", durationMs: 200_000 }] },
+    });
+    expect(s.vibes.tabata.genres).toEqual(["hiphop", "dance"]);
+    expect(s.vibes["spin-bike"].genres).toEqual(["dance"]);
+    expect(s.currentMix?.genres).toEqual(["hiphop", "dance"]);
   });
 
   it("every old genre has a home in the new list", () => {
-    for (const old of ["hiphop", "afrobeats", "house", "dnb", "rnb", "rock", "grime", "amapiano", "soul", "disco", "pop", "jazz-funk"]) {
+    for (const old of ["hiphop", "afrobeats", "house", "dnb", "rnb", "rock", "grime", "amapiano", "soul", "disco", "pop", "jazz-funk", "uk-rap", "techno", "electronic"]) {
       expect(GENRES.map((g) => g.id), old).toContain(currentGenre(old));
     }
     expect(GENRES.map((g) => g.label)).toEqual([
-      "Hip-hop", "UK rap & grime", "House", "Drum & bass", "Techno", "Electronic", "Pop", "R&B & soul", "Afrobeats & amapiano", "Rock & indie", "Metal", "Funk & disco",
+      "Hip-hop & UK rap", "Dance & electronic", "Pop", "R&B & soul", "Afrobeats & amapiano", "Rock & indie", "Metal", "Funk & disco",
     ]);
   });
 });
@@ -294,7 +309,7 @@ describe("genres from before the new list (E12)", () => {
 describe("artists from the last 5 mixes per routine", () => {
   beforeEach(fresh);
   const mix = (n: number, routineId = "push-day") => ({
-    id: `m${n}`, name: `Mix ${n}`, routineId, genres: ["uk-rap"], energy: "driven", length: 45, createdAt: "", freshness: 100,
+    id: `m${n}`, name: `Mix ${n}`, routineId, genres: ["hiphop"], energy: "driven", length: 45, createdAt: "", freshness: 100,
     tracks: [
       { title: "One", artist: `Artist ${n}`, phase: "main" as const, durationMs: 200_000, key: "a" },
       { title: "Two", artist: "Skepta", phase: "main" as const, durationMs: 200_000, key: "b" },

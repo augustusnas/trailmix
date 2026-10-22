@@ -25,11 +25,12 @@
 | Q2 | No song appears twice in a mix (titles compared without brackets, "feat.", "remix", "edit" or "version") |
 | Q3 | Tracks clearly outside the chosen genres are rejected, using Deezer's album or artist genre. *As built:* a track is rejected when neither its album's genre nor any genre on at least 20% of the artist's Deezer albums fits (map in `src/server/genres.ts`); with no genre at all it's kept and counted as `noGenre` in the log. Deezer's genres can't tell UK from US rap, or drum & bass from dubstep, so a **genre review** follows: Claude is asked twice, at the same time as the Deezer check, to give every track a verdict (yes, no or unsure), and a track is removed only when both answers say a clear "no" (logged as `offGenreReview`). If the review fails, nothing is removed |
 | Q4 | Track count is roughly 8 / 12 / 16 / 24 for 30 / 45 / 60 / 90 minutes (a track or two fewer is fine); no track is over 7 minutes or under 1½ minutes |
-| Q5 | For Driven and Feral, no slow tracks (BPM check where Deezer has one). *As built:* a reading is slow only when it's clearly slow for every chosen genre, and doubling it doesn't give a normal tempo for the genre (Deezer often reads fast tracks at half speed). For UK rap & grime, drum & bass, hip-hop and afrobeats & amapiano, a reading under 80 is never slow. Ranges in `src/server/genres.ts`. Tracks without a BPM are kept and counted as `noTempo` |
+| Q5 | For Driven and Feral, no slow tracks (BPM check where Deezer has one). *As built:* a reading is slow only when it's clearly slow for every chosen genre, and doubling it doesn't give a normal tempo for the genre (Deezer often reads fast tracks at half speed). For Hip-hop & UK rap, Dance & electronic and Afrobeats & amapiano, a reading under 80 is never slow. Ranges in `src/server/genres.ts`. Tracks without a BPM are kept and counted as `noTempo` |
 | Q6 | No more than 2 tracks by one artist; recent artists for the routine are sent with each request |
 | Q7 | No phase labels on The mix, Saved, the mix page or the playlist description; older stored mixes and shared pages display as one list |
 | Q8 | "A few tracks couldn't be found" never shows; "This one came out at X minutes" shows only when a mix is more than 5 minutes short |
 | Q9 | Quality report: 5 mixes each at 30 and 45 minutes, Driven, for UK rap & grime, Drum & bass, Afrobeats & amapiano, and all three together, all on Sonnet. Results: zero wrong-artist tracks shown; no duplicates; every mix roughly meets Q4; lengths close to the target (see F10) |
+| Q10 | Genres are 8 (from 22 Oct): UK rap & grime joined Hip-hop as "Hip-hop & UK rap" (UK artists where Claude is confident, grime not forced); House, Techno, Drum & bass and Electronic became "Dance & electronic", steered by energy (Easy and Steady lean house, Driven and Feral lean drum & bass, techno and harder dance). Saved vibes, recent mixes and shared mixes with the old genres show as the new ones and still work (E12); still at most 3 genres |
 
 ### Parts B–E: sign-in, saving and one tap
 | ID | Check |
@@ -56,7 +57,7 @@
 | N5, N8, N11 | Secret scan; screenshots at 320, 390 and 430px including the largest text size (new screens: sign-in, permission, saving, E5 to E8); accessibility scan |
 
 ### On my phone (installed app)
-- [ ] **Mixes fit:** make UK rap & grime, Drum & bass and Afrobeats & amapiano mixes (30 min, Driven). No wrong artists, no off-genre tracks, no repeats, at least 8 tracks, close to 30 minutes.
+- [ ] **Mixes fit:** make Hip-hop & UK rap, Dance & electronic and Afrobeats & amapiano mixes (30 min, Driven). No wrong artists, no off-genre tracks, no repeats, at least 8 tracks, close to 30 minutes.
 - [ ] **One list:** no warm-up, main block or cool-down labels anywhere.
 - [ ] **Swap and Remix:** swapped tracks fit the energy and genre; Remix brings new artists.
 - [ ] **Sign-in (F1):** reset to a fresh install → Sign in with Google → Where do you listen → Home.
@@ -81,7 +82,7 @@
 | F4 | Pin cap | Given 6 pins, when I open the Library, then unpinned + buttons are disabled and the "home is full" notice shows | 2 |
 | F5 | Unpin | Given a pinned routine, when I unpin it, then it leaves Home and pins are available again | 2 |
 | F6 | Library search and filter | When I type "tab" or tap Conditioning, then only matching routines show; no match shows the empty message | 2 |
-| F7 | Vibe memory | Given I used Boxing with UK rap & grime, Driven, 45, when I pick Boxing again, then those settings are preselected | 2 |
+| F7 | Vibe memory | Given I used Boxing with Hip-hop & UK rap, Driven, 45, when I pick Boxing again, then those settings are preselected | 2 |
 | F8 | Vibe validation | Given no genre selected, when I tap Make the mix, then I'm asked to pick at least one (up to 3 allowed) | 2 |
 | F9 | Generate | When I make a mix, then I see a fun name and **one numbered list** of tracks that match the chosen genres and energy, every one confirmed on Deezer with the right artist | 3, 4 |
 | F10 | Length | Given 45 minutes chosen, the mix lands close to 45. **Length is a guide, not a hard target** (decided 21–22 Oct): a few minutes short is fine, because music apps keep playing similar tracks when a playlist ends. Don't spend extra rounds or seconds chasing an exact length. "This one came out at X minutes" shows only if a mix is more than 5 minutes short | 3, 4 |

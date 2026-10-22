@@ -170,16 +170,16 @@ test.describe("Set the vibe", () => {
 
   test("F7: Make the mix saves each routine's settings, separately", async ({ page }) => {
     await page.goto("/vibe?routine=boxing-bag-rounds");
-    for (const b of ["UK rap & grime", "Drum & bass", "Feral", "60 minutes"]) await page.getByRole("button", { name: b }).click();
+    for (const b of ["Hip-hop & UK rap", "Dance & electronic", "Feral", "60 minutes"]) await page.getByRole("button", { name: b }).click();
     await page.getByRole("button", { name: "Make the mix" }).click();
     await expect(page).toHaveURL(/\/mix/);
 
     // From the Library, and after a full reload, Boxing remembers…
     await page.goto("/library");
     await page.getByRole("link", { name: "Use Boxing bag rounds" }).click();
-    await expect.poll(() => pressed(page)).toEqual(["UK rap & grime", "Drum & bass", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["Hip-hop & UK rap", "Dance & electronic", "Feral", "60"]);
     await page.reload();
-    await expect.poll(() => pressed(page)).toEqual(["UK rap & grime", "Drum & bass", "Feral", "60"]);
+    await expect.poll(() => pressed(page)).toEqual(["Hip-hop & UK rap", "Dance & electronic", "Feral", "60"]);
 
     // …and Push day is untouched.
     await page.goto("/home");

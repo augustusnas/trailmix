@@ -23,7 +23,7 @@ async function checkFlow(page: Page, r: Routine) {
   await page.reload(); // survives a refresh
   await expectTag(page, r);
 
-  await page.getByRole("button", { name: "House" }).click();
+  await page.getByRole("button", { name: "Dance & electronic" }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();
   await expect(page).toHaveURL(new RegExp(`/mix\\?routine=${r.id}$`));
   const band = page.getByTestId("mix-band");
@@ -66,7 +66,7 @@ for (const r of ROUTINES) {
 
 test("vibe choices carry through to the mix", async ({ page }) => {
   await page.goto("/vibe?routine=boxing-bag-rounds");
-  await page.getByRole("button", { name: "UK rap & grime" }).click();
+  await page.getByRole("button", { name: "Hip-hop & UK rap" }).click();
   await page.getByRole("button", { name: "Feral" }).click();
   await page.getByRole("button", { name: "30 minutes" }).click();
   await page.getByRole("button", { name: "Make the mix" }).click();

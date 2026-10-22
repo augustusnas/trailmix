@@ -28,8 +28,8 @@ test("Home, Library, pinning, search and Set the vibe work offline", async ({ pa
 
   // E10: Set the vibe still works, but Make the mix waits for a connection.
   await page.goto("/vibe?routine=tabata");
-  await page.getByRole("button", { name: "UK rap & grime" }).click();
-  await expect(page.getByRole("button", { name: "UK rap & grime" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Hip-hop & UK rap" }).click();
+  await expect(page.getByRole("button", { name: "Hip-hop & UK rap" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("offline-banner")).toContainText("You’re offline");
   await expect(page.getByRole("button", { name: "Make the mix" })).toBeDisabled();
 

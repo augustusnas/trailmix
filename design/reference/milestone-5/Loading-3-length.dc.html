@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Making the mix, stage 3</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes eq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+.bar{transform-origin:bottom;animation:eq var(--d,.9s) ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.bar{animation:none;transform:scaleY(.8)}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #E8571E; color: #16130F; font-family: 'Bricolage Grotesque', system-ui, sans-serif; display: flex; flex-direction: column; padding: 64px 28px 48px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase">Push day · 30 min · Driven</span>
+<span style="font-family: 'Space Mono', monospace; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase">Step 3 of 3</span>
+</div>
+<div style="display: flex; gap: 6px; margin-top: 16px">
+<div style="flex: 1; height: 8px; border-radius: 999px; background: #16130F"></div>
+<div style="flex: 1; height: 8px; border-radius: 999px; background: #16130F"></div>
+<div style="flex: 1; height: 8px; border-radius: 999px; background: #16130F"></div>
+</div>
+<div style="flex-grow: 1; display: flex; align-items: flex-end; justify-content: center; gap: 10px; padding-bottom: 56px" aria-hidden="true">
+<div class="bar" style="width: 26px; height: 120px; border-radius: 13px; background: #16130F; --d: 1.4s"></div>
+<div class="bar" style="width: 26px; height: 150px; border-radius: 13px; background: #16130F; --d: 1.2s; animation-delay: .1s"></div>
+<div class="bar" style="width: 26px; height: 185px; border-radius: 13px; background: #16130F; --d: 1.3s; animation-delay: .25s"></div>
+<div class="bar" style="width: 26px; height: 220px; border-radius: 13px; background: #16130F; --d: 1.1s; animation-delay: .05s"></div>
+<div class="bar" style="width: 26px; height: 220px; border-radius: 13px; background: #16130F; --d: 1.25s; animation-delay: .3s"></div>
+<div class="bar" style="width: 26px; height: 185px; border-radius: 13px; background: #16130F; --d: 1.15s; animation-delay: .15s"></div>
+<div class="bar" style="width: 26px; height: 130px; border-radius: 13px; background: #16130F; --d: 1.35s; animation-delay: .2s"></div>
+</div>
+<h1 style="margin: 0; font-size: 56px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em">Fitting it to 30 minutes</h1>
+<p style="margin: 18px 0 0; font-family: 'Space Mono', monospace; font-size: 14px; line-height: 1.5">10 tracks · 29 min</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

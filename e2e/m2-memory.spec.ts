@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { DAMAGED } from "../src/app/reset/ResetScreen";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, signIn, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome, keepInYouTubeMusic } from "./helpers";
+import { BOXING_VIBE, keepInYouTubeMusic, makeSharedMix, ONBOARDED, record, sawWelcome, seed, setVibe, signIn, STORAGE_KEY, stored, waitForMix, watchForWelcome } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -78,8 +78,7 @@ test.describe("pins", () => {
 
   test("unpinning to zero shows the empty state, never the defaults, and keeps vibes", async ({ page }) => {
     await page.goto("/vibe?routine=push-day");
-    await page.getByRole("button", { name: "Rock" }).click();
-    await page.getByRole("button", { name: "Make the mix" }).click();
+    await setVibe(page, { genres: ["Rock"] });
     await expect(page).toHaveURL(/\/mix/);
     await page.goto("/library");
     for (const name of ["Push day", "Incline treadmill", "HIIT circuit"]) await page.getByRole("button", { name: `Unpin ${name}` }).click();
@@ -159,50 +158,63 @@ test.describe("F6: Library search and filters", () => {
 test.describe("Set the vibe", () => {
   test.beforeEach(async ({ page }) => seed(page, ONBOARDED));
   const pressed = (page: import("@playwright/test").Page) =>
-    page.locator('main button[aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.textContent));
+    page.locator('main button[aria-pressed="true"]').evaluateAll((els) => els.map((e) => e.textContent?.replace(/\s*min$/, "")));
 
-  test("first time: no genre, Steady, length from the routine (Tabata 30, Push day 45)", async ({ page }) => {
-    await page.goto("/vibe?routine=tabata");
-    await expect.poll(() => pressed(page)).toEqual(["Steady", "30"]);
-    await page.goto("/vibe?routine=push-day");
-    await expect.poll(() => pressed(page)).toEqual(["Steady", "45"]);
+  test("first time: no genre, Steady, length from the routine (Tabata 30, Push day 45), and no Same as last time", async ({ page }) => {
+    for (const [routine, length] of [["tabata", "30"], ["push-day", "45"]]) {
+      await page.goto(`/vibe?routine=${routine}`);
+      await expect.poll(() => pressed(page)).toEqual([]);
+      await expect(page.getByTestId("same-as-last")).toHaveCount(0);
+      await setVibe(page, { genres: ["Pop"] }, false);
+      await expect.poll(() => pressed(page)).toEqual([length]);
+      await page.getByRole("button", { name: "Change energy: Steady" }).click();
+      await expect.poll(() => pressed(page)).toEqual(["Steady"]);
+    }
   });
 
   test("F7: Make the mix saves each routine's settings, separately", async ({ page }) => {
     await page.goto("/vibe?routine=boxing-bag-rounds");
-    for (const b of ["Hip-hop & UK rap", "Dance & electronic", "Feral", "60 minutes"]) await page.getByRole("button", { name: b }).click();
-    await page.getByRole("button", { name: "Make the mix" }).click();
+    await setVibe(page, { genres: ["Hip-hop & UK rap", "Dance & electronic"], energy: "Feral", length: 60 });
     await expect(page).toHaveURL(/\/mix/);
 
     // From the Library, and after a full reload, Boxing remembers…
-    await page.goto("/library");
-    await page.getByRole("link", { name: "Use Boxing bag rounds" }).click();
-    await expect.poll(() => pressed(page)).toEqual(["Hip-hop & UK rap", "Dance & electronic", "Feral", "60"]);
-    await page.reload();
-    await expect.poll(() => pressed(page)).toEqual(["Hip-hop & UK rap", "Dance & electronic", "Feral", "60"]);
+    for (const reload of [false, true]) {
+      if (reload) await page.reload();
+      else {
+        await page.goto("/library");
+        await page.getByRole("link", { name: "Use Boxing bag rounds" }).click();
+      }
+      await expect.poll(() => pressed(page)).toEqual(["Hip-hop & UK rap", "Dance & electronic"]);
+      await expect(page.getByTestId("same-as-last")).toContainText("Hip-hop & UK rap + Dance & electronic · Feral · 60 min");
+    }
+    await setVibe(page, {}, false);
+    await expect.poll(() => pressed(page)).toEqual(["60"]);
 
     // …and Push day is untouched.
     await page.goto("/home");
     await page.getByRole("link", { name: "Set the vibe" }).click();
     await expect(page).toHaveURL(/routine=push-day/);
-    await expect.poll(() => pressed(page)).toEqual(["Steady", "45"]);
+    await expect.poll(() => pressed(page)).toEqual([]);
+    await expect(page.getByTestId("same-as-last")).toHaveCount(0);
   });
 
   test("changes that aren't made into a mix aren't saved", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
     await page.getByRole("button", { name: "R&B & soul" }).click();
     await page.reload();
-    await expect.poll(() => pressed(page)).toEqual(["Steady", "30"]);
+    await expect.poll(() => pressed(page)).toEqual([]);
+    expect((await stored(page)).vibes.tabata).toBeUndefined();
   });
 
-  test("F8: no genre shows an inline message, doesn't save and doesn't move on", async ({ page }) => {
+  test("F8 / V2: Next with no genre shows an inline message, doesn't save and doesn't move on", async ({ page }) => {
     await page.goto("/vibe?routine=tabata");
     let dialogs = 0;
     page.on("dialog", () => dialogs++);
-    await page.getByRole("button", { name: "Make the mix" }).click();
+    await page.getByRole("button", { name: "Next" }).click();
     const msg = page.getByTestId("genre-message");
     await expect(msg).toHaveText("Pick at least one genre.");
     await expect(msg).toHaveAttribute("aria-live", "polite");
+    await expect(page.getByTestId("vibe-step")).toHaveAttribute("data-step", "1");
     await expect(page).toHaveURL(/\/vibe\?routine=tabata$/);
     expect(dialogs).toBe(0);
     expect((await stored(page)).vibes.tabata).toBeUndefined();
@@ -234,8 +246,7 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   await expect(page).toHaveURL(/\/home$/);
 
   await page.goto("/vibe?routine=push-day");
-  await page.getByRole("button", { name: "Rock" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page, { genres: ["Rock"] });
   await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Spotify");
   // Spotify users: the mix is stored and its page opens with Spotify first.
@@ -255,7 +266,7 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   await expect(row).toContainText("Listening on Apple Music");
 
   await page.getByRole("link", { name: "Use Push day" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page);
   await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Apple Music");
   await page.getByTestId("mix-action").click();
@@ -415,8 +426,7 @@ test("privacy: only the sign-in cookie; pins and the music app never reach our s
   await page.getByRole("link", { name: "Library", exact: true }).click();
   await page.getByRole("button", { name: "Pin to home: Stretch & mobility" }).click();
   await page.getByRole("link", { name: "Use Kettlebell flow" }).click();
-  for (const b of ["Afrobeats & amapiano", "Funk & disco", "Feral", "90 minutes"]) await page.getByRole("button", { name: b }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page, { genres: ["Afrobeats & amapiano", "Funk & disco"], energy: "Feral", length: 90 });
   await waitForMix(page);
   await page.getByTestId("mix-action").click();
   await expect(page).toHaveURL(/\/m\//);
@@ -429,7 +439,7 @@ test("privacy: only the sign-in cookie; pins and the music app never reach our s
   for (const r of sent) {
     const url = new URL(r.url);
     // Addresses only ever carry which routine is open (and, while signing in, where to come back to).
-    const allowed = url.pathname.startsWith("/api/auth/") ? ["returnTo", "code", "state"] : ["routine", "_rsc"];
+    const allowed = url.pathname.startsWith("/api/auth/") ? ["returnTo", "code", "state"] : ["routine", "from", "_rsc"];
     for (const key of url.searchParams.keys()) expect(allowed, r.url).toContain(key);
     const everything = `${r.url} ${r.body} ${r.headers}`.toLowerCase();
     // Never: pins, the music app, or the saved record itself.

@@ -1,64 +1,221 @@
-.group {
-  border: 0;
+/* Set the vibe: three steps (Milestone 5). Dark text on lime, lilac and orange; selected = filled ink. */
+
+.screen {
+  gap: 16px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.top :global(.icon-btn) {
+  color: var(--ink);
+  border-width: 1.5px;
+}
+.where {
   margin: 0;
-  padding: 0;
-  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.group legend {
-  padding: 0;
-  margin-bottom: 10px;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  font-size: var(--t-mono-12);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: right;
 }
 
-.segments {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(calc(58px + var(--grow) * 3), 1fr));
+.dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.progress {
+  display: flex;
   gap: 6px;
 }
+.progress span {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(22, 19, 15, 0.18);
+}
+.progress .done {
+  background: var(--ink);
+}
 
-.segment {
-  min-height: 52px;
-  padding: 6px 2px;
-  border-radius: 14px;
-  border: 2px solid rgba(234, 223, 200, 0.55);
+.question {
+  margin-top: 8px;
+}
+.question h1 {
+  outline: none; /* focused only so VoiceOver reads it */
+}
+
+/* Step 1: genres */
+.same {
+  min-height: 64px;
+  border-radius: 18px;
+  border: 2px dashed var(--ink);
   background: transparent;
-  color: var(--sand);
+  color: var(--ink);
+  text-align: left;
+  padding: 10px 16px;
   font-size: var(--t-16);
   font-weight: 800;
-  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
-.number {
-  font-size: var(--t-22); /* 22px */
+.same span {
+  font-size: var(--t-mono-12);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-.chips :global(.chip):disabled {
+.genres {
+  display: grid;
+  /* Two columns; one at the biggest text sizes, so no genre name breaks mid-word. */
+  grid-template-columns: repeat(auto-fit, minmax(calc(128px + var(--grow) * 4), 1fr));
+  gap: 8px;
+}
+.tile,
+.energy,
+.length,
+.chip {
+  border: 2px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-weight: 800;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.tile {
+  min-height: 52px;
+  border-radius: 14px;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--t-15);
+  line-height: 1.1;
+}
+.tile[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--lime);
+}
+.tile:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
 .message {
+  margin: 0;
   min-height: 1.3em;
   font-size: var(--t-17);
-  font-weight: 700;
-  color: var(--lime);
+  font-weight: 800;
 }
 .message:empty {
   min-height: 0;
 }
 
+/* Step 2: energy */
+.bars {
+  flex-grow: 1;
+  min-height: 190px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+}
+.bars span {
+  width: 22px;
+  border-radius: 11px;
+  background: var(--ink);
+  transition: height 0.2s ease;
+}
+.energies {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.energy {
+  min-height: 56px;
+  border-radius: 999px;
+  font-size: var(--t-19);
+}
+.energy[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--lilac);
+}
+
+/* Step 3: length */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  min-height: var(--tap);
+  border-radius: calc(22px + var(--grow) * 0.3); /* a pill at normal sizes; a rounded box when the text wraps */
+  background: var(--ink);
+  color: var(--sand);
+  padding: 4px 14px;
+  font-size: var(--t-15);
+  text-align: left;
+}
+.lengths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.length {
+  min-height: 120px;
+  border-radius: 22px;
+  font-size: calc(52px + var(--grow) * 0.5);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.length span {
+  font-size: var(--t-mono-12);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.length[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--orange);
+}
+.finish {
+  margin: 0;
+  font-size: var(--t-mono-13);
+}
+
 .offline {
+  margin: 0;
   background: var(--ink);
   color: var(--sand);
   border-radius: 14px;
   padding: 10px 14px;
   font-size: var(--t-16);
   font-weight: 700;
+}
+
+.next {
+  min-height: 60px;
+  border: none;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--sand);
+  font-size: var(--t-19);
+  font-weight: 800;
+}
+.next:disabled {
+  opacity: 0.45;
 }

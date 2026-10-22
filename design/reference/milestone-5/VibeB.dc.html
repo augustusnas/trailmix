@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Set the vibe, concept B</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@keyframes eq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.bar{transform-origin:bottom;animation:eq var(--d) ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.bar{animation:none;transform:scaleY(.6)}}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<button onClick="{{back}}" aria-label="Back" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #16130F; background: transparent; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16130F" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button>
+<span style="font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase">Push day · {{stepLabel}}</span>
+</div>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{dots}}" as="d" hint-placeholder-count="3"><div style="{{d.style}}"></div></sc-for>
+</div>
+
+<sc-if value="{{isGenre}}" hint-placeholder-val="{{true}}">
+<h1 style="margin: 8px 0 0; font-size: 52px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em">What are you into today?</h1>
+<button onClick="{{same}}" style="min-height: 64px; border-radius: 18px; border: 2px dashed #16130F; background: transparent; text-align: left; padding: 10px 16px; font-size: 16px; font-weight: 800">Same as last time<span style="display: block; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 400">Hip-hop &amp; UK rap · Driven · 45 min</span></button>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{genres}}" as="g" hint-placeholder-count="8"><button onClick="{{g.toggle}}" style="{{g.style}}">{{g.name}}</button></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isEnergy}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 8px 0 0; font-size: 52px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em">How hard are you going?</h1>
+<div style="flex-grow: 1; display: flex; align-items: flex-end; justify-content: center; gap: 10px" aria-hidden="true">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="7"><div style="{{b.style}}"></div></sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{energies}}" as="e" hint-placeholder-count="4"><button onClick="{{e.pick}}" style="{{e.style}}">{{e.name}}</button></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isLength}}" hint-placeholder-val="{{false}}">
+<h1 style="margin: 8px 0 0; font-size: 52px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em">How long have you got?</h1>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button onClick="{{toGenre}}" aria-label="Change genres" style="min-height: 44px; border-radius: 999px; border: 2px solid #16130F; background: #16130F; color: #EADFC8; padding: 0 14px; font-size: 14px; font-weight: 800">{{genreSummary}} ✎</button>
+<button onClick="{{toEnergy}}" aria-label="Change energy" style="min-height: 44px; border-radius: 999px; border: 2px solid #16130F; background: #16130F; color: #EADFC8; padding: 0 14px; font-size: 14px; font-weight: 800">{{e}} ✎</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{lengths}}" as="l" hint-placeholder-count="4"><button onClick="{{l.pick}}" style="{{l.style}}">{{l.name}}<span style="display: block; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 400">min</span></button></sc-for>
+</div>
+<p style="margin: 0; font-family: 'Space Mono', monospace; font-size: 13px">{{finish}}</p>
+</sc-if>
+
+<div style="flex-grow: 1"></div>
+<button onClick="{{next}}" style="background: #16130F; color: #EADFC8; border: none; border-radius: 999px; min-height: 60px; font-size: 20px; font-weight: 800">{{nextLabel}}</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(p){ super(p); this.state = { step: 0, g: ['Hip-hop & UK rap'], e: 'Driven', l: 45 }; }
+renderVals() {
+const s = this.state;
+const BG = ['#C8E03A', '#A99BF5', '#E8571E'];
+const rootStyle = 'width: 390px; height: 844px; box-sizing: border-box; background: ' + BG[s.step] + '; color: #16130F; font-family: \'Bricolage Grotesque\', system-ui, sans-serif; display: flex; flex-direction: column; padding: 56px 24px 28px; gap: 16px';
+const dots = [0,1,2].map((i) => ({ style: 'flex: 1; height: 8px; border-radius: 999px; background: ' + (i <= s.step ? '#16130F' : 'rgba(22,19,15,0.18)') }));
+const G = ['Hip-hop & UK rap','Dance & electronic','Pop','R&B & soul','Afrobeats & amapiano','Rock & indie','Metal','Funk & disco'];
+const tile = (on) => 'min-height: 52px; border-radius: 14px; padding: 8px 12px; text-align: left; font-size: 15px; font-weight: 800; line-height: 1.1; border: 2px solid #16130F; background: ' + (on ? '#16130F' : 'transparent') + '; color: ' + (on ? '#C8E03A' : '#16130F');
+const genres = G.map((n) => ({ name: n, style: tile(s.g.includes(n)), toggle: () => {
+  if (s.g.includes(n)) this.setState({ g: s.g.filter((x) => x !== n) });
+  else if (s.g.length < 3) this.setState({ g: s.g.concat(n) });
+}}));
+const ED = { Easy: 1.4, Steady: 0.9, Driven: 0.6, Feral: 0.38 };
+const row = (on) => 'min-height: 56px; border-radius: 999px; font-size: 20px; font-weight: 800; border: 2px solid #16130F; background: ' + (on ? '#16130F' : 'transparent') + '; color: ' + (on ? '#A99BF5' : '#16130F');
+const energies = ['Easy','Steady','Driven','Feral'].map((n) => ({ name: n, style: row(s.e === n), pick: () => { this.setState({ e: n }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ step: 2 }), 550); } }));
+const H = [90, 120, 150, 170, 150, 120, 90];
+const SC = { Easy: 0.4, Steady: 0.6, Driven: 0.8, Feral: 1 };
+const bars = H.map((h) => ({ style: 'width: 22px; height: ' + Math.round(h * SC[s.e]) + 'px; border-radius: 11px; background: #16130F; transition: height 0.2s ease' }));
+const big = (on) => 'min-height: 120px; border-radius: 22px; font-size: 52px; font-weight: 800; letter-spacing: -0.03em; border: 2px solid #16130F; background: ' + (on ? '#16130F' : 'transparent') + '; color: ' + (on ? '#E8571E' : '#16130F');
+const lengths = [30,45,60,90].map((m) => ({ name: m + '', style: big(s.l === m), pick: () => this.setState({ l: m }) }));
+const end = new Date(2026, 9, 22, 19, 7 + s.l);
+const hh = end.getHours() % 12 || 12; const mm = String(end.getMinutes()).padStart(2, '0');
+return {
+  rootStyle, dots, genres, energies, bars, lengths,
+  e: s.e, genreSummary: s.g.length ? s.g.join(' + ') : 'Any genre',
+  toGenre: () => this.setState({ step: 0 }), toEnergy: () => this.setState({ step: 1 }),
+  isGenre: s.step === 0, isEnergy: s.step === 1, isLength: s.step === 2,
+  stepLabel: (s.step + 1) + ' of 3',
+  finish: 'Finishes at ' + hh + ':' + mm + 'pm',
+  nextLabel: s.step === 2 ? 'Make the mix' : 'Next',
+  next: () => this.setState({ step: Math.min(2, s.step + 1) }),
+  back: () => this.setState({ step: Math.max(0, s.step - 1) }),
+  same: () => this.setState({ step: 2, g: ['Hip-hop & UK rap'], e: 'Driven', l: 45 })
+};
+}
+}
+</script>
+</body>
+</html>

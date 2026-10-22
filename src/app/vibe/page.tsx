@@ -5,14 +5,15 @@ import { VibeScreen } from "./VibeScreen";
 
 export const metadata: Metadata = { title: "Set the vibe" };
 
-// Set the vibe. Built entirely on the phone (works offline); the routine comes from ?routine=…
+// Set the vibe: three steps, one question each. Built entirely on the phone (works offline); the
+// routine comes from ?routine=… (and &from=library when opened from the Library, for Back).
 export default function Vibe() {
   return (
-    <main className="screen screen--forest" style={{ paddingTop: "calc(24px + var(--safe-top))" }}>
+    <>
       <Gate mode="app" />
-      <Suspense>
+      <Suspense fallback={<main className="screen screen--lime" />}>
         <VibeScreen />
       </Suspense>
-    </main>
+    </>
   );
 }

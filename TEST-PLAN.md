@@ -74,7 +74,33 @@
 
 ---
 
-## Full reference
+## Milestone 5: what must pass
+
+Written 22 Oct (MILESTONE-5.md). Automated tests: `e2e/m5-*.spec.ts`.
+
+| ID | Check |
+| --- | --- |
+| V1 | Set the vibe is three steps (Genres Lime, Energy Lilac, Length Orange) with Back, "Step N of 3" and the progress segments; Back on step 1 returns to Home or Library |
+| V2 | Next on Genres with nothing picked shows the F8 message; up to 3 genres |
+| V3 | "Same as last time" shows the routine's last vibe and jumps to Length with it filled in; it's hidden when there's none |
+| V4 | Tapping an energy level highlights it and moves to Length after about 0.55 s; a second tap during the pause switches without a double move |
+| V5 | Length shows genre and energy chips that go back to their step; the finish time is correct |
+| V6 | No animation on Set the vibe; none at all under Reduce Motion; VoiceOver can complete all three steps |
+| L1 | The loading screen shows stages 1→3 only as the server reaches them; the "tracks found" count rises live; the length line is correct |
+| L2 | Bar speed follows the energy level; still under Reduce Motion |
+| C1 | Stats counters and the check-in answer appear on `/stats` the same day; `/stats` is "page not found" for anyone but `STATS_EMAIL` |
+| C2 | No emails or raw Google IDs are stored in counters or checkpoints |
+| W1 | The welcome hills rise in sequence without delaying sign-in; still under Reduce Motion |
+| X1 | Every E rule shows its exact wording; each forceable one works from the reset page |
+
+F17 (check-in) becomes testable in Milestone 5. **F19 (sending check-ins to Claude) moves to after launch**; check-in answers are stored so it can be added then.
+
+Notes on how it was built:
+- Energy keeps a **Next** button under the four rows (as in the mockup), so VoiceOver never depends on the 0.55-second pause. A web page can't tell whether VoiceOver is on, so it's always there rather than switched on for VoiceOver.
+- Each step moves VoiceOver to its question; "Step N of 3" sits in the top bar, which VoiceOver reads first on the screen.
+- The top bar keeps the routine's coloured name tag (F21) followed by "· Step N of 3".
+
+
 
 ### Functional acceptance criteria
 | ID | Feature | Given / when / then | Milestone |
@@ -97,7 +123,7 @@
 | F16 | Install | When I add it to the home screen from Safari, then it opens full screen with the Trailmix icon and no browser bars | 1 |
 | F17 | Check-in | Given I kept a mix over an hour ago, when I open the app, then the check-in card shows its fun name; one tap records my answer, the card says "Noted", and it never asks about that mix again. Dismissing with × also stops it asking | 5 |
 | F18 | Freshness | Given 10 previous mixes, at least 70% of a new mix's tracks aren't in them, and the freshness percentage is recorded | 3 |
-| F19 | Learning from check-ins | Given my last Boxing mix was rated "Dipped midway", when I make a new Boxing mix, then that check-in is included in what's sent to Claude | 5 |
+| F19 | Learning from check-ins | Given my last Boxing mix was rated "Dipped midway", when I make a new Boxing mix, then that check-in is included in what's sent to Claude | After launch (moved from 5 on 22 Oct) |
 | F20 | Where do you listen | Given a first sign-in, when I pick Spotify, then I'm never asked again; The mix shows "Open in Spotify", which goes straight to the track list; changing the app in the Library updates the label immediately | 2, 4 |
 | F21 | Selected routine carries through | Given I pick a routine on Home or in the Library, every later screen and the playlist name show that routine's name and colour; no screen ever shows a different or default routine | 1 onward |
 
@@ -147,7 +173,7 @@ Every failure keeps my current mix on screen, explains itself in one plain sente
 ### Sign-off before sharing with friends
 - [ ] All automated tests pass on the latest deploy
 - [ ] The latest quality report (Q9) shows no wrong-artist tracks or duplicates
-- [ ] F1–F21 checked on my iPhone in the installed app (F17 and F19 after Milestone 5)
+- [ ] F1–F21 checked on my iPhone in the installed app (F17 after Milestone 5; F19 is after launch)
 - [ ] E3, E5, E6, E7 and E10 forced at least once with the test switches, and behaved as written
 - [ ] N1–N12 and N16 checked; security audit (N15) done with no high findings open; N13 and N14 reviewed after the first week
 - [ ] Groove Miles test playlist from Milestone 0 still saves correctly

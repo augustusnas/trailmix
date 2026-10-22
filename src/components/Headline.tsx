@@ -21,15 +21,18 @@ export function Headline({
   size,
   className = "",
   style,
+  focusable = false,
 }: {
   text: string;
   size: keyof typeof HEADLINE_SIZES;
   className?: string;
   style?: CSSProperties;
+  /** Lets a screen move focus here (for VoiceOver) without adding it to the Tab order. */
+  focusable?: boolean;
 }) {
   const vars = { "--h": HEADLINE_SIZES[size], "--chars": longestWord(text) } as CSSProperties;
   return (
-    <h1 className={`headline ${className}`} style={{ ...vars, ...style }}>
+    <h1 className={`headline ${className}`} style={{ ...vars, ...style }} tabIndex={focusable ? -1 : undefined}>
       {text}
     </h1>
   );

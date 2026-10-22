@@ -138,3 +138,17 @@ export async function backFromYouTubeMusic(page: Page) {
   await page.waitForURL(/\/saved\?routine=[\w-]+$/, { timeout: 15_000 });
   await page.getByTestId("saved-action").waitFor();
 }
+
+/**
+ * Set the vibe's three steps (Milestone 5): taps any genres given on step 1, then Next; the energy
+ * level (which moves on by itself) or Next; the length; then Make the mix unless `make` is false.
+ */
+export async function setVibe(page: Page, choice: { genres?: string[]; energy?: string; length?: number } = {}, make = true) {
+  for (const g of choice.genres ?? []) await page.getByRole("button", { name: g }).click();
+  await page.getByRole("button", { name: "Next" }).click();
+  if (choice.energy) await page.getByRole("button", { name: choice.energy, exact: true }).click();
+  else await page.getByRole("button", { name: "Next" }).click();
+  await page.getByRole("button", { name: "Make the mix" }).waitFor();
+  if (choice.length) await page.getByRole("button", { name: `${choice.length} min`, exact: true }).click();
+  if (make) await page.getByRole("button", { name: "Make the mix" }).click();
+}

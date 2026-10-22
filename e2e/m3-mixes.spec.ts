@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOG } from "../src/server/fakes";
 import { TEST_AUTH_SECRET, sessionValue, signedIn } from "./auth";
-import { BOXING_VIBE, ONBOARDED, keepInYouTubeMusic, makeSharedMix, seed, stored, waitForMix } from "./helpers";
+import { BOXING_VIBE, keepInYouTubeMusic, makeSharedMix, ONBOARDED, seed, setVibe, stored, waitForMix } from "./helpers";
 
 const switchOn = (page: Page, v: string) => page.addInitScript((x) => sessionStorage.setItem("trailmix-test-switch", x), v);
 const switchOff = (page: Page) => page.evaluate(() => sessionStorage.removeItem("trailmix-test-switch"));
@@ -248,8 +248,8 @@ test.describe("making mixes", () => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await expect(page.getByTestId("mix-problem")).toContainText("Mix-making is resting right now. Try again later.");
     await page.getByRole("link", { name: "Back to your vibe" }).click();
-    await expect(page.getByRole("button", { name: "Hip-hop & UK rap" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("button", { name: "Driven" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Hip-hop & UK rap", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("same-as-last")).toContainText("Hip-hop & UK rap + Dance & electronic · Driven · 45 min");
   });
 
   for (const [sw, message] of [
@@ -296,7 +296,7 @@ test.describe("making mixes", () => {
 
     const body = page.waitForRequest((r) => r.url().endsWith("/api/mix")).then((r) => r.postDataJSON());
     await page.goto("/vibe?routine=boxing-bag-rounds");
-    await page.getByRole("button", { name: "Make the mix" }).click();
+    await setVibe(page);
     const sent = await body;
     expect(sent.avoid.map((t: { title: string }) => t.title)).toEqual(first);
     await waitForMix(page);
@@ -432,9 +432,9 @@ test("N5: no key reaches the browser (pages, scripts, or API answers)", async ({
 test("E12: genres saved before the new list show as their closest new genre, and mixes still work", async ({ page }) => {
   await seed(page, { ...ONBOARDED, vibes: { "boxing-bag-rounds": { genres: ["grime", "jazz-funk", "soul"], energy: "driven", length: 45 } } });
   await page.goto("/vibe?routine=boxing-bag-rounds");
-  for (const g of ["Hip-hop & UK rap", "Funk & disco", "R&B & soul"]) await expect(page.getByRole("button", { name: g })).toHaveAttribute("aria-pressed", "true");
+  for (const g of ["Hip-hop & UK rap", "Funk & disco", "R&B & soul"]) await expect(page.getByRole("button", { name: g, exact: true })).toHaveAttribute("aria-pressed", "true");
   const sent = page.waitForRequest((r) => r.url().endsWith("/api/mix"));
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page);
   expect((await sent).postDataJSON().genres).toEqual(["hiphop", "funk-disco", "rnb-soul"]);
   await waitForMix(page);
 });
@@ -444,7 +444,7 @@ test("E12: the 12 genres of October become 8, and saved vibes and mixes still wo
   await page.goto("/vibe?routine=boxing-bag-rounds");
   await expect(page.getByRole("button", { pressed: true, name: /&/ })).toHaveText(["Hip-hop & UK rap", "Dance & electronic"]);
   const sent = page.waitForRequest((r) => r.url().endsWith("/api/mix"));
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page);
   expect((await sent).postDataJSON().genres).toEqual(["hiphop", "dance"]);
   await waitForMix(page);
 });

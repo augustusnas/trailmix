@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ONBOARDED, seed } from "./helpers";
+import { ONBOARDED, seed, setVibe } from "./helpers";
 
 test.use({ serviceWorkers: "allow" });
 
@@ -30,6 +30,7 @@ test("Home, Library, pinning, search and Set the vibe work offline", async ({ pa
   await page.goto("/vibe?routine=tabata");
   await page.getByRole("button", { name: "Hip-hop & UK rap" }).click();
   await expect(page.getByRole("button", { name: "Hip-hop & UK rap" })).toHaveAttribute("aria-pressed", "true");
+  await setVibe(page, {}, false);
   await expect(page.getByTestId("offline-banner")).toContainText("You’re offline");
   await expect(page.getByRole("button", { name: "Make the mix" })).toBeDisabled();
 

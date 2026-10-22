@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES } from "../src/data/categories";
 import { ROUTINES, type Routine } from "../src/data/routines";
-import { ONBOARDED, keepInYouTubeMusic, seed, stored, waitForMix } from "./helpers";
+import { keepInYouTubeMusic, ONBOARDED, seed, setVibe, stored, waitForMix } from "./helpers";
 
 // F21: whichever routine is picked shows its name and category colour on Set the vibe, The mix and Saved.
 
@@ -17,14 +17,21 @@ async function expectTag(page: Page, r: Routine) {
   await expect(tag).toHaveCSS("background-color", hexToRgb(CATEGORIES[r.category].bg));
 }
 
-async function checkFlow(page: Page, r: Routine) {
-  await expect(page).toHaveURL(new RegExp(`/vibe\\?routine=${r.id}$`));
-  await expectTag(page, r);
-  await page.reload(); // survives a refresh
-  await expectTag(page, r);
+/** Set the vibe: the routine's name in the top bar, and its colour as a dot. */
+async function expectVibeRoutine(page: Page, r: Routine) {
+  const where = page.getByTestId("vibe-routine");
+  await expect(where).toContainText(r.name, { ignoreCase: true });
+  await expect(where).toHaveAttribute("data-category", r.category);
+  await expect(where.locator("span").first()).toHaveCSS("background-color", hexToRgb(CATEGORIES[r.category].bg));
+}
 
-  await page.getByRole("button", { name: "Dance & electronic" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+async function checkFlow(page: Page, r: Routine) {
+  await expect(page).toHaveURL(new RegExp(`/vibe\\?routine=${r.id}(&from=library)?$`));
+  await expectVibeRoutine(page, r);
+  await page.reload(); // survives a refresh
+  await expectVibeRoutine(page, r);
+
+  await setVibe(page, { genres: ["Dance & electronic"] });
   await expect(page).toHaveURL(new RegExp(`/mix\\?routine=${r.id}$`));
   const band = page.getByTestId("mix-band");
   await expect(band).toHaveAttribute("data-category", r.category);
@@ -65,10 +72,7 @@ for (const r of ROUTINES) {
 
 test("vibe choices carry through to the mix", async ({ page }) => {
   await page.goto("/vibe?routine=boxing-bag-rounds");
-  await page.getByRole("button", { name: "Hip-hop & UK rap" }).click();
-  await page.getByRole("button", { name: "Feral" }).click();
-  await page.getByRole("button", { name: "30 minutes" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page, { genres: ["Hip-hop & UK rap"], energy: "Feral", length: 30 });
   await expect(page.getByTestId("routine-name")).toContainText("Boxing bag rounds · 30 min · Feral", { ignoreCase: true });
   await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
   await expect(page.getByTestId("playlist-title")).toContainText("Trailmix · Boxing · Gloves On, Volume Up · ");

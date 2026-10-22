@@ -66,6 +66,8 @@ html {
 html:has(.screen--sand) { background: var(--sand); }
 html:has(.screen--lilac) { background: var(--lilac); }
 html:has(.screen--forest) { background: var(--forest); }
+html:has(.screen--lime) { background: var(--lime); }
+html:has(.screen--orange) { background: var(--orange); }
 
 *,
 *::before,
@@ -136,6 +138,12 @@ a {
 .screen--sand { background: var(--sand); color: var(--ink); }
 .screen--lilac { background: var(--lilac); color: var(--ink); }
 .screen--forest { background: var(--forest); color: var(--sand); }
+.screen--lime { background: var(--lime); color: var(--ink); }
+.screen--orange { background: var(--orange); color: var(--ink); }
+/* The usual lime focus ring can't be seen on lime, lilac or orange: use ink there. */
+.screen--lime :focus-visible,
+.screen--lilac :focus-visible,
+.screen--orange :focus-visible { outline-color: var(--ink); }
 .screen--flush { padding: 0; gap: 0; }
 
 .top-bar {

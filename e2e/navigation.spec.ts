@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, keepInYouTubeMusic, signIn, stored, stubYouTubeMusic, waitForMix } from "./helpers";
+import { BOXING_VIBE, keepInYouTubeMusic, makeSharedMix, ONBOARDED, seed, setVibe, signIn, stored, stubYouTubeMusic, waitForMix } from "./helpers";
 
 test("F1: a fresh install taps through every screen in order", async ({ page }) => {
   await stubYouTubeMusic(page);
@@ -24,8 +24,7 @@ test("F1: a fresh install taps through every screen in order", async ({ page }) 
 
   await page.getByRole("link", { name: "Set the vibe" }).click();
   await expect(page).toHaveURL(/\/vibe\?routine=push-day$/);
-  await page.getByRole("button", { name: "Rock" }).click();
-  await page.getByRole("button", { name: "Make the mix" }).click();
+  await setVibe(page, { genres: ["Rock"] });
   await expect(page).toHaveURL(/\/mix\?routine=push-day$/);
   await expect(page.getByRole("heading", { name: "Press Play" })).toBeVisible();
 
@@ -60,7 +59,7 @@ test.describe("once set up", () => {
   test("Library 'use this routine' goes to Set the vibe", async ({ page }) => {
     await page.goto("/library");
     await page.getByRole("link", { name: "Use Tabata" }).click();
-    await expect(page).toHaveURL(/\/vibe\?routine=tabata$/);
+    await expect(page).toHaveURL(/\/vibe\?routine=tabata&from=library$/);
   });
 
   test("Saved: Open in YouTube Music opens the saved playlist; Share with friends shares the mix page", async ({ page }) => {

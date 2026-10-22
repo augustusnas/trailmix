@@ -12,7 +12,7 @@ import { CATEGORIES, CATEGORY_ORDER, type CategoryId } from "@/data/categories";
 import { MAX_PINS, ROUTINES, minutesLabel } from "@/data/routines";
 import { searchRoutines } from "@/lib/search";
 import { pin, unpin, useSaved } from "@/lib/store";
-import { routineHref } from "@/lib/vibeParams";
+import { fromLibrary } from "@/lib/vibeParams";
 import { ListeningOn } from "./ListeningOn";
 import styles from "./library.module.css";
 
@@ -143,7 +143,7 @@ export function LibraryScreen({ feedbackEmail, resetEnabled = false }: { feedbac
                     <Icon name={pinned ? "check" : "plus"} size={18} stroke={3} />
                   </button>
                   <Link
-                    href={routineHref("/vibe", r.id)}
+                    href={fromLibrary(r.id)}
                     aria-label={`Use ${r.name}`}
                     className="icon-btn"
                     style={{ background: cat.fg, color: cat.bg, borderColor: cat.fg }}

@@ -65,11 +65,29 @@ export const SCREENS: Screen[] = [
   },
   { name: "vibe", path: "/vibe?routine=boxing-bag-rounds", state: onboarded() },
   {
+    name: "vibe-energy",
+    path: "/vibe?routine=boxing-bag-rounds",
+    state: onboarded(),
+    setup: async (page) => {
+      await page.getByRole("button", { name: "Next" }).click();
+      await page.getByRole("heading", { name: "How hard are you going?" }).waitFor();
+    },
+  },
+  {
+    name: "vibe-length",
+    path: "/vibe?routine=boxing-bag-rounds",
+    state: onboarded(),
+    setup: async (page) => {
+      await page.getByTestId("same-as-last").click();
+      await page.getByRole("heading", { name: "How long have you got?" }).waitFor();
+    },
+  },
+  {
     name: "vibe-no-genre",
     path: "/vibe?routine=yoga-flow",
     state: onboarded(),
     setup: async (page) => {
-      await page.getByRole("button", { name: "Make the mix" }).click();
+      await page.getByRole("button", { name: "Next" }).click();
       await page.getByText("Pick at least one genre.").waitFor();
     },
   },

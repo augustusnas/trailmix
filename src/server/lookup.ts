@@ -27,8 +27,14 @@ export type TrackInfo = {
 type Cached = TrackInfo | { missing: true; reason?: Rejection };
 
 const CACHE_DAYS = 30;
-// "track2": entries from before the genre check (Milestone 4) lack genres, so they aren't reused.
-const cacheKey = (key: string) => `track2:${key}`;
+/**
+ * Raise this whenever the matching or the checks change, so answers saved by an older version (a
+ * "not found" it would now accept, or a match it would now reject) are never reused; they expire
+ * on their own (a day for "not found", 30 days otherwise).
+ * 2: the genre check (Milestone 4). 3: Part A matching (apostrophes, DJ/MC, years, exact titles).
+ */
+export const MATCHING_VERSION = 3;
+const cacheKey = (key: string) => `track${MATCHING_VERSION}:${key}`;
 
 async function readCache(key: string): Promise<Cached | null> {
   try {

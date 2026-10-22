@@ -416,7 +416,8 @@ test("N5: no key reaches the browser (pages, scripts, or API answers)", async ({
   await page.goto("/mix?routine=boxing-bag-rounds");
   await waitForMix(page);
   await page.getByTestId("mix-action").click();
-  await page.getByTestId("saved-action").click();
+  await page.getByTestId("saved-action").waitFor();
+  await page.goto(`/m/${(await stored(page)).currentMix.shareId}`);
   await page.waitForLoadState("networkidle");
   for (const b of bodies) for (const k of keys) expect(b).not.toContain(k);
   // The session cookie is HTTP-only: never in a page, script or API answer.

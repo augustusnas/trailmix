@@ -16,6 +16,13 @@ export async function storeShare(mix: Mix): Promise<string> {
   return id;
 }
 
+/** Keep it in YouTube Music: the shared page now has the real playlist too. */
+export async function attachPlaylist(id: string, playlistId: string): Promise<void> {
+  if (!SHARE_ID.test(id)) return;
+  const raw = await getKV().get<Record<string, unknown>>(`share:${id}`).catch(() => null);
+  if (raw) await getKV().set(`share:${id}`, { ...raw, playlistId }, LIMITS.shareDays * 86400);
+}
+
 /** The stored mix, or null if the id is mistyped, unknown or expired (E16). */
 export async function readShare(id: string): Promise<Mix | null> {
   if (!SHARE_ID.test(id)) return null;

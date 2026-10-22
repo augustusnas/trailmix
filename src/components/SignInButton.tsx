@@ -16,9 +16,9 @@ function GoogleG() {
  * F1 and E7: off to Google, then back to `returnTo` (Where do you listen the first time, the same mix
  * after a quick sign-in). A plain link, so it works before the page's scripts have loaded.
  */
-export function SignInButton({ returnTo, size = "large" }: { returnTo: string; size?: "large" | "medium" }) {
+export function SignInButton({ returnTo, size = "large", youtube = false }: { returnTo: string; size?: "large" | "medium"; youtube?: boolean }) {
   return (
-    <a href={signInHref(returnTo)} className={`cta cta--${size}`} style={{ background: "var(--ink)", color: "var(--lime)", justifyContent: "center", gap: 12 }} data-testid="sign-in">
+    <a href={signInHref(returnTo, youtube)} className={`cta cta--${size}`} style={{ background: "var(--ink)", color: "var(--lime)", justifyContent: "center", gap: 12 }} data-testid="sign-in">
       <GoogleG />
       <span>Sign in with Google</span>
     </a>

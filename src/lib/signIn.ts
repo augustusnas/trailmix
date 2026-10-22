@@ -1,7 +1,8 @@
 // Shared by the app's screens and the server-drawn Welcome.
 
-/** Where "Sign in with Google" goes, coming back to `returnTo` afterwards. */
-export const signInHref = (returnTo: string) => `/api/auth/signin/google?${new URLSearchParams({ returnTo })}`;
+/** Where "Sign in with Google" goes, coming back to `returnTo` afterwards. `youtube`: ask for the YouTube permission too. */
+export const signInHref = (returnTo: string, youtube = false) =>
+  `/api/auth/signin/google?${new URLSearchParams({ returnTo, ...(youtube ? { youtube: "1" } : {}) })}`;
 
 /** Why Welcome was opened after a sign-in (`/?signin=…`), and what it says. */
 export const SIGNIN_NOTES = {

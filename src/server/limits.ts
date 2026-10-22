@@ -39,11 +39,3 @@ export const shareAllowed = (who: string) => within(`shares:${who}:${ukDay()}`, 
 export const saveAllowed = (who: string) => within(`saves:${who}:${Math.floor(Date.now() / 3600_000)}`, LIMITS.savesPerHour, 2 * HOUR);
 export const pageViewAllowed = (ip: string) =>
   within(`views:${ip}:${Math.floor(Date.now() / 60000)}`, LIMITS.pageViewsPerMinute, 120);
-
-/**
- * E5: is there YouTube quota left today for saving a playlist? MILESTONE 4: check the real quota
- * used by saves. Until then only the E5 test switch says no.
- */
-export async function youtubeSaveQuotaLeft(forced?: string | null): Promise<boolean> {
-  return forced !== "e5";
-}

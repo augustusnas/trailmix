@@ -30,6 +30,8 @@ export type Mix = {
   freshness?: number;
   /** Set once stored as a shared mix page. */
   shareId?: string;
+  /** Set once saved as a YouTube playlist (Keep it in YouTube Music). */
+  playlistId?: string;
 };
 
 /** F10: a mix may be at most 5 minutes out; the aim is within 2½ (see server/fit.ts). */
@@ -91,5 +93,6 @@ export function sanitizeMix(v: unknown): Mix | null {
     createdAt: str(v.createdAt, 40) ?? new Date(0).toISOString(),
     freshness: typeof v.freshness === "number" && v.freshness >= 0 && v.freshness <= 100 ? v.freshness : undefined,
     shareId: str(v.shareId, 64),
+    playlistId: typeof v.playlistId === "string" && /^[A-Za-z0-9_-]{10,64}$/.test(v.playlistId) ? v.playlistId : undefined,
   };
 }

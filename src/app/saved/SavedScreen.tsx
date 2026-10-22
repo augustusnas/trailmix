@@ -10,14 +10,15 @@ import { RoutineTag } from "@/components/RoutineTag";
 import { TodayDate } from "@/components/TodayDate";
 import { appOrDefault } from "@/data/apps";
 import { energyLabel, genreLabel } from "@/lib/format";
+import { playlistUrl } from "@/lib/mixClient";
 import { runningMinutes } from "@/lib/mixTypes";
 import { shareLink } from "@/lib/share";
 import { useSaved } from "@/lib/store";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import styles from "./saved.module.css";
 
-// Saved: the mix you kept, now a shared mix page. MILESTONE 4: YouTube Music users get a real
-// playlist saved to their account; until then "Open in YouTube Music" opens the mix page.
+// Saved: the mix you kept. For YouTube Music users it's a real playlist in their account, and
+// "Open in YouTube Music" opens it; otherwise the button opens the shared mix page.
 export function SavedScreen() {
   const router = useRouter();
   const routine = routineFromParams(useSearchParams());
@@ -67,7 +68,7 @@ export function SavedScreen() {
       </div>
 
       <div className={styles.actions}>
-        <CtaLink href={`/m/${mix.shareId}`} bg="var(--ink)" fg="var(--lime)" icon="arrowUpRight">
+        <CtaLink href={app.id === "ytm" && mix.playlistId ? playlistUrl(mix.playlistId) : `/m/${mix.shareId}`} bg="var(--ink)" fg="var(--lime)" icon="arrowUpRight">
           <span data-testid="saved-action">{app.openAction}</span>
         </CtaLink>
         <button

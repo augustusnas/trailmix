@@ -7,23 +7,30 @@ import { Headline } from "@/components/Headline";
 import { Icon } from "@/components/Icon";
 import { PlaylistTitle } from "@/components/PlaylistTitle";
 import { SignInButton } from "@/components/SignInButton";
-import { appOrDefault } from "@/data/apps";
+import { MUSIC_APPS, appOrDefault } from "@/data/apps";
 import { CATEGORIES } from "@/data/categories";
 import type { Routine } from "@/data/routines";
 import type { ApiResult } from "@/lib/api";
-import { energyLabel, genreLabel } from "@/lib/format";
+import { energyLabel, genreLabel, playlistTitle } from "@/lib/format";
 import { MESSAGES, type ErrorCode } from "@/lib/messages";
-import { fetchLinks, linksReady, requestMix, requestSwap, shareMix } from "@/lib/mixClient";
+import { fetchLinks, linksReady, requestMix, requestSwap, savePlaylist, shareMix } from "@/lib/mixClient";
 import { cameOutShort, runningMinutes, type Mix } from "@/lib/mixTypes";
 import { STAGES, type StageId } from "@/lib/progress";
-import { addRecentMix, load, rememberArtists, setCurrentMix, useSaved, type VibeSettings } from "@/lib/store";
+import { signInHref } from "@/lib/signIn";
+import { addRecentMix, load, rememberArtists, setCurrentMix, setMusicApp, useSaved, type VibeSettings } from "@/lib/store";
 import { shareLink } from "@/lib/share";
 import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
 import styles from "./mix.module.css";
 
 /** `retry` is what Try again does: the same Generate, Remix or Swap. */
-type Problem = { error: ErrorCode; message: string; retry?: () => void };
+type Problem = { error: ErrorCode; message: string; retry?: () => void; fromSave?: boolean };
+
+/**
+ * Keep it in YouTube Music, when it can't simply finish: the first time (the YouTube permission),
+ * a "no" on Google's screen (E8), or a playlist that only partly saved (E6).
+ */
+type SaveStep = { kind: "permission" } | { kind: "denied" } | { kind: "partial"; playlistId: string; saved: number; total: number };
 
 export function MixScreen() {
   const router = useRouter();
@@ -42,6 +49,7 @@ export function MixScreen() {
 
 function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   const router = useRouter();
+  const params = useSearchParams();
   const saved = useSaved()!;
   const online = useOnline();
   const app = appOrDefault(saved.musicApp);
@@ -55,7 +63,9 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
   const [stage, setStage] = useState<StageId>("picking");
   /** E5: YouTube's daily limit is used up; offer the mix page and Share instead. */
   const [quotaId, setQuotaId] = useState<string | null>(null);
+  const [saveStep, setSaveStep] = useState<SaveStep | null>(null);
   const started = useRef(false);
+  const here = routineHref("/mix", routine.id);
 
   const make = useCallback(
     async (remixOf?: Mix) => {
@@ -109,25 +119,68 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     setProblem(null);
     const res = await requestSwap(routine, vibe, load(), mix, index);
     // On failure or after 15 seconds the original track stays.
-    if (res.ok) setCurrentMix({ ...res.data.mix, shareId: undefined });
+    if (res.ok) setCurrentMix({ ...res.data.mix, shareId: undefined, playlistId: undefined });
     else setProblem({ error: res.error, message: res.message, retry: () => void swap(index) });
     setBusy(null);
   };
 
-  const keep = async () => {
-    if (!mix) return;
-    setBusy("keeping");
-    const res = await shareMix(mix, app.id === "ytm");
-    setBusy(null);
-    if (!res.ok) return setProblem({ error: res.error, message: res.message });
-    const kept = { ...mix, shareId: res.data.id };
+  /** Stores the shared mix page once; Keep it, Open in… and Open the track list all use it. */
+  const shared = async (m: Mix): Promise<Mix | null> => {
+    if (m.shareId) return m;
+    const res = await shareMix(m);
+    if (!res.ok) {
+      setProblem({ error: res.error, message: res.message });
+      return null;
+    }
+    const kept = { ...m, shareId: res.data.id };
     setCurrentMix(kept);
     addRecentMix(kept);
-    if (res.data.youtube === "quota") return setQuotaId(res.data.id); // E5
-    // MILESTONE 4: YouTube Music users get a real playlist saved here, before Saved.
-    if (app.id === "ytm") router.push(routineHref("/saved", routine.id));
-    else router.push(`/m/${res.data.id}`);
+    return kept;
   };
+
+  const keep = async (retryOf?: string) => {
+    if (!mix) return;
+    setBusy("keeping");
+    setProblem(null);
+    setSaveStep(null);
+    setQuotaId(null);
+    const kept = await shared(mix);
+    if (!kept) return setBusy(null);
+    if (app.id !== "ytm") {
+      setBusy(null);
+      return router.push(`/m/${kept.shareId}`);
+    }
+    // F13: a new playlist each time (F14), titled as shown above, with the phone's date.
+    const res = await savePlaylist(kept, playlistTitle(kept, new Date()), retryOf);
+    setBusy(null);
+    if (!res.ok) {
+      if (res.error === "youtubePermission") return setSaveStep({ kind: "permission" });
+      if (res.error === "youtubeQuota") return setQuotaId(kept.shareId!); // E5
+      return setProblem({ error: res.error, message: res.message, retry: () => void keep(retryOf), fromSave: true });
+    }
+    setCurrentMix({ ...kept, playlistId: res.data.playlistId });
+    if (res.data.missing.length) return setSaveStep({ kind: "partial", playlistId: res.data.playlistId, saved: res.data.saved, total: res.data.total }); // E6
+    router.push(routineHref("/saved", routine.id));
+  };
+
+  const openTrackList = async () => {
+    if (!mix) return;
+    setBusy("keeping");
+    const kept = await shared(mix);
+    setBusy(null);
+    if (kept) router.push(`/m/${kept.shareId}`);
+  };
+
+  // Back from Google's YouTube screen: carry on saving after a yes, or say what's possible after a no (E8).
+  const youtube = params.get("youtube");
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (!youtube || !mix || resumed.current) return;
+    resumed.current = true;
+    router.replace(here);
+    if (youtube === "granted") void keep();
+    else setSaveStep({ kind: "denied" });
+  }, [youtube, mix]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pending = mix ? mix.tracks.filter((t) => t.linksPending).length : 0;
   const making = busy === "making" || busy === "remixing";
@@ -211,7 +264,55 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
           </div>
         )}
 
-        {problem && <ProblemBox problem={problem} routine={routine} onRetry={problem.retry ?? (() => void make())} />}
+        {saveStep?.kind === "permission" && (
+          <div className={styles.problem} role="alert" data-testid="youtube-permission">
+            <p>{MESSAGES.youtubePermission}</p>
+            <a href={signInHref(here, true)} className="cta cta--medium" style={{ background: "var(--ink)", color: "var(--lime)" }}>
+              <span>Continue to Google</span>
+            </a>
+          </div>
+        )}
+
+        {saveStep?.kind === "denied" && (
+          <div className={styles.problem} role="alert" data-testid="youtube-denied">
+            <p>{MESSAGES.youtubeDenied}</p>
+            <div role="group" aria-label="Switch music app" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {MUSIC_APPS.filter((a) => a.id !== "ytm").map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="cta cta--medium"
+                  style={{ border: "2px solid var(--ink)", color: "var(--ink)" }}
+                  onClick={() => {
+                    setMusicApp(a.id);
+                    setSaveStep(null);
+                  }}
+                >
+                  <span>Switch to {a.name}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="cta cta--medium" style={{ background: "var(--ink)", color: "var(--lime)" }} disabled={busy !== null} onClick={openTrackList}>
+              <span>Open the track list</span>
+            </button>
+          </div>
+        )}
+
+        {saveStep?.kind === "partial" && (
+          <div className={styles.problem} role="alert" data-testid="youtube-partial">
+            <p>
+              Saved {saveStep.saved} of {saveStep.total} tracks
+            </p>
+            <button type="button" className="cta cta--medium" style={{ background: "var(--ink)", color: "var(--lime)" }} disabled={busy !== null} onClick={() => keep(saveStep.playlistId)}>
+              <span>Retry</span>
+            </button>
+            <a href={routineHref("/saved", routine.id)} className="cta cta--medium" style={{ border: "2px solid var(--ink)", color: "var(--ink)" }}>
+              <span>Carry on with {saveStep.saved}</span>
+            </a>
+          </div>
+        )}
+
+        {problem && <ProblemBox problem={problem} routine={routine} youtube={!!problem.fromSave} onRetry={problem.retry ?? (() => void make())} />}
 
         {mix && !making && (
           <>
@@ -264,9 +365,9 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
           className={styles.keep}
           data-testid="mix-action"
           disabled={!mix || busy !== null || !online}
-          onClick={keep}
+          onClick={() => keep()}
         >
-          {busy === "keeping" ? "Saving…" : app.mixAction}
+          {busy === "keeping" ? (app.id === "ytm" ? "Saving to YouTube Music…" : "Saving…") : app.mixAction}
         </button>
       </div>
     </>
@@ -274,15 +375,16 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 }
 
 /** Problems where trying again straight away can work. */
-const RETRYABLE = new Set<ErrorCode>(["failed", "timeout", "swapFailed"]);
+const RETRYABLE = new Set<ErrorCode>(["failed", "timeout", "swapFailed", "saveFailed"]);
 
-function ProblemBox({ problem, routine, onRetry }: { problem: Problem; routine: Routine; onRetry: () => void }) {
+function ProblemBox({ problem, routine, youtube, onRetry }: { problem: Problem; routine: Routine; youtube: boolean; onRetry: () => void }) {
   if (problem.error === "signin") {
-    // E7: the mix stays on this phone; sign in and come straight back to it.
+    // E7: the mix stays on this phone; sign in and come straight back to it. For YouTube Music users
+    // the same step renews the YouTube permission, which runs out at the same time.
     return (
       <div className={styles.problem} role="alert" data-testid="mix-problem">
         <p>{problem.message}</p>
-        <SignInButton returnTo={routineHref("/mix", routine.id)} size="medium" />
+        <SignInButton returnTo={routineHref("/mix", routine.id)} size="medium" youtube={youtube} />
       </div>
     );
   }

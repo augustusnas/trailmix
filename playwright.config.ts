@@ -15,6 +15,10 @@ const TEST_ENV = {
   YOUTUBE_API_KEY: "AIza-test-NOT-A-REAL-KEY-ee11",
   MIXES_PAUSED: "",
   DAILY_MIX_CEILING: "",
+  // Every test shares one stand-in YouTube, so its daily caps would run out after a few saves.
+  // The caps themselves are checked in src/server/youtube.test.ts; E5 here uses its test switch.
+  YOUTUBE_SEARCH_DAILY_CAP: "1000000",
+  YOUTUBE_DAILY_UNITS: "100000000",
 };
 
 export default defineConfig({

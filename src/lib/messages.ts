@@ -22,6 +22,12 @@ export const MESSAGES = {
   sharesDaily: "That's today's sharing done. More tomorrow.",
   viewsBusy: "Easy there. Try again in a minute.",
   youtubeQuota: "YouTube's daily limit is used up. Try tomorrow or share the list.",
+  /** The first Keep it in YouTube Music: one line, then Google's permission screen. */
+  youtubePermission: "Trailmix needs permission to add this playlist to your YouTube account.",
+  /** E8: said no on Google's YouTube screen. */
+  youtubeDenied: "Without YouTube access I can't save playlists, but you can share the list.",
+  /** YouTube didn't take the playlist at all (not the quota). */
+  saveFailed: "YouTube didn't take the playlist. Try again.",
 } as const;
 
 export type ErrorCode = keyof typeof MESSAGES;

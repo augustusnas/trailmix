@@ -17,6 +17,10 @@ export const config = {
   googleClientSecret: () => process.env.AUTH_GOOGLE_SECRET?.trim() || undefined,
   /** Who may use Trailmix: comma-separated Google account emails. Unset means nobody gets in. */
   guestEmails: () => process.env.GUEST_EMAILS,
+  /** Most YouTube searches (100 units each) a day for finding video ids, for everyone together (E5). */
+  youtubeSearchCap: () => num(process.env.YOUTUBE_SEARCH_DAILY_CAP, 60),
+  /** YouTube's daily units for the project (10,000 in the beta; raise it here if Google grants more). */
+  youtubeDailyUnits: () => num(process.env.YOUTUBE_DAILY_UNITS, 10_000),
   dailyMixCeiling: () => num(process.env.DAILY_MIX_CEILING, 60),
   mixesPaused: () => /^(true|on|yes|1)$/i.test((process.env.MIXES_PAUSED ?? "").trim()),
   /**

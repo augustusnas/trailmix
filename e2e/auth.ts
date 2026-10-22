@@ -10,7 +10,9 @@ export const FRIEND = "friend@trailmix.test";
 export const LIMITS_GUEST = "limits@trailmix.test";
 /** Not on the guest list (E13). */
 export const STRANGER = "stranger@trailmix.test";
-export const TEST_GUEST_EMAILS = `${GUEST},${FRIEND},${LIMITS_GUEST}`;
+/** On the guest list, and never give the YouTube permission (E8 tests, one each so they can't meet). */
+export const SAYS_NO = ["no1@trailmix.test", "no2@trailmix.test"];
+export const TEST_GUEST_EMAILS = [GUEST, FRIEND, LIMITS_GUEST, ...SAYS_NO].join(",");
 
 /** A signed-in session cookie's value for this account (7 days, like a real one). */
 export function sessionValue(email = GUEST, now = Date.now()): string {

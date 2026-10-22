@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES } from "../src/data/categories";
 import { ROUTINES, type Routine } from "../src/data/routines";
-import { ONBOARDED, seed, waitForMix } from "./helpers";
+import { ONBOARDED, seed, stored, waitForMix } from "./helpers";
 
 // F21: whichever routine is picked shows its name and category colour on Set the vibe, The mix and Saved.
 
@@ -39,9 +39,8 @@ async function checkFlow(page: Page, r: Routine) {
   await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}$`));
   await expectTag(page, r);
 
-  // …and on the shared mix page.
-  await page.getByTestId("saved-action").click();
-  await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
+  // …and on the shared mix page. (Saved's button opens the YouTube playlist.)
+  await page.goto(`/m/${(await stored(page)).currentMix.shareId}`);
   await expectTag(page, r);
 }
 

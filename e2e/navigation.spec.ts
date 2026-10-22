@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, signIn, waitForMix } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, signIn, stored, waitForMix } from "./helpers";
 
 test("F1: a fresh install taps through every screen in order", async ({ page }) => {
   await page.goto("/");
@@ -62,7 +62,7 @@ test.describe("once set up", () => {
     await expect(page).toHaveURL(/\/vibe\?routine=tabata$/);
   });
 
-  test("Saved: Open in YouTube Music opens the mix page; Share with friends opens the share sheet", async ({ page }) => {
+  test("Saved: Open in YouTube Music opens the saved playlist; Share with friends shares the mix page", async ({ page }) => {
     await page.addInitScript(() => {
       (window as unknown as { __shared: unknown[] }).__shared = [];
       navigator.share = async (data) => {
@@ -79,8 +79,9 @@ test.describe("once set up", () => {
     expect(shared).toHaveLength(1);
     expect(shared[0].url).toMatch(/^https:\/\/trailmix\.augustusnas\.com\/m\/[\w-]{22}$/);
 
-    await page.getByTestId("saved-action").click();
-    await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
+    const mix = (await stored(page)).currentMix;
+    await expect(page.getByRole("link", { name: "Open in YouTube Music" })).toHaveAttribute("href", `https://music.youtube.com/playlist?list=${mix.playlistId}`);
+    await page.goto(shared[0].url.replace("https://trailmix.augustusnas.com", ""));
     await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
     await expect(page.getByText("Shared by Charles")).toBeVisible();
   });

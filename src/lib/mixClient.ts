@@ -68,7 +68,19 @@ export async function fetchLinks(mix: Mix): Promise<{ mix: Mix; retryAfterMs: nu
 
 export const linksReady = (mix: Mix) => mix.tracks.every((t) => !t.linksPending);
 
-/** Stores the mix as a shared page. For YouTube Music users' Keep it, also asks to save (E5 if no quota). */
-export function shareMix(mix: Mix, saveToYouTube = false) {
-  return callApi<{ id: string; youtube?: "ok" | "quota" }>("/api/share", { mix, saveToYouTube });
+/** Stores the mix as a shared mix page. */
+export function shareMix(mix: Mix) {
+  return callApi<{ id: string }>("/api/share", { mix });
 }
+
+export const SAVE_TIMEOUT_MS = 30_000;
+
+export type SaveAnswer = { playlistId: string; saved: number; total: number; missing: number[] };
+
+/** Keep it in YouTube Music: a new playlist, or with `retryOf` just the tracks a partial save missed (E6). */
+export function savePlaylist(mix: Mix, title: string, retryOf?: string) {
+  return callApi<SaveAnswer>("/api/save", { mix, title, retryOf }, { timeoutMs: SAVE_TIMEOUT_MS, onTimeout: "saveFailed" });
+}
+
+/** Opens a saved playlist. music.youtube.com links open the YouTube Music app when it's installed. */
+export const playlistUrl = (id: string) => `https://music.youtube.com/playlist?list=${encodeURIComponent(id)}`;

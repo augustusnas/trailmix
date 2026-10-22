@@ -96,6 +96,9 @@ export const clearSession = (req: Request) => cookie(req, SESSION_COOKIE, "", 0)
  */
 export type Guest = { ok: true; session: Session; who: string } | { ok: false; reason: "signin" | "notInvited" };
 
+/** A short fingerprint of the account, for limits (E9) and the YouTube permission. Never the email. */
+export const whoOf = (sub: string) => createHash("sha256").update(sub).digest("hex").slice(0, 16);
+
 /** Every server route starts here (N6). `who` is a short fingerprint of the account, for limits (E9). */
 export function checkGuest(req: Request, now = Date.now()): Guest {
   let s: Session | null = null;
@@ -106,7 +109,7 @@ export function checkGuest(req: Request, now = Date.now()): Guest {
   }
   if (!s || typeof s.email !== "string" || typeof s.exp !== "number" || s.exp < now) return { ok: false, reason: "signin" };
   if (!isGuest(s.email)) return { ok: false, reason: "notInvited" };
-  return { ok: true, session: s, who: createHash("sha256").update(s.sub).digest("hex").slice(0, 16) };
+  return { ok: true, session: s, who: whoOf(s.sub) };
 }
 
 /** checkGuest, plus the E7 test switch (a pretend expired sign-in, only while SHOW_RESET_PAGE is on). */

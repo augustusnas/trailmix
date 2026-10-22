@@ -21,6 +21,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Bad-track count (running totals in Upstash, shown at the end of each mix log line; the line's `notes` say why each failed) | `src/server/stats.ts` |
 | Problem summaries: a mix or remix that comes out short or fails is saved in Upstash as `problem:<time>` for 7 days (step reached, rounds, not found vs Deezer busy, other counts). Read them in Upstash → Data Browser, searching `problem:*` | `src/server/stats.ts` |
 | Google sign-in (OAuth with PKCE, no extra package) and the guest list, checked on every request | `src/server/google.ts`, `src/server/session.ts`, `src/app/api/auth/` |
+| Keep it → YouTube playlist (the YouTube permission, sealed tokens, video ids cached for everyone, daily units and search cap, partial saves). Each save logs `youtube-save` with its units | `src/server/youtube.ts`, `src/app/api/save/` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
 | Recorded stand-ins used by tests | `src/server/fakes.ts` |
 | What the phone remembers (pins, vibes, music app) | `src/lib/store.ts` |

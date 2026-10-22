@@ -9,8 +9,8 @@ export interface KV {
   set(key: string, value: unknown, seconds?: number): Promise<void>;
   /** Adds 1 and returns the new count. A new counter expires after `seconds`. */
   incr(key: string, seconds: number): Promise<number>;
-  /** Adds n to a counter that never expires (running totals) and returns the new total. */
-  incrBy(key: string, n: number): Promise<number>;
+  /** Adds n to a counter and returns the new total. It never expires (running totals) unless `seconds` is given for a new one. */
+  incrBy(key: string, n: number, seconds?: number): Promise<number>;
   del(key: string): Promise<void>;
 }
 
@@ -28,8 +28,10 @@ class UpstashKV implements KV {
     if (n === 1) await this.redis.expire(key, seconds);
     return n;
   }
-  async incrBy(key: string, n: number) {
-    return this.redis.incrby(key, n);
+  async incrBy(key: string, n: number, seconds?: number) {
+    const total = await this.redis.incrby(key, n);
+    if (seconds && total === n) await this.redis.expire(key, seconds);
+    return total;
   }
   async del(key: string) {
     await this.redis.del(key);
@@ -59,9 +61,10 @@ export class MemoryKV implements KV {
     this.data.set(key, { value: n, until: e?.until ?? Date.now() + seconds * 1000 });
     return n;
   }
-  async incrBy(key: string, n: number) {
-    const total = (((this.live(key)?.value as number) ?? 0) + n);
-    this.data.set(key, { value: total });
+  async incrBy(key: string, n: number, seconds?: number) {
+    const e = this.live(key);
+    const total = ((e?.value as number) ?? 0) + n;
+    this.data.set(key, { value: total, until: e?.until ?? (seconds ? Date.now() + seconds * 1000 : undefined) });
     return total;
   }
   async del(key: string) {

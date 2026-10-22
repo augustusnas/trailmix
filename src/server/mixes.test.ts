@@ -12,7 +12,7 @@ import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, mat
 import { morePrompt } from "./prompt";
 import { MixError } from "./claude";
 import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, failedChecks, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
-import { recordTrackChecks } from "./stats";
+import { recordTrackChecks, saveProblem } from "./stats";
 import { SYSTEM_PROMPT, mixPrompt, reviewPrompt, trackCount } from "./prompt";
 import type { MixRequest } from "./validate";
 
@@ -620,5 +620,28 @@ describe("Claude errors (E3, E4)", () => {
     expect(p).toContain("Workout: Boxing bag rounds (Combat)");
     expect(p).toContain("Genres (at least one per track):\n- UK rap & grime: British rap, grime and UK drill by UK artists (not US rap)\n- Drum & bass: drum & bass and jungle");
     expect(p).toContain("- Show Me Love — Robin S");
+  });
+});
+
+describe("Traceable failures: problem summaries in Upstash", () => {
+  it("saves counts, the step reached and busy apart from not found, for 7 days", async () => {
+    const kv = getKV();
+    const set = vi.spyOn(kv, "set");
+    const notes = { ...newNotes(), suggested: 27, notFound: ["A — B", "C — D"], busy: 4, step: "fitting" as const, rounds: 3, minutes: 31.2 };
+    const s = await saveProblem({ event: "remix", outcome: "failed", settings: { routine: "hiit-circuit", genres: ["uk-rap"], energy: "driven", length: 45 }, notes, seconds: 24.1 });
+    expect(s).toMatchObject({ event: "remix", outcome: "failed", step: "fitting", rounds: 3, notFound: 2, deezerBusy: 4, minutes: 31.2 });
+    const [key, value, seconds] = set.mock.calls.at(-1)!;
+    expect(key).toMatch(/^problem:\d{4}-\d\d-\d\dT/);
+    expect(value).toEqual(s);
+    expect(seconds).toBe(7 * 86400);
+    set.mockRestore();
+  });
+
+  it("makeMix records the step and rounds it reached", async () => {
+    const notes = newNotes();
+    await expect(makeMix(ask({ length: 45 }, "tooshort"), [], undefined, notes)).rejects.toMatchObject({ kind: "failed" });
+    expect(notes.step).toBe("fitting");
+    expect(notes.rounds).toBeGreaterThan(0);
+    expect(notes.minutes).toBeLessThan(0.75 * 45);
   });
 });

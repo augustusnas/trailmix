@@ -5,7 +5,9 @@ import { MixError } from "@/server/claude";
 import { clientIp, fail, ok, readJson } from "@/server/http";
 import { mixAllowed } from "@/server/limits";
 import { makeMix, newNotes, type Stage } from "@/server/mixes";
-import { trackCheckLog } from "@/server/stats";
+import { saveProblem, trackCheckLog } from "@/server/stats";
+import { cameOutShort } from "@/lib/mixTypes";
+import { COUNT_SLACK, minTracks } from "@/server/fit";
 import { testSwitch } from "@/server/testSwitch";
 import { cleanTracks, validateMixRequest } from "@/server/validate";
 import { cleanText } from "@/server/validate";
@@ -30,15 +32,22 @@ export async function POST(req: Request) {
   if (refused) return fail(refused, refused === "paused" ? 503 : 429);
 
   const notes = newNotes();
+  const started = Date.now();
+  const settings = { routine: mixReq.routine.id, genres: mixReq.genres, energy: mixReq.energy, length: mixReq.length };
+  const problem = (outcome: Parameters<typeof saveProblem>[0]["outcome"], tracks?: number) =>
+    saveProblem({ event: remix ? "remix" : "mix", outcome, settings, notes, tracks, seconds: Math.round((Date.now() - started) / 100) / 10 });
   const run = async (onStage?: (s: Stage) => void) => {
     try {
       const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
       const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes, onStage);
       // trackCheck (last): this mix's suggestions that failed the catalogue check, and the running total.
       console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, minutes: Math.round(mix.tracks.reduce((n, t) => n + t.durationMs, 0) / 6000) / 10, tracks: mix.tracks.length, usage, timings, notes, trackCheck: await trackCheckLog(notes) }));
+      const fewTracks = mix.tracks.length < minTracks(mix.length) - COUNT_SLACK;
+      if ((cameOutShort(mix) || fewTracks) && !forced) await problem("short", mix.tracks.length);
       return { mix } as const;
     } catch (err) {
       const kind = err instanceof MixError ? err.kind : "failed";
+      if (!forced) await problem(kind);
       console.error(JSON.stringify({ event: "mix-error", kind, detail: String(err).slice(0, 200), trackCheck: await trackCheckLog(notes) }));
       return { kind } as const;
     }

@@ -19,6 +19,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | What each genre means, and the genre review Claude does after the catalogue check | `src/server/prompt.ts` (`GENRE_MEANING`, `reviewPrompt`) |
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
 | Bad-track count (running totals in Upstash, shown at the end of each mix log line; the line's `notes` say why each failed) | `src/server/stats.ts` |
+| Problem summaries: a mix or remix that comes out short or fails is saved in Upstash as `problem:<time>` for 7 days (step reached, rounds, not found vs Deezer busy, other counts). Read them in Upstash → Data Browser, searching `problem:*` | `src/server/stats.ts` |
 | Who may make mixes (Milestone 4 swaps in sign-in here) | `src/server/access.ts`, `src/lib/access.ts` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
 | Recorded stand-ins used by tests | `src/server/fakes.ts` |

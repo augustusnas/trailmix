@@ -25,6 +25,9 @@ export const FLOOR_ROUNDS = 5;
 /** At most this many tracks by one artist in a mix. */
 export const MAX_PER_ARTIST = 2;
 const AVERAGE_MS = 3.6 * 60_000;
+/** When Deezer is busy: pause this long, then try those tracks once more, if this much time is left. */
+const BUSY_PAUSE_MS = 1500;
+const BUSY_RETRY_LEFT_MS = 8000;
 
 type Found = TrackInfo;
 const refKey = (t: TrackRef) => trackKey(t.title, t.artist);
@@ -52,9 +55,15 @@ export type LookupNotes = {
   duplicates: string[];
   noGenre: number;
   noTempo: number;
+  /** Deezer too busy to answer, even after retrying: not Claude's mistake, so not a failed check. */
   busy: number;
+  /** How far making the mix got (the last stage reached), and how many rounds of extra tracks it took. */
+  step: Stage | "done";
+  rounds: number;
+  /** The mix's length in minutes once fitted (also when it's then refused as too short). */
+  minutes?: number;
 };
-export const newNotes = (): LookupNotes => ({ suggested: 0, notFound: [], wrongArtist: [], length: [], offGenre: [], offGenreReview: [], slow: [], duplicates: [], noGenre: 0, noTempo: 0, busy: 0 });
+export const newNotes = (): LookupNotes => ({ suggested: 0, notFound: [], wrongArtist: [], length: [], offGenre: [], offGenreReview: [], slow: [], duplicates: [], noGenre: 0, noTempo: 0, busy: 0, step: "picking", rounds: 0 });
 /** Suggestions that failed a check (Deezer being busy isn't Claude's mistake, so isn't counted). */
 export const failedChecks = (n: LookupNotes) =>
   n.notFound.length + n.wrongArtist.length + n.length.length + n.offGenre.length + n.offGenreReview.length + n.slow.length + n.duplicates.length;
@@ -77,10 +86,18 @@ async function confirmAll(
   // The genre review (Q3) runs alongside the catalogue check: Deezer's genres can't tell UK from US
   // rap, or drum & bass from dubstep.
   const review = reviewGenres(a, list);
-  const results =
+  const check = (t: SuggestedTrack) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo);
+  const results: Awaited<ReturnType<typeof check>>[] =
     extra && (a.forced === "short" || a.forced === "tooshort")
       ? list.map(() => ({ rejected: "notFound" as const }))
-      : await inBatches(list, 6, (t) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo));
+      : await inBatches(list, 6, check);
+  // Deezer busy even after its own retries: one more try for those tracks after a short pause, if there's time.
+  const busy = results.flatMap((r, i) => (r === "unavailable" ? [i] : []));
+  if (busy.length && a.forced !== "e2" && (a.deadline ?? Infinity) - Date.now() > BUSY_RETRY_LEFT_MS) {
+    await new Promise((r) => setTimeout(r, BUSY_PAUSE_MS));
+    const again = await inBatches(busy, 3, (i) => check(list[i]));
+    busy.forEach((i, k) => (results[i] = again[k]));
+  }
   const off = new Set(await review);
   notes.suggested += list.length;
   const found: Found[] = [];
@@ -166,6 +183,7 @@ export async function makeMix(
   const min = minTracks(a.req.length);
   // Test switch "slow": each stage lasts long enough to see (and screenshot) on the phone.
   const stage = async (s: Stage) => {
+    notes.step = s;
     onStage(s);
     if (a.forced === "slow" && s !== "picking") await new Promise((r) => setTimeout(r, 2000));
   };
@@ -230,6 +248,7 @@ export async function makeMix(
     now.status === "short" &&
     (belowFloor(now) ? rounds < FLOOR_ROUNDS && a.deadline! - Date.now() > FLOOR_LEFT_MS : rounds < LENGTH_ROUNDS && !late());
   for (; keepGoing(); rounds++) {
+    notes.rounds = rounds + 1;
     const count = tracksNeeded(now);
     const more = await suggestMore(a, count, used(), `the playlist needs more tracks for the middle; ${MORE_NOTE}`, full());
     const r = await confirmAll(unseen(more), notes, a, seen, true);
@@ -238,12 +257,14 @@ export async function makeMix(
     now = fit();
   }
   timings.lengthRounds = rounds;
+  notes.rounds = rounds;
   // Still more than 5 minutes short because the tracks run long: length matters more than the count.
   if (now.totalMs < target - TOLERANCE_MS) {
     const loose = fit(false);
     if (loose.totalMs > now.totalMs) now = loose;
   }
   lap("fit");
+  notes.minutes = Math.round(now.totalMs / 6000) / 10;
   if (belowFloor(now)) throw new MixError("failed");
 
   const tracks = separateArtists(now.tracks).map(toMixTrack);
@@ -261,6 +282,7 @@ export async function makeMix(
     freshness: tracks.length ? Math.round((fresh / tracks.length) * 100) : 100,
   };
   timings.total = Date.now() - started;
+  notes.step = "done";
   return { mix, timings, notes };
 }
 

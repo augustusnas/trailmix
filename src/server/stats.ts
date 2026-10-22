@@ -33,3 +33,50 @@ export async function trackCheckLog(notes: LookupNotes) {
     runningTotal: await recordTrackChecks(notes),
   };
 }
+
+/** How long problem summaries are kept: Vercel's logs only last about an hour. */
+export const PROBLEM_DAYS = 7;
+
+/**
+ * A mix or remix that came out short or failed: a short summary in Upstash under
+ * `problem:<time>`, kept 7 days, so it can be looked at later (Upstash → Data Browser → `problem:*`).
+ * Counts only, plus a few of the titles that weren't found; never anything about who made it.
+ */
+export async function saveProblem(p: {
+  event: "mix" | "remix";
+  outcome: "short" | "failed" | "timeout" | "resting";
+  settings: { routine: string; genres: string[]; energy: string; length: number };
+  notes: LookupNotes;
+  tracks?: number;
+  seconds: number;
+}) {
+  const n = p.notes;
+  const when = new Date().toISOString();
+  const summary = {
+    when,
+    event: p.event,
+    outcome: p.outcome,
+    ...p.settings,
+    minutes: n.minutes,
+    tracks: p.tracks,
+    seconds: p.seconds,
+    /** The last stage reached: picking (Claude), energy (the Deezer check), fitting (topping up), done. */
+    step: n.step,
+    rounds: n.rounds,
+    suggested: n.suggested,
+    notFound: n.notFound.length,
+    deezerBusy: n.busy,
+    wrongArtist: n.wrongArtist.length,
+    tooLongOrShort: n.length.length,
+    offGenre: n.offGenre.length + n.offGenreReview.length,
+    slow: n.slow.length,
+    duplicates: n.duplicates.length,
+    notFoundExamples: n.notFound.slice(0, 5),
+  };
+  try {
+    await getKV().set(`problem:${when}:${Math.random().toString(36).slice(2, 6)}`, summary, PROBLEM_DAYS * 86400);
+  } catch {
+    // nice to have, never worth failing over
+  }
+  return summary;
+}

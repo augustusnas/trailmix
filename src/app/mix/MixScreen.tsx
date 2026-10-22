@@ -15,12 +15,13 @@ import { energyLabel, genreLabel, playlistTitle } from "@/lib/format";
 import { MESSAGES, type ErrorCode } from "@/lib/messages";
 import { fetchLinks, linksReady, requestMix, requestSwap, savePlaylist, shareMix } from "@/lib/mixClient";
 import { cameOutShort, runningMinutes, type Mix } from "@/lib/mixTypes";
-import { STAGES, type StageId } from "@/lib/progress";
+import { STAGES, type Progress } from "@/lib/progress";
 import { signInHref } from "@/lib/signIn";
 import { addRecentMix, load, rememberArtists, setCurrentMix, setMusicApp, useSaved, type VibeSettings } from "@/lib/store";
 import { shareLink } from "@/lib/share";
 import { useOnline } from "@/lib/useOnline";
 import { routineFromParams, routineHref } from "@/lib/vibeParams";
+import { Loading } from "./Loading";
 import styles from "./mix.module.css";
 
 /** `retry` is what Try again does: the same Generate, Remix or Swap. */
@@ -59,8 +60,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 
   const [busy, setBusy] = useState<"making" | "remixing" | "keeping" | { swapping: number } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
-  /** While making: the stage the server has reached (it reports each one as the real work gets there). */
-  const [stage, setStage] = useState<StageId>("picking");
+  /** While making: how far the server has really got (stage, live count, mix so far). */
+  const [progress, setProgress] = useState<Progress>({ stage: "picking" });
   /** E5: YouTube's daily limit is used up; offer the mix page and Share instead. */
   const [quotaId, setQuotaId] = useState<string | null>(null);
   const [saveStep, setSaveStep] = useState<SaveStep | null>(null);
@@ -71,8 +72,11 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     async (remixOf?: Mix) => {
       setBusy(remixOf ? "remixing" : "making");
       setProblem(null);
-      setStage("picking");
-      const res: ApiResult<{ mix: Mix }> = await requestMix(routine, vibe, load(), remixOf, setStage);
+      setProgress({ stage: "picking" });
+      // Stages only ever move forward; a later line for the same stage updates its count.
+      const onProgress = (p: Progress) =>
+        setProgress((now) => (STAGES.findIndex((s) => s.id === p.stage) < STAGES.findIndex((s) => s.id === now.stage) ? now : { ...(p.stage === now.stage ? now : {}), ...p }));
+      const res: ApiResult<{ mix: Mix }> = await requestMix(routine, vibe, load(), remixOf, onProgress);
       if (res.ok) {
         setCurrentMix(res.data.mix);
         rememberArtists(res.data.mix); // so the next few mixes for this routine can use other artists
@@ -187,8 +191,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 
   const pending = mix ? mix.tracks.filter((t) => t.linksPending).length : 0;
   const making = busy === "making" || busy === "remixing";
-  const stageIndex = STAGES.findIndex((s) => s.id === stage);
-  const stageText = STAGES[stageIndex].text(vibe.length);
+
+  if (making) return <Loading routine={routine} vibe={vibe} progress={progress} remixing={busy === "remixing"} />;
 
   return (
     <>
@@ -199,7 +203,7 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
             {routine.name} · {vibe.length} min · {energyLabel(vibe.energy)}
           </span>
         </div>
-        {mix && !making ? (
+        {mix ? (
           <>
             <Headline text={mix.name} size="mix" style={{ lineHeight: 0.9 }} />
             <p className="mono" data-testid="playlist-title" style={{ letterSpacing: "0.04em", textTransform: "none" }}>
@@ -215,28 +219,6 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
                 {runningMinutes(mix)} min
               </span>
             </div>
-          </>
-        ) : making ? (
-          <>
-            <Headline text={stageText} size="mix" style={{ lineHeight: 0.9 }} />
-            <div
-              className={styles.stages}
-              role="progressbar"
-              aria-label={busy === "remixing" ? "Remixing" : "Making your mix"}
-              aria-valuemin={0}
-              aria-valuemax={STAGES.length}
-              aria-valuenow={stageIndex + 1}
-              aria-valuetext={`Step ${stageIndex + 1} of ${STAGES.length}: ${stageText}`}
-              data-testid="mix-stages"
-              data-stage={stage}
-            >
-              {STAGES.map((s, i) => (
-                <span key={s.id} className={i < stageIndex ? styles.stageDone : i === stageIndex ? styles.stageNow : styles.stageNext} />
-              ))}
-            </div>
-            <p className="mono" role="status" data-testid="mix-progress" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.12em" }}>
-              Step {stageIndex + 1} of {STAGES.length}
-            </p>
           </>
         ) : (
           <Headline text={problem ? "Not this time." : "Making your mix…"} size="mix" style={{ lineHeight: 0.9 }} />

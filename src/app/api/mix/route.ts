@@ -4,7 +4,7 @@ import { MixError } from "@/server/claude";
 import { fail, ok, readJson } from "@/server/http";
 import { requireGuest } from "@/server/session";
 import { mixAllowed } from "@/server/limits";
-import { makeMix, newNotes, type Stage } from "@/server/mixes";
+import { makeMix, newNotes, type Progress } from "@/server/mixes";
 import { saveProblem, trackCheckLog } from "@/server/stats";
 import { cameOutShort } from "@/lib/mixTypes";
 import { COUNT_SLACK, minTracks } from "@/server/fit";
@@ -36,10 +36,10 @@ export async function POST(req: Request) {
   const settings = { routine: mixReq.routine.id, genres: mixReq.genres, energy: mixReq.energy, length: mixReq.length };
   const problem = (outcome: Parameters<typeof saveProblem>[0]["outcome"], tracks?: number, detail?: string) =>
     saveProblem({ event: remix ? "remix" : "mix", outcome, settings, notes, tracks, detail, seconds: Math.round((Date.now() - started) / 100) / 10 });
-  const run = async (onStage?: (s: Stage) => void) => {
+  const run = async (onProgress?: (p: Progress) => void) => {
     try {
       const usage = { inputTokens: 0, outputTokens: 0, calls: 0 };
-      const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes, onStage);
+      const { mix, timings } = await makeMix({ req: mixReq, usage, forced }, exclude, avoidName, notes, onProgress);
       // trackCheck (last): this mix's suggestions that failed the catalogue check, and the running total.
       console.log(JSON.stringify({ event: remix ? "remix" : "mix", routine: mix.routineId, length: mix.length, minutes: Math.round(mix.tracks.reduce((n, t) => n + t.durationMs, 0) / 6000) / 10, tracks: mix.tracks.length, usage, timings, notes, trackCheck: await trackCheckLog(notes) }));
       const fewTracks = mix.tracks.length < minTracks(mix.length) - COUNT_SLACK;
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
           open = false; // the phone stopped listening (left the screen); the mix still finishes and is logged
         }
       };
-      const r = await run((stage) => line({ stage }));
+      const r = await run((p) => line(p)); // one line per stage, count and fitting round, as they happen
       line("mix" in r ? { mix: r.mix } : { error: r.kind, message: MESSAGES[r.kind] });
       if (open) controller.close();
     },

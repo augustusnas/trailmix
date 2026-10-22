@@ -131,33 +131,3 @@
   border-radius: var(--radius-pill);
 }
 
-/* While making: three segments, one per real stage. Colours follow the band's text colour. */
-.stages {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-.stages span {
-  height: 10px;
-  border-radius: var(--radius-pill);
-  background: currentColor;
-}
-.stageNext {
-  opacity: 0.2;
-}
-.stageDone {
-  opacity: 1;
-}
-/* The stage in progress gently pulses; with Reduce Motion on it stays still (globals.css). */
-.stageNow {
-  opacity: 0.75;
-  animation: stage-pulse 1.4s ease-in-out infinite alternate;
-}
-@keyframes stage-pulse {
-  from {
-    opacity: 0.45;
-  }
-  to {
-    opacity: 1;
-  }
-}

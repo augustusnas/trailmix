@@ -4,7 +4,7 @@
 import type { Routine } from "@/data/routines";
 import { callApi, callApiWithProgress, type ApiResult } from "./api";
 import type { Mix, MixTrack } from "./mixTypes";
-import { isStage, type StageId } from "./progress";
+import { readProgress, type Progress } from "./progress";
 import { artistsToAvoid, type Saved, type VibeSettings } from "./store";
 
 /** Time limits: the phone gives up after these and says so (the server stops a little sooner). */
@@ -25,13 +25,13 @@ const settings = (routine: Routine, vibe: VibeSettings, saved: Saved) => ({
   avoidArtists: artistsToAvoid(saved, routine.id),
 });
 
-/** Makes a mix (or a Remix), reporting each stage the server reaches. */
+/** Makes a mix (or a Remix), reporting each stage, count and fitting round as the server gets there. */
 export function requestMix(
   routine: Routine,
   vibe: VibeSettings,
   saved: Saved,
   remixOf?: Mix,
-  onStage: (s: StageId) => void = () => {},
+  onProgress: (p: Progress) => void = () => {},
 ): Promise<ApiResult<{ mix: Mix }>> {
   return callApiWithProgress<{ mix: Mix }>(
     "/api/mix",
@@ -39,7 +39,10 @@ export function requestMix(
       ...settings(routine, vibe, saved),
       remix: remixOf ? { name: remixOf.name, tracks: remixOf.tracks.map(({ title, artist }) => ({ title, artist })) } : undefined,
     },
-    (line) => isStage(line.stage) && onStage(line.stage),
+    (line) => {
+      const p = readProgress(line);
+      if (p) onProgress(p);
+    },
     { timeoutMs: MIX_TIMEOUT_MS, onTimeout: "timeout" },
   );
 }

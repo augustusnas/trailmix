@@ -11,7 +11,7 @@ import { readShare } from "./shares";
 import { MAX_TRACK_MS, MIN_TRACK_MS, appleSongUrl, bestMatch, findAppleLink, matchResult, sameArtist, simplify, songKey } from "./lookup";
 import { morePrompt } from "./prompt";
 import { MixError } from "./claude";
-import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, failedChecks, makeMix, newNotes, swapTrack, type Stage } from "./mixes";
+import { LENGTH_ROUNDS, MAX_PER_ARTIST, capArtists, failedChecks, makeMix, newNotes, swapTrack, type Progress } from "./mixes";
 import { recordTrackChecks, saveProblem } from "./stats";
 import { SYSTEM_PROMPT, mixPrompt, reviewPrompt, trackCount } from "./prompt";
 import type { MixRequest } from "./validate";
@@ -236,10 +236,19 @@ describe("F10 when most suggestions fail the check", () => {
     expect(fitToLength(Array.from({ length: 11 }, () => t(41 / 11)), [], 45).status).toBe("ok");
   });
 
-  it("reports the three stages in order", async () => {
-    const stages: Stage[] = [];
-    await makeMix(ask(), [], undefined, newNotes(), (s) => stages.push(s));
-    expect(stages).toEqual(["picking", "energy", "fitting"]);
+  it("L1: reports the three stages in order, the found count rising one track at a time, then the fitted mix", async () => {
+    const seen: Progress[] = [];
+    const { mix } = await makeMix(ask(), [], undefined, newNotes(), (p) => seen.push(p));
+    const stages = seen.map((p) => p.stage);
+    expect([...new Set(stages)]).toEqual(["picking", "energy", "fitting"]);
+    expect(stages.indexOf("fitting")).toBeGreaterThan(stages.lastIndexOf("energy")); // never back a stage
+    const counts = seen.flatMap((p) => (p.found ? [p.found] : []));
+    expect(counts.length).toBeGreaterThan(5);
+    expect(counts).toEqual(counts.map((_, i) => i + 1));
+    // The last fitting report is the mix that comes out.
+    const last = seen.filter((p) => p.tracks !== undefined).at(-1)!;
+    expect(last.tracks).toBe(mix.tracks.length);
+    expect(last.ms).toBe(mix.tracks.reduce((n, t) => n + t.durationMs, 0));
   });
 });
 

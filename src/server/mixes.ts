@@ -17,6 +17,8 @@ const BUDGET_MS = 28_000;
 /** Time limits. The phone gives up a little later (45 and 15 seconds), in case the server never answers. */
 export const MIX_LIMIT_MS = 40_000;
 export const SWAP_LIMIT_MS = 13_000;
+/** The "slow" test switch: how long each loading stage is held. */
+const SLOW_HOLD_MS = 3_000;
 /** F10: rounds of extra tracks when a mix is still short (in time or track count) after checking. */
 export const LENGTH_ROUNDS = 3;
 /** Under three-quarters of the length, keep looking past the 28-second budget (up to 5 rounds) while this much time is left. */
@@ -72,6 +74,13 @@ export const failedChecks = (n: LookupNotes) =>
 export type Stage = "picking" | "energy" | "fitting";
 
 /**
+ * What the loading screen shows (Milestone 5, L1), sent as the work really gets there: each stage
+ * as it starts; during "energy", `found` each time Deezer confirms a track that passes the checks;
+ * during "fitting", the mix so far (`tracks`, `ms`) after each fitting round.
+ */
+export type Progress = { stage: Stage; found?: number; tracks?: number; ms?: number };
+
+/**
  * Checks suggestions in order. `seen`: songs already in the mix (Q2), added to as tracks pass.
  * `extra`: top-ups and swaps, which the "short" test switch makes fail (on top of two in three of the rest).
  */
@@ -81,12 +90,18 @@ async function confirmAll(
   a: Ask,
   seen: Set<string>,
   extra = false,
+  onConfirmed: () => void = () => {},
 ): Promise<{ found: Found[]; missing: SuggestedTrack[] }> {
   const tempo = needsTempo(a.req.energy);
   // The genre review (Q3) runs alongside the catalogue check: Deezer's genres can't tell UK from US
   // rap, or drum & bass from dubstep.
   const review = reviewGenres(a, list);
-  const check = (t: SuggestedTrack) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo);
+  // Each track Deezer confirms that's in genre and not too slow counts towards "N tracks found so far".
+  const check = async (t: SuggestedTrack) => {
+    const r = await confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo);
+    if (r !== "unavailable" && !("rejected" in r) && genreVerdict(r, a.req.genres) !== "off" && !tooSlow(r.bpm, a.req.energy, a.req.genres)) onConfirmed();
+    return r;
+  };
   const results: Awaited<ReturnType<typeof check>>[] =
     extra && (a.forced === "short" || a.forced === "tooshort")
       ? list.map(() => ({ rejected: "notFound" as const }))
@@ -172,7 +187,7 @@ export async function makeMix(
   exclude: TrackRef[] = [],
   avoidName?: string,
   notes: LookupNotes = newNotes(),
-  onStage: (s: Stage) => void = () => {},
+  onProgress: (p: Progress) => void = () => {},
 ): Promise<{ mix: Mix; timings: Record<string, number>; notes: LookupNotes }> {
   const started = Date.now();
   a.deadline ??= started + MIX_LIMIT_MS;
@@ -181,19 +196,22 @@ export async function makeMix(
   const late = () => Date.now() - started > BUDGET_MS;
   const target = a.req.length * 60_000;
   const min = minTracks(a.req.length);
-  // Test switch "slow": each stage lasts long enough to see (and screenshot) on the phone.
+  // Test switch "slow": each stage is held about 3 seconds at its end, with its final line showing,
+  // so all three can be seen (and screenshotted) on the phone.
+  const hold = () => (a.forced === "slow" ? new Promise((r) => setTimeout(r, SLOW_HOLD_MS)) : undefined);
   const stage = async (s: Stage) => {
+    await hold();
     notes.step = s;
-    onStage(s);
-    if (a.forced === "slow" && s !== "picking") await new Promise((r) => setTimeout(r, 2000));
+    onProgress({ stage: s });
   };
 
-  onStage("picking");
+  onProgress({ stage: "picking" });
   const suggestion = await suggestMix(a, exclude, avoidName);
   lap("claude");
   await stage("energy");
   const seen = new Set<string>();
-  const first = await confirmAll(suggestion.tracks, notes, a, seen);
+  let confirmed = 0;
+  const first = await confirmAll(suggestion.tracks, notes, a, seen, false, () => onProgress({ stage: "energy", found: ++confirmed }));
   lap("check");
   // E2: the catalogue is down or too busy to check most tracks, even after retrying.
   if (notes.busy > first.found.length) throw new MixError("failed", "Deezer busy for most tracks");
@@ -242,6 +260,8 @@ export async function makeMix(
   // three-quarters of the length, keep going while there's time: a badly short mix is never shown.
   await stage("fitting");
   let now = fit();
+  const fitted = () => onProgress({ stage: "fitting", tracks: now.tracks.length, ms: now.totalMs });
+  fitted();
   let rounds = 0;
   const belowFloor = (f: Fit<Found>) => f.totalMs < FLOOR * target;
   const keepGoing = () =>
@@ -255,14 +275,19 @@ export async function makeMix(
     extras = [...extras, ...r.found];
     missing = [...missing, ...r.missing];
     now = fit();
+    fitted();
   }
   timings.lengthRounds = rounds;
   notes.rounds = rounds;
   // Still more than 5 minutes short because the tracks run long: length matters more than the count.
   if (now.totalMs < target - TOLERANCE_MS) {
     const loose = fit(false);
-    if (loose.totalMs > now.totalMs) now = loose;
+    if (loose.totalMs > now.totalMs) {
+      now = loose;
+      fitted();
+    }
   }
+  await hold();
   lap("fit");
   notes.minutes = Math.round(now.totalMs / 6000) / 10;
   if (belowFloor(now)) throw new MixError("failed", "under three-quarters of the length");

@@ -278,7 +278,7 @@ export type Checked = TrackInfo | { rejected: Rejection } | "unavailable";
  */
 export async function confirmTrack(title: string, artist: string, forced?: string | null, deadline = Infinity, tempo = false): Promise<Checked> {
   const key = trackKey(title, artist);
-  if ((forced === "mostfail" || forced === "short") && failsOnPurpose(key)) return { rejected: "notFound" };
+  if (forced === "mostfail" && failsOnPurpose(key)) return { rejected: "notFound" };
   if (forced === "e2") return "unavailable"; // test switch: the catalogue is down
   let info = await readCache(key);
   if (info && "missing" in info) return { rejected: info.reason ?? "notFound" };

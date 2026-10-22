@@ -3,6 +3,9 @@
 // the rest is filled in Claude's order until the total is within 2½ minutes of the chosen length and
 // there are at least the minimum number of tracks. Tracks that would overshoot, or leave too little
 // time for the minimum, are skipped (a later one takes the place).
+// Length is a guide, not a hard target: music apps keep playing similar tracks when a playlist ends.
+// So a mix only counts as short (worth asking Claude for more) when it's over 5 minutes short or two
+// or more tracks under the minimum, and it's never shown under three-quarters of the length.
 
 import { LENGTH_TOLERANCE_MS } from "@/lib/mixTypes";
 
@@ -14,10 +17,16 @@ export const ENDING = 2;
 /** When picking a track, room left for each track still needed that isn't in the list yet (a top-up will bring it). */
 const ROOM_PER_TRACK_MS = 3 * 60_000;
 
-/** Q4: at least 8 tracks for 30 minutes, 12 for 45, 16 for 60, 24 for 90. */
+/** Never show a mix under this share of the chosen length: "Try again" instead. */
+export const FLOOR = 0.75;
+/** Q4: a track or two under the minimum count is fine. */
+export const COUNT_SLACK = 1;
+
+/** Q4: about 8 tracks for 30 minutes, 12 for 45, 16 for 60, 24 for 90. */
 export const minTracks = (lengthMin: number) => Math.ceil(lengthMin / 3.75);
 
 export type Timed = { durationMs: number };
+/** "short": over 5 minutes short, or two or more tracks under the minimum. */
 export type Fit<T> = { tracks: T[]; status: "ok" | "short" | "long"; totalMs: number };
 
 /**
@@ -45,7 +54,7 @@ export function fitToLength<T extends Timed>(body: T[], ending: T[], lengthMin: 
     total += t.durationMs;
   }
   const count = chosen.length + ending.length;
-  const status = total < target - AIM_MS || count < min ? "short" : total > target + AIM_MS ? "long" : "ok";
+  const status = total < target - TOLERANCE_MS || count < min - COUNT_SLACK ? "short" : total > target + AIM_MS ? "long" : "ok";
   return { tracks: [...chosen, ...ending], status, totalMs: total };
 }
 

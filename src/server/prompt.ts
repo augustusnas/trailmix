@@ -6,10 +6,13 @@ import { ENERGIES, GENRES } from "@/data/vibe";
 import { minTracks } from "./fit";
 import type { MixRequest, TrackRef } from "./validate";
 
-/** Ask for about 60% more than the minimum track count (Q4): with grime and drum & bass about half of suggestions fail a check. */
-const SPARE = 1.6;
+/**
+ * Ask for over twice the minimum track count (Q4) in the first request: with grime and drum & bass
+ * about half of suggestions fail a check, and a second round costs about 10 seconds.
+ */
+const SPARE = 2.2;
 
-/** How many tracks to ask for: 13 for 30 minutes, 20 for 45, 26 for 60, 39 for 90. */
+/** How many tracks to ask for: 18 for 30 minutes, 27 for 45, 36 for 60, 53 for 90. */
 export const trackCount = (lengthMin: number) => Math.ceil(minTracks(lengthMin) * SPARE);
 
 const ENERGY_FEEL: Record<string, string> = {

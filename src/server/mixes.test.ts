@@ -125,9 +125,9 @@ describe("track matching (Deezer, then iTunes for Apple links)", () => {
 });
 
 describe("F9: making a mix", () => {
-  it("asks for about 60% more tracks than the minimum count", () => {
-    expect([30, 45, 60, 90].map(trackCount)).toEqual([13, 20, 26, 39]);
-    expect(mixPrompt(request())).toContain("Make a playlist of 20 tracks, in playing order.");
+  it("asks for over twice the minimum count up front", () => {
+    expect([30, 45, 60, 90].map(trackCount)).toEqual([18, 27, 36, 53]);
+    expect(mixPrompt(request())).toContain("Make a playlist of 27 tracks, in playing order.");
   });
 
   for (const length of [30, 45, 60, 90]) {
@@ -211,7 +211,17 @@ describe("F10 when most suggestions fail the check", () => {
     const { mix, timings } = await makeMix(ask({ length: 90 }, "short"));
     expect(timings.lengthRounds).toBe(LENGTH_ROUNDS);
     expect(cameOutShort(mix)).toBe(true);
-    expect(mix.tracks.length).toBeGreaterThan(0);
+    expect(runningMs(mix)).toBeGreaterThanOrEqual(0.75 * 90 * 60_000);
+  });
+
+  it("under three-quarters of the length, it keeps looking, then fails with Try again instead of a short list", async () => {
+    await expect(makeMix(ask({ length: 45 }, "tooshort"))).rejects.toMatchObject({ kind: "failed" });
+  });
+
+  it("stops topping up once within 5 minutes and a track of the minimum count", () => {
+    const t = (min: number) => ({ durationMs: min * 60_000, artist: "a" });
+    // 41 minutes in 11 tracks: a guide, not a target, so no more rounds.
+    expect(fitToLength(Array.from({ length: 11 }, () => t(41 / 11)), [], 45).status).toBe("ok");
   });
 
   it("reports the three stages in order", async () => {

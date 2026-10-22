@@ -1,12 +1,13 @@
 // Making and changing mixes: Claude suggests one flowing list → every track checked on Deezer
 // (real, right artist, 1½–7 minutes) and against the vibe (genre, tempo for Driven and Feral, no song
 // twice) → at most 2 per artist → fitted to length and the minimum track count, topping up with
-// more tracks when short (F10, Q4, up to 3 rounds) → shown. Apple Music links come afterwards (links route).
+// more tracks when over 5 minutes short (F10, Q4, up to 3 rounds) → shown, unless it's still under
+// three-quarters of the length ("Try again" instead). Apple Music links come afterwards (links route).
 
 import { randomBytes } from "node:crypto";
 import { trackKey, type Mix, type MixTrack } from "@/lib/mixTypes";
 import { MixError, reviewGenres, suggestMix, suggestMore, type Ask, type SuggestedTrack } from "./claude";
-import { AIM_MS, ENDING, TOLERANCE_MS, fitToLength, minTracks, separateArtists, type Fit } from "./fit";
+import { AIM_MS, ENDING, FLOOR, TOLERANCE_MS, fitToLength, minTracks, separateArtists, type Fit } from "./fit";
 import { genreVerdict, needsTempo, tooSlow } from "./genres";
 import { artistNames, confirmTrack, inBatches, songKey, type TrackInfo } from "./lookup";
 import type { TrackRef } from "./validate";
@@ -18,6 +19,9 @@ export const MIX_LIMIT_MS = 40_000;
 export const SWAP_LIMIT_MS = 13_000;
 /** F10: rounds of extra tracks when a mix is still short (in time or track count) after checking. */
 export const LENGTH_ROUNDS = 3;
+/** Under three-quarters of the length, keep looking past the 28-second budget (up to 5 rounds) while this much time is left. */
+const FLOOR_LEFT_MS = 12_000;
+export const FLOOR_ROUNDS = 5;
 /** At most this many tracks by one artist in a mix. */
 export const MAX_PER_ARTIST = 2;
 const AVERAGE_MS = 3.6 * 60_000;
@@ -74,7 +78,7 @@ async function confirmAll(
   // rap, or drum & bass from dubstep.
   const review = reviewGenres(a, list);
   const results =
-    extra && a.forced === "short"
+    extra && (a.forced === "short" || a.forced === "tooshort")
       ? list.map(() => ({ rejected: "notFound" as const }))
       : await inBatches(list, 6, (t) => confirmTrack(t.title, t.artist, a.forced, a.deadline, tempo));
   const off = new Set(await review);
@@ -175,6 +179,14 @@ export async function makeMix(
   lap("check");
   // E2: the catalogue is down or too busy to check most tracks, even after retrying.
   if (notes.busy > first.found.length) throw new MixError("failed");
+  // Test switches: only enough tracks for 80% ("short") or half ("tooshort") of the length are found.
+  if (a.forced === "short" || a.forced === "tooshort") {
+    let sum = 0;
+    const share = a.forced === "short" ? 0.8 : 0.5;
+    const keep = first.found.filter((t) => (sum += t.durationMs) <= share * target);
+    first.missing.push(...first.found.slice(keep.length));
+    first.found = keep;
+  }
 
   // Claude's last couple of tracks ease off: they stay the ending, and extras go before them.
   const endCount = first.found.length >= 6 ? ENDING : 0;
@@ -208,11 +220,16 @@ export async function makeMix(
     return Math.min(30, Math.ceil(need / success) + 2);
   };
 
-  // F10 / E1: top up while short (failed tracks are simply not used), up to 3 rounds.
+  // F10 / E1: top up while short (failed tracks are simply not used), up to 3 rounds. Under
+  // three-quarters of the length, keep going while there's time: a badly short mix is never shown.
   await stage("fitting");
   let now = fit();
   let rounds = 0;
-  for (; now.status === "short" && rounds < LENGTH_ROUNDS && !late(); rounds++) {
+  const belowFloor = (f: Fit<Found>) => f.totalMs < FLOOR * target;
+  const keepGoing = () =>
+    now.status === "short" &&
+    (belowFloor(now) ? rounds < FLOOR_ROUNDS && a.deadline! - Date.now() > FLOOR_LEFT_MS : rounds < LENGTH_ROUNDS && !late());
+  for (; keepGoing(); rounds++) {
     const count = tracksNeeded(now);
     const more = await suggestMore(a, count, used(), `the playlist needs more tracks for the middle; ${MORE_NOTE}`, full());
     const r = await confirmAll(unseen(more), notes, a, seen, true);
@@ -227,6 +244,7 @@ export async function makeMix(
     if (loose.totalMs > now.totalMs) now = loose;
   }
   lap("fit");
+  if (belowFloor(now)) throw new MixError("failed");
 
   const tracks = separateArtists(now.tracks).map(toMixTrack);
   const avoid = new Set(a.req.avoid.map(refKey));

@@ -83,6 +83,13 @@ test.describe("making mixes", () => {
     await expect(page.getByTestId("length-note")).toHaveText(`This one came out at ${minutes} minutes.`);
   });
 
+  test("F10: under three-quarters of the length, no short list is shown: Try again instead", async ({ page }) => {
+    await switchOn(page, "tooshort");
+    await page.goto("/mix?routine=boxing-bag-rounds");
+    await expect(page.getByTestId("mix-problem")).toContainText("The mix didn't come together. Try again.", { timeout: 20_000 });
+    await expect(page.getByTestId("running-time")).toHaveCount(0);
+  });
+
   test("Swap: after 15 seconds with no answer, the original track stays and Try again works", async ({ page }) => {
     await page.clock.install();
     await page.goto("/mix?routine=boxing-bag-rounds");

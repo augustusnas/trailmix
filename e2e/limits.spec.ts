@@ -1,13 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { TEST_ACCESS_CODE } from "./helpers";
+import { LIMITS_GUEST, signedIn } from "./auth";
 
 // Runs against the copy of the app with the real limits on (see playwright.config.ts), one test at a time.
 test.describe.configure({ mode: "serial" });
 
-// Limits count per IP address, so these tests use their own pretend address and don't
-// use up the allowance of other tests running on the same copy of the app.
+// Mix, save and share limits count per Google account (E9), so these tests sign in as their own
+// account; page views count per IP address, so they use their own pretend address.
 const IP = { "x-forwarded-for": "10.99.99.99" };
-const headers = { "x-trailmix-access": TEST_ACCESS_CODE, ...IP };
+const headers = { ...signedIn(LIMITS_GUEST), ...IP };
 const sampleMix = {
   id: "limitsMix001",
   name: "Limit Test",
@@ -20,7 +20,7 @@ const sampleMix = {
 };
 let shareId = "";
 
-test("E17: 20 shares a day per access code, then a friendly message", async ({ request }) => {
+test("E9 / E17: 20 shares a day per Google account, then a friendly message", async ({ request }) => {
   for (let i = 0; i < 20; i++) {
     const res = await request.post("/api/share", { headers, data: { mix: sampleMix } });
     expect(res.status(), `share ${i + 1}`).toBe(200);
@@ -41,7 +41,7 @@ test("E17 / N16: 60 shared-page views a minute per visitor, then a friendly page
   await expect(page.getByTestId("views-busy")).toHaveText("Easy there. Try again in a minute.");
 });
 
-test("E9: 20 mixes an hour per person, then a friendly message", async ({ request }) => {
+test("E9: 20 mixes an hour per Google account, then a friendly message", async ({ request }) => {
   const data = { routine: "tabata", genres: ["hiphop"], energy: "feral", length: 30, avoid: [] };
   for (let i = 0; i < 20; i++) expect((await request.post("/api/mix", { headers, data })).status(), `mix ${i + 1}`).toBe(200);
   const res = await request.post("/api/mix", { headers, data });

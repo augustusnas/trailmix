@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { DAMAGED } from "../src/app/reset/ResetScreen";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, laceUp, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, signIn, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -224,7 +224,7 @@ test.describe("Set the vibe", () => {
 
 test("F20: chosen once, never asked again, used on The mix and Saved, changeable in the Library", async ({ page }) => {
   await page.goto("/");
-  await laceUp(page);
+  await signIn(page);
   await page.getByRole("button", { name: /Spotify/ }).click();
   await page.getByRole("button", { name: "That’s me" }).click();
   await expect(page).toHaveURL(/\/home$/);
@@ -387,7 +387,7 @@ test.describe("E12: damaged or wrong-version data", () => {
       Storage.prototype.removeItem = fail;
     });
     await page.goto("/");
-    await laceUp(page);
+    await signIn(page);
     await page.getByRole("button", { name: "That’s me" }).click();
     await expect(page.getByRole("heading", { name: "What’s the terrain today?" })).toBeVisible();
     await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -399,14 +399,18 @@ test.describe("E12: damaged or wrong-version data", () => {
 
 // ---------- Privacy ----------
 
-test("privacy: no cookies; pins and the music app never reach our server; vibes only when making a mix", async ({ page, context, baseURL }) => {
-  const sent: { url: string; method: string; body: string; headers: string }[] = [];
-  page.on("request", (r) => {
-    if (r.url().startsWith(baseURL!)) sent.push({ url: r.url(), method: r.method(), body: r.postData() ?? "", headers: JSON.stringify(r.headers()) });
+test("privacy: only the sign-in cookie; pins and the music app never reach our server; vibes only when making a mix", async ({ page, context, baseURL }) => {
+  await context.clearCookies(); // starts signed out, like a new phone
+  const sent: { url: string; method: string; body: string; headers: string; cookie: string }[] = [];
+  page.on("request", async (r) => {
+    if (!r.url().startsWith(baseURL!)) return;
+    const headers = await r.allHeaders();
+    const { cookie = "", ...rest } = headers;
+    sent.push({ url: r.url(), method: r.method(), body: r.postData() ?? "", headers: JSON.stringify(rest), cookie });
   });
 
   await page.goto("/");
-  await laceUp(page);
+  await signIn(page);
   await page.getByRole("button", { name: /Spotify/ }).click();
   await page.getByRole("button", { name: "That’s me" }).click();
   await page.getByRole("link", { name: "Library", exact: true }).click();
@@ -420,12 +424,14 @@ test("privacy: no cookies; pins and the music app never reach our server; vibes 
   await page.goto("/home");
   await page.waitForLoadState("networkidle");
 
-  expect(await context.cookies()).toEqual([]);
+  // One cookie: the sealed sign-in session (N7).
+  expect((await context.cookies()).map((c) => c.name)).toEqual(["trailmix-session"]);
   expect(sent.length).toBeGreaterThan(0);
   for (const r of sent) {
     const url = new URL(r.url);
-    // Addresses only ever carry which routine is open.
-    for (const key of url.searchParams.keys()) expect(["routine", "_rsc"], r.url).toContain(key);
+    // Addresses only ever carry which routine is open (and, while signing in, where to come back to).
+    const allowed = url.pathname.startsWith("/api/auth/") ? ["returnTo", "code", "state"] : ["routine", "_rsc"];
+    for (const key of url.searchParams.keys()) expect(allowed, r.url).toContain(key);
     const everything = `${r.url} ${r.body} ${r.headers}`.toLowerCase();
     // Never: pins, the music app, or the saved record itself.
     for (const secret of ["stretch-mobility", "spotify", "pins", "musicapp", "onboarded", STORAGE_KEY + "\""]) {
@@ -438,6 +444,7 @@ test("privacy: no cookies; pins and the music app never reach our server; vibes 
     if (!["/api/mix", "/api/swap", "/api/share"].includes(url.pathname)) {
       for (const vibe of ["afro", "funk-disco", "feral"]) expect(everything, `${vibe} in ${r.url}`).not.toContain(vibe);
     }
-    expect(r.headers).not.toContain('"cookie"');
+    // The only cookie sent is the session (or, while signing in, the few-minute sign-in check).
+    for (const c of r.cookie.split(";").filter((x) => x.trim())) expect(c.trim(), r.url).toMatch(/^trailmix-(session|oauth)=/);
   }
 });

@@ -20,7 +20,6 @@ describe("on-device storage", () => {
       pins: DEFAULT_PINS,
       vibes: {},
       recentMixes: [],
-      accessCode: null,
       currentMix: null,
       recentArtists: {},
     });
@@ -145,7 +144,11 @@ describe("on-device storage", () => {
       vibes: { tabata: { genres: ["hiphop"], energy: "feral", length: 30 } },
       recentMixes: [],
     };
-    expect(sanitize(v1)).toEqual({ ...v1, version: 2, accessCode: null, currentMix: null, recentArtists: {} });
+    expect(sanitize(v1)).toEqual({ ...v1, version: 2, currentMix: null, recentArtists: {} });
+  });
+
+  it("drops Milestone 3's beta access code: Google sign-in replaced it", () => {
+    expect("accessCode" in sanitize({ version: 2, onboarded: true, accessCode: "old-code" })).toBe(false);
   });
 
   it("still resets unknown future or ancient versions (E12)", () => {

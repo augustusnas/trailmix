@@ -2,15 +2,15 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccessCodeForm } from "@/components/AccessCodeForm";
 import { BackLink } from "@/components/CtaLink";
 import { Headline } from "@/components/Headline";
 import { Icon } from "@/components/Icon";
 import { PlaylistTitle } from "@/components/PlaylistTitle";
+import { SignInButton } from "@/components/SignInButton";
 import { appOrDefault } from "@/data/apps";
 import { CATEGORIES } from "@/data/categories";
 import type { Routine } from "@/data/routines";
-import type { ApiResult } from "@/lib/access";
+import type { ApiResult } from "@/lib/api";
 import { energyLabel, genreLabel } from "@/lib/format";
 import { MESSAGES, type ErrorCode } from "@/lib/messages";
 import { fetchLinks, linksReady, requestMix, requestSwap, shareMix } from "@/lib/mixClient";
@@ -277,17 +277,12 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
 const RETRYABLE = new Set<ErrorCode>(["failed", "timeout", "swapFailed"]);
 
 function ProblemBox({ problem, routine, onRetry }: { problem: Problem; routine: Routine; onRetry: () => void }) {
-  const [askCode, setAskCode] = useState(problem.error === "access");
-  if (askCode) {
+  if (problem.error === "signin") {
+    // E7: the mix stays on this phone; sign in and come straight back to it.
     return (
-      <div className={styles.problem} data-testid="mix-problem">
-        <p>Enter your beta access code to make mixes.</p>
-        <AccessCodeForm
-          onDone={() => {
-            setAskCode(false);
-            onRetry();
-          }}
-        />
+      <div className={styles.problem} role="alert" data-testid="mix-problem">
+        <p>{problem.message}</p>
+        <SignInButton returnTo={routineHref("/mix", routine.id)} size="medium" />
       </div>
     );
   }

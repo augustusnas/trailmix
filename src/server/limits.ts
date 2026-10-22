@@ -1,5 +1,5 @@
 // Limits that protect Claude credit and YouTube units: off switch (E15), daily ceiling (E14),
-// per-person hourly limit (E9), plus share, page-view and code-try caps.
+// per-account hourly limit (E9), plus share, save and page-view caps.
 
 import type { ErrorCode } from "@/lib/messages";
 import { LIMITS, config } from "./config";
@@ -34,17 +34,11 @@ export async function mixAllowed(who: string, forced?: string | null): Promise<E
   return null;
 }
 
-export const shareAllowed = (codeKey: string) => within(`shares:${codeKey}:${ukDay()}`, LIMITS.sharesPerDay, 2 * DAY);
+/** E9, per Google account (`who` from server/session.ts). */
+export const shareAllowed = (who: string) => within(`shares:${who}:${ukDay()}`, LIMITS.sharesPerDay, 2 * DAY);
+export const saveAllowed = (who: string) => within(`saves:${who}:${Math.floor(Date.now() / 3600_000)}`, LIMITS.savesPerHour, 2 * HOUR);
 export const pageViewAllowed = (ip: string) =>
   within(`views:${ip}:${Math.floor(Date.now() / 60000)}`, LIMITS.pageViewsPerMinute, 120);
-const codeTriesKey = (ip: string) => `codetries:${ip}:${Math.floor(Date.now() / 3600000)}`;
-/** Wrong access-code guesses: 10 an hour per IP. Right answers don't count. */
-export async function codeTryAllowed(ip: string): Promise<boolean> {
-  return ((await getKV().get<number>(codeTriesKey(ip))) ?? 0) < LIMITS.codeTriesPerHour;
-}
-export async function recordWrongCode(ip: string): Promise<void> {
-  await getKV().incr(codeTriesKey(ip), 2 * HOUR);
-}
 
 /**
  * E5: is there YouTube quota left today for saving a playlist? MILESTONE 4: check the real quota

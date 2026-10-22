@@ -9,6 +9,13 @@ export function ok(body: unknown) {
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }
 
+/** A redirect (303) to one of our pages or Google, setting any cookies given. */
+export function redirectTo(req: Request, to: string, cookies: string[] = []) {
+  const headers = new Headers({ Location: new URL(to, req.url).toString(), "Cache-Control": "no-store" });
+  for (const c of cookies) headers.append("Set-Cookie", c);
+  return new Response(null, { status: 303, headers });
+}
+
 /** The visitor's IP address, as Vercel reports it. */
 export function clientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");

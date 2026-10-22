@@ -37,8 +37,6 @@ export type Saved = {
   vibes: Record<string, VibeSettings>;
   /** Newest first, at most 10. */
   recentMixes: RecentMix[];
-  /** Temporary beta access code (until sign-in in Milestone 4). See lib/access.ts. */
-  accessCode: string | null;
   /** The mix on The mix and Saved right now, so a refresh never pays for a new one. */
   currentMix: Mix | null;
   /** Per routine id: the artists in each of the last 5 mixes made (kept or not), newest first. */
@@ -53,7 +51,6 @@ export function defaults(onboarded = false): Saved {
     pins: [...DEFAULT_PINS],
     vibes: {},
     recentMixes: [],
-    accessCode: null,
     currentMix: null,
     recentArtists: {},
   };
@@ -117,9 +114,7 @@ export function sanitize(raw: unknown): Saved {
       .filter((m): m is RecentMix => Boolean(m))
       .slice(0, MAX_RECENT_MIXES);
   }
-  if (typeof raw.accessCode === "string" && raw.accessCode.length > 0 && raw.accessCode.length <= 100) {
-    out.accessCode = raw.accessCode;
-  }
+  // Milestone 3's beta access code (raw.accessCode) is dropped: Google sign-in replaced it.
   out.currentMix = sanitizeMix(raw.currentMix);
   if (isObject(raw.recentArtists)) {
     for (const [id, mixes] of Object.entries(raw.recentArtists)) {
@@ -266,8 +261,9 @@ export function vibeFor(s: Saved, routineId: string): VibeSettings {
   return { genres: [], energy: DEFAULT_ENERGY, length: defaultLength(routine.minutes) };
 }
 
-export function setAccessCode(code: string | null): void {
-  update((s) => ({ ...s, accessCode: code }));
+/** E13: back to Welcome (keeping pins, vibes and mixes) when the account isn't on the guest list. */
+export function setOnboarded(onboarded: boolean): void {
+  update((s) => ({ ...s, onboarded }));
 }
 
 export function setCurrentMix(mix: Mix | null): void {

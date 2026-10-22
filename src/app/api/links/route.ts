@@ -1,5 +1,6 @@
-import { checkAccess } from "@/server/access";
-import { clientIp, fail, ok, readJson } from "@/server/http";
+import { fail, ok, readJson } from "@/server/http";
+import { requireGuest } from "@/server/session";
+import { testSwitch } from "@/server/testSwitch";
 import { findAppleLink, type AppleLink } from "@/server/lookup";
 import { cleanText } from "@/server/validate";
 
@@ -9,8 +10,8 @@ export const maxDuration = 60;
 // shared by everyone, so this answers with what it could do now and when to ask again; the app
 // keeps asking until every track is done. Until then a track opens an Apple Music search.
 export async function POST(req: Request) {
-  const access = checkAccess(req, clientIp(req));
-  if (!access.ok) return fail("access", 401);
+  const guest = requireGuest(req, testSwitch(req));
+  if (!guest.ok) return fail(guest.reason, 401);
   const body = (await readJson(req)) as { tracks?: unknown } | undefined;
   if (!Array.isArray(body?.tracks)) return fail("invalid", 400);
 

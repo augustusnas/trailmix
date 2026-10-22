@@ -52,6 +52,7 @@
 | N4 | Save within 15 seconds when most tracks are cached |
 | N6 | Every server route refuses requests without a signed-in guest; the access code is gone |
 | N7 | Session cookie is HTTP-only, Secure, SameSite=Lax; Google tokens never reach the page |
+| *As built (B)* | Sign-in is written directly on Next.js (OAuth 2.0 with PKCE, `src/server/google.ts`), not Auth.js: no new package, same redirect address (`/api/auth/callback/google`). Settings: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `GUEST_EMAILS`. The session lasts 7 days, matching Testing mode; after that the next request gives E7. Part B keeps no Google tokens at all (basic profile only); Part C will store the YouTube token encrypted in Upstash. Test switch **E7** forces a run-out sign-in |
 | N14 | Units per save logged; fresh and cached figures reported |
 | Privacy | /privacy reflects sign-in, has no access-code wording, lists the Google data kept, and is linked from Welcome and the mix page |
 | N5, N8, N11 | Secret scan; screenshots at 320, 390 and 430px including the largest text size (new screens: sign-in, permission, saving, E5 to E8); accessibility scan |

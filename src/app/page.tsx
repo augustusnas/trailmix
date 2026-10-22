@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { LaceUp } from "./LaceUp";
+import { Suspense } from "react";
+import { SignInButton } from "@/components/SignInButton";
+import { WelcomeNote } from "./WelcomeNote";
 import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
 import { Gate } from "@/components/Gate";
 import { SHOW_BETA } from "@/config/site";
 import styles from "./welcome.module.css";
 
-// Welcome (first run only; returning phones go straight to Home, see lib/gate.ts).
-// "Lace up" stands in for Google sign-in until Milestone 4. The hills animation arrives in Milestone 5.
+// Welcome (first run only; returning phones go straight to Home, see lib/gate.ts). Sign in with
+// Google, then Where do you listen (F1). The hills animation arrives in Milestone 5.
 export default function Welcome() {
   return (
     <main className={`screen screen--flush ${styles.welcome}`}>
@@ -48,9 +50,12 @@ export default function Welcome() {
           Tell it what you’re training and how you feel. Trailmix builds the soundtrack and drops it straight into
           your music app.
         </p>
-        <LaceUp />
+        <Suspense fallback={null}>
+          <WelcomeNote />
+        </Suspense>
+        <SignInButton returnTo="/listen" />
         <p className="mono" style={{ textAlign: "center" }}>
-          Sign in with Google to save your mixes
+          Invite only: use the Google account you were invited with
         </p>
         <div className={styles.creditRow}>
           <Credit linkColor="var(--ink)" />

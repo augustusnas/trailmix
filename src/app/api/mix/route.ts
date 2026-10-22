@@ -1,8 +1,8 @@
 import { PROGRESS_HEADER } from "@/lib/progress";
 import { MESSAGES } from "@/lib/messages";
-import { checkAccess } from "@/server/access";
 import { MixError } from "@/server/claude";
-import { clientIp, fail, ok, readJson } from "@/server/http";
+import { fail, ok, readJson } from "@/server/http";
+import { requireGuest } from "@/server/session";
 import { mixAllowed } from "@/server/limits";
 import { makeMix, newNotes, type Stage } from "@/server/mixes";
 import { saveProblem, trackCheckLog } from "@/server/stats";
@@ -18,8 +18,9 @@ export const maxDuration = 60;
 // The app asks for progress (PROGRESS_HEADER): then the answer is one JSON line per stage as the
 // real work reaches it, and a last line with the mix or the error. Without it, one plain answer.
 export async function POST(req: Request) {
-  const access = checkAccess(req, clientIp(req));
-  if (!access.ok) return fail("access", 401);
+  const forced = testSwitch(req);
+  const guest = requireGuest(req, forced);
+  if (!guest.ok) return fail(guest.reason, 401);
   const body = (await readJson(req)) as Record<string, unknown> | undefined;
   const mixReq = validateMixRequest(body); // E11: before anything reaches Claude
   if (!mixReq) return fail("invalid", 400);
@@ -27,8 +28,7 @@ export async function POST(req: Request) {
   const exclude = remix ? cleanTracks(remix.tracks, 40) : [];
   const avoidName = remix ? (cleanText(remix.name) ?? undefined) : undefined;
 
-  const forced = testSwitch(req);
-  const refused = await mixAllowed(access.who, forced);
+  const refused = await mixAllowed(guest.who, forced);
   if (refused) return fail(refused, refused === "paused" ? 503 : 429);
 
   const notes = newNotes();

@@ -2,11 +2,15 @@
 // app can react (e.g. ask for the access code again).
 
 export const MESSAGES = {
-  access: "That code didn't work. Check it with whoever invited you.",
-  accessAttempts: "Too many tries. Wait an hour, then try the code again.",
+  /** E7: not signed in, or the 7-day sign-in ran out. The mix on the phone is kept. */
+  signin: "Quick sign-in needed, your mix is safe.",
+  /** E13: signed in with a Google account that isn't on the guest list. */
+  notInvited: "Trailmix is invite-only for now, and that Google account isn't on the guest list.",
   paused: "Mix-making is paused. Back soon.",
   ceiling: "Trailmix has made enough mixes for today. Back tomorrow.",
   hourly: "That's a lot of mixes. Back in a few minutes.",
+  /** E9: 10 saves to YouTube Music an hour. */
+  savesHourly: "That's a lot of saves. Back in a few minutes.",
   invalid: "Something's off with those settings. Pick again.",
   failed: "The mix didn't come together. Try again.",
   resting: "Mix-making is resting right now. Try again later.",

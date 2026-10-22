@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { TEST_SWITCH_KEY } from "./access";
+import { TEST_SWITCH_KEY } from "./api";
 
 function subscribe(cb: () => void) {
   window.addEventListener("online", cb);

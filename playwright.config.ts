@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TEST_AUTH_SECRET, TEST_GUEST_EMAILS, signedInState } from "./e2e/auth";
 
 const PORT = 3100; // the app as beta users get it: SHOW_RESET_PAGE off
 const RESET_ON_PORT = 3101; // the same build with SHOW_RESET_PAGE=true and the real limits, for reset and limit tests
@@ -8,7 +9,8 @@ const RESET_ON_PORT = 3101; // the same build with SHOW_RESET_PAGE=true and the 
 const TEST_ENV = {
   FEEDBACK_EMAIL: "",
   FAKE_SERVICES: "1",
-  BETA_ACCESS_CODE: "test-trail-code",
+  AUTH_SECRET: TEST_AUTH_SECRET,
+  GUEST_EMAILS: TEST_GUEST_EMAILS,
   ANTHROPIC_API_KEY: "sk-ant-test-NOT-A-REAL-KEY-ff00",
   YOUTUBE_API_KEY: "AIza-test-NOT-A-REAL-KEY-ee11",
   MIXES_PAUSED: "",
@@ -25,6 +27,8 @@ export default defineConfig({
     ...devices["iPhone 14"], // Safari's engine (WebKit) at 390×844
     baseURL: `http://localhost:${PORT}`,
     serviceWorkers: "block", // the offline test switches this back on
+    // Every test starts signed in as the guest; sign-in tests start signed out (e2e/auth.ts).
+    storageState: signedInState(),
     trace: "retain-on-failure",
   },
   projects: [

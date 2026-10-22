@@ -15,6 +15,7 @@ export function Gate({ mode }: { mode: GateMode }) {
   useEffect(() => {
     if (!saved) return;
     const ready = isReady(saved);
+    if (mode === "welcome" && /[?&]signin=/.test(location.search)) return; // let the sign-in note be read
     if ((mode === "app" && !ready) || (mode === "welcome" && ready)) router.replace(GATE_TARGET[mode]);
   }, [saved, mode, router]);
   return <script dangerouslySetInnerHTML={{ __html: gateScript(mode) }} />;

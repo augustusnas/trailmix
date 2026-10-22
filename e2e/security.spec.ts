@@ -3,7 +3,7 @@ import { makeSharedMix } from "./helpers";
 import { SCREENS, open } from "./screens";
 
 for (const s of SCREENS) {
-  test(`${s.name}: security headers and no cookies`, async ({ page, request }) => {
+  test(`${s.name}: security headers, and no cookies but the sign-in session`, async ({ page, request }) => {
     const res = await request.get(s.path);
     const headers = res.headers();
     expect(headers["content-security-policy"]).toContain("default-src 'self'");
@@ -12,7 +12,8 @@ for (const s of SCREENS) {
     expect(headers["set-cookie"]).toBeUndefined();
 
     await open(page, s);
-    expect(await page.context().cookies()).toEqual([]);
+    // Pages never set cookies; the only one is the sign-in session (N7), set by Google sign-in.
+    for (const c of await page.context().cookies()) expect(c.name).toBe("trailmix-session");
   });
 }
 

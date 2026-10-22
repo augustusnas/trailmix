@@ -1,13 +1,11 @@
 "use client";
-// How the app proves it may make mixes. MILESTONE 4: swap the access code for the signed-in session
-// (the server side is server/access.ts). Until then every request carries the beta access code.
+// Calls to our own server. Who's asking is the signed-in Google session (an HTTP-only cookie the
+// page can't read, server/session.ts), sent with every request.
 
 import type { ApiError } from "./messages";
 import { MESSAGES } from "./messages";
 import { PROGRESS_HEADER } from "./progress";
-import { load, setAccessCode } from "./store";
 
-export const ACCESS_HEADER = "x-trailmix-access";
 /** Beta test switches (only honoured by the server when SHOW_RESET_PAGE is true). */
 export const TEST_SWITCH_HEADER = "x-trailmix-test";
 export const TEST_SWITCH_KEY = "trailmix-test-switch";
@@ -24,8 +22,6 @@ function testSwitch(): string | null {
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
-  const code = load().accessCode;
-  if (code) h[ACCESS_HEADER] = code;
   const sw = testSwitch();
   if (sw) h[TEST_SWITCH_HEADER] = sw;
   return h;
@@ -36,7 +32,7 @@ function toResult<T>(okStatus: boolean, data: unknown): ApiResult<T> {
   const d = data as { error?: unknown; message?: string } | null;
   if (okStatus && d && d.error === undefined) return { ok: true, data: d as T };
   if (d && typeof d.error === "string" && d.error in MESSAGES) {
-    if (d.error === "access") setAccessCode(null); // ask for the code again
+    if (d.error === "notInvited") leaveForWelcome(); // E13
     return { ok: false, error: d.error as ApiError["error"], message: d.message ?? MESSAGES[d.error as ApiError["error"]] };
   }
   return { ok: false, error: "failed", message: MESSAGES.failed };
@@ -68,11 +64,22 @@ function limit(timeoutMs?: number) {
   return { signal: controller.signal, timedOut: () => timedOut, done: () => clearTimeout(timer) };
 }
 
-/** POSTs JSON to one of our own API routes, with the access code. Never throws. */
+/**
+ * E13: this Google account isn't (or is no longer) on the guest list. Sign out, and Welcome says
+ * why. What's saved on the phone (pins, vibes, mixes) stays for if they're invited again.
+ */
+function leaveForWelcome() {
+  // Welcome marks the phone as not set up (WelcomeNote), so the app starts from Welcome next time.
+  void fetch("/api/auth/signout", { method: "POST", credentials: "same-origin" })
+    .catch(() => null)
+    .finally(() => location.assign("/?signin=notInvited"));
+}
+
+/** POSTs JSON to one of our own API routes, as the signed-in guest. Never throws. */
 export async function callApi<T>(path: string, body: unknown, opts: CallOptions = {}): Promise<ApiResult<T>> {
   const l = limit(opts.timeoutMs);
   try {
-    const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body), signal: l.signal, credentials: "omit" });
+    const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body), signal: l.signal, credentials: "same-origin" });
     return toResult<T>(res.ok, await res.json().catch(() => null));
   } catch {
     return caught<T>(l.timedOut(), opts.onTimeout ?? "timeout");
@@ -93,7 +100,7 @@ export async function callApiWithProgress<T>(
 ): Promise<ApiResult<T>> {
   const l = limit(opts.timeoutMs);
   try {
-    const res = await fetch(path, { method: "POST", headers: { ...headers(), [PROGRESS_HEADER]: "1" }, body: JSON.stringify(body), signal: l.signal, credentials: "omit" });
+    const res = await fetch(path, { method: "POST", headers: { ...headers(), [PROGRESS_HEADER]: "1" }, body: JSON.stringify(body), signal: l.signal, credentials: "same-origin" });
     if (!res.body || !(res.headers.get("content-type") ?? "").includes("ndjson")) return toResult<T>(res.ok, await res.json().catch(() => null));
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -123,21 +130,4 @@ export async function callApiWithProgress<T>(
   } finally {
     l.done();
   }
-}
-
-/** Checks a code with the server and remembers it on this phone if it's right. */
-export async function tryAccessCode(code: string): Promise<ApiResult<{ ok: true }>> {
-  const res = await fetch("/api/access", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code: code.trim() }),
-    credentials: "omit",
-  }).catch(() => null);
-  if (!res) return { ok: false, error: "offline", message: MESSAGES.offline };
-  const data = await res.json().catch(() => null);
-  if (res.ok) {
-    setAccessCode(code.trim());
-    return { ok: true, data: { ok: true } };
-  }
-  return { ok: false, error: data?.error ?? "access", message: data?.message ?? MESSAGES.access };
 }

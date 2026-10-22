@@ -20,7 +20,7 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Limits, off switch, daily ceiling | `src/server/limits.ts`, `src/server/config.ts` |
 | Bad-track count (running totals in Upstash, shown at the end of each mix log line; the line's `notes` say why each failed) | `src/server/stats.ts` |
 | Problem summaries: a mix or remix that comes out short or fails is saved in Upstash as `problem:<time>` for 7 days (step reached, rounds, not found vs Deezer busy, other counts). Read them in Upstash → Data Browser, searching `problem:*` | `src/server/stats.ts` |
-| Who may make mixes (Milestone 4 swaps in sign-in here) | `src/server/access.ts`, `src/lib/access.ts` |
+| Google sign-in (OAuth with PKCE, no extra package) and the guest list, checked on every request | `src/server/google.ts`, `src/server/session.ts`, `src/app/api/auth/` |
 | Shared mix pages | `src/server/shares.ts`, `src/app/m/[id]/` |
 | Recorded stand-ins used by tests | `src/server/fakes.ts` |
 | What the phone remembers (pins, vibes, music app) | `src/lib/store.ts` |
@@ -55,11 +55,11 @@ GitHub Actions runs all of these on every push.
 
 ## What's stored on the phone
 
-One record in `localStorage` under the key `trailmix`: `{ version, onboarded, musicApp, pins, vibes, recentMixes }`. It holds ids only, never names, and is never sent to the server. Damaged or old data quietly resets to the defaults (E12). There are still no cookies.
+One record in `localStorage` under the key `trailmix`: `{ version, onboarded, musicApp, pins, vibes, recentMixes }`. It holds ids only, never names, and is never sent to the server. Damaged or old data quietly resets to the defaults (E12). The only cookie is the sign-in session (`trailmix-session`): HTTP-only, Secure, SameSite=Lax, sealed with `AUTH_SECRET`, and holding just the Google account id, email, first name and expiry (7 days). A second cookie (`trailmix-oauth`) lives for the few minutes of a sign-in.
 
 Upstash's own settings (`UPSTASH_REDIS_REST_URL`/`_TOKEN` or `KV_REST_API_URL`/`_TOKEN`) come from Vercel's Upstash integration. Without them (on a Mac), counts, the track cache and shared mixes live in memory.
 
-**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E2, E3, E4, E5, E9, E10, E14, E15, two in three tracks failing, a short mix, a slow swap).
+**Beta reset** (only when `SHOW_RESET_PAGE` is `true`): tap "The library." heading 5 times quickly. That opens `/reset`, which can reset the phone to a fresh install, deliberately damage the saved data to test E12, and switch on test failures (E1, E2, E3, E4, E5, E7, E9, E10, E14, E15, two in three tracks failing, a short mix, a too-short mix, a slow swap).
 
 ## Settings (environment variables)
 
@@ -68,7 +68,10 @@ Upstash's own settings (`UPSTASH_REDIS_REST_URL`/`_TOKEN` or `KV_REST_API_URL`/`
 | `ANTHROPIC_API_KEY` | Claude, for making mixes | Mix-making says it's resting |
 | `CLAUDE_MODEL` | Which Claude model makes mixes (`claude-sonnet-5-5` for Sonnet). A name that doesn't work falls back to Haiku, with a `model-fallback` warning in the log | `claude-haiku-5-5` |
 | `YOUTUBE_API_KEY` | Not used yet: Milestone 4 saves YouTube Music playlists with it | Nothing changes yet |
-| `BETA_ACCESS_CODE` | The code testers enter once on Lace up (until sign-in) | Nobody can make mixes |
+| `AUTH_SECRET` | Seals the sign-in cookie. Long and random; **secret**. Changing it signs everyone out | Nobody can sign in |
+| `AUTH_GOOGLE_ID` | The "Trailmix Web Client" OAuth client ID from Google Cloud | Welcome says sign-in isn't working |
+| `AUTH_GOOGLE_SECRET` | That client's secret; **secret** | Welcome says sign-in isn't working |
+| `GUEST_EMAILS` | Who may use Trailmix: Google account emails, comma-separated. Checked on every request | Nobody gets in |
 | `DAILY_MIX_CEILING` | Most mixes a day across everyone (E14), reset at UK midnight | 60 |
 | `MIXES_PAUSED` | `true` pauses mix-making at once (E15) | Not paused |
 | `FEEDBACK_EMAIL` | Address the Library's "Send beta feedback" button emails | The button is hidden |

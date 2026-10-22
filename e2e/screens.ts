@@ -29,14 +29,15 @@ const onboarded = (extra: object = {}) => record({ ...ONBOARDED, vibes: BOXING_V
 // Every screen and every Milestone 2 state, for screenshots, labels, accessibility and security checks.
 export const SCREENS: Screen[] = [
   { name: "welcome", path: "/" },
+  // E13: signed in with an account that isn't on the guest list.
+  { name: "welcome-not-invited", path: "/?signin=notInvited", setup: async (page) => void (await page.getByTestId("signin-note").waitFor()) },
   {
-    name: "welcome-code",
-    path: "/",
-    setup: async (page) => {
-      // Just the form: wrong guesses are limited per computer, so screenshots don't make any.
-      await page.getByRole("button", { name: "Lace up" }).click();
-      await page.getByLabel("Beta access code").waitFor();
-    },
+    // E7: the sign-in ran out; the mix is kept and a quick sign-in is offered.
+    name: "mix-signin",
+    path: "/mix?routine=boxing-bag-rounds",
+    state: onboarded(),
+    testSwitch: "e7",
+    setup: async (page) => void (await page.getByTestId("mix-problem").waitFor()),
   },
   { name: "listen", path: "/listen" },
   { name: "home", path: "/home", state: onboarded() },

@@ -10,8 +10,13 @@ export const config = {
   claudeModel: () => process.env.CLAUDE_MODEL?.trim() || "claude-haiku-5-5",
   anthropicKey: () => process.env.ANTHROPIC_API_KEY,
   youtubeKey: () => process.env.YOUTUBE_API_KEY,
-  /** Temporary stand-in for sign-in (see server/access.ts). Unset means nobody gets in. */
-  accessCode: () => process.env.BETA_ACCESS_CODE?.trim() || undefined,
+  /** Seals the sign-in cookie (server/session.ts). Long and random; changing it signs everyone out. */
+  authSecret: () => process.env.AUTH_SECRET?.trim() || undefined,
+  /** The "Trailmix Web Client" OAuth client in Google Cloud. */
+  googleClientId: () => process.env.AUTH_GOOGLE_ID?.trim() || undefined,
+  googleClientSecret: () => process.env.AUTH_GOOGLE_SECRET?.trim() || undefined,
+  /** Who may use Trailmix: comma-separated Google account emails. Unset means nobody gets in. */
+  guestEmails: () => process.env.GUEST_EMAILS,
   dailyMixCeiling: () => num(process.env.DAILY_MIX_CEILING, 60),
   mixesPaused: () => /^(true|on|yes|1)$/i.test((process.env.MIXES_PAUSED ?? "").trim()),
   /**
@@ -30,8 +35,8 @@ export const config = {
 export const LIMITS = {
   mixesPerHour: 20,
   sharesPerDay: 20,
+  savesPerHour: 10,
   pageViewsPerMinute: 60,
-  codeTriesPerHour: 10,
   /** Shared mixes live this long. */
   shareDays: 90,
 };

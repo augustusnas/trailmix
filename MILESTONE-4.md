@@ -24,7 +24,7 @@ If you already started any of Part A from my earlier prompts, say what's done an
 | Mix shape | **One flowing list. No warm-up, main block or cool-down labels anywhere.** A gentle energy shape stays in the background only (a little lighter at the start, a peak through the middle, easing off on the last track or two). |
 | Model | `claude-sonnet-5-5` by default; Haiku as the automatic fallback. I set `CLAUDE_MODEL` and `DAILY_MIX_CEILING=30` in Vercel. |
 | Lookup | Deezer checks tracks; iTunes gives Apple links in the background; Spotify and YouTube Music use search links. No Odesli. |
-| Genres | The 12 broad genres, up to 3 per mix. |
+| Genres | 8 broad genres (12 until 22 Oct), up to 3 per mix. |
 | YouTube quota | Video IDs are looked up only on Keep it and cached for everyone. We stay at 10,000 units a day for the beta (an increase has been requested). |
 | Sign-in | Google sign-in plus a guest list replaces the temporary access code. |
 | "Shared by" | The sharer's Google first name. |

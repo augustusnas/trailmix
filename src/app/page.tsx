@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { SignInButton } from "@/components/SignInButton";
 import { WelcomeNote } from "./WelcomeNote";
 import { Headline } from "@/components/Headline";
 import { Credit } from "@/components/Credit";
+import { LegalLinks } from "@/components/LegalLinks";
 import { Gate } from "@/components/Gate";
 import { SHOW_BETA } from "@/config/site";
 import styles from "./welcome.module.css";
@@ -62,11 +62,7 @@ export default function Welcome() {
           <span className="credit" aria-hidden="true">
             ·
           </span>
-          <p className="credit">
-            <Link href="/privacy" style={{ color: "var(--ink)" }}>
-              Privacy
-            </Link>
-          </p>
+          <LegalLinks color="var(--ink)" />
         </div>
       </div>
     </main>

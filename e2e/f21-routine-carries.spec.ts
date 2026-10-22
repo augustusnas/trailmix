@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CATEGORIES } from "../src/data/categories";
 import { ROUTINES, type Routine } from "../src/data/routines";
-import { ONBOARDED, seed, stored, waitForMix } from "./helpers";
+import { ONBOARDED, keepInYouTubeMusic, seed, stored, waitForMix } from "./helpers";
 
 // F21: whichever routine is picked shows its name and category colour on Set the vibe, The mix and Saved.
 
@@ -35,7 +35,7 @@ async function checkFlow(page: Page, r: Routine) {
   await expect(page.getByTestId("routine-name")).toContainText(r.name, { ignoreCase: true });
 
   await waitForMix(page);
-  await page.getByTestId("mix-action").click();
+  await keepInYouTubeMusic(page);
   await expect(page).toHaveURL(new RegExp(`/saved\\?routine=${r.id}$`));
   await expectTag(page, r);
 

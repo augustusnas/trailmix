@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     if (r.reason === "quota") return fail("youtubeQuota", 429); // E5
     return fail("saveFailed", 502);
   }
-  // The shared mix page can then offer "Open the whole playlist".
-  if (mix.shareId) await attachPlaylist(mix.shareId, r.playlistId);
+  // The shared mix page then offers "Open the whole playlist", even on a link sent before Keep it.
+  if (mix.shareId) await attachPlaylist(mix.shareId, r.playlistId, guest.who);
   return ok({ playlistId: r.playlistId, saved: r.saved, total: r.total, missing: r.missing });
 }

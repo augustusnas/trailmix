@@ -459,7 +459,7 @@ describe("Q7: shared pages from before Milestone 4", () => {
       id: "x", name: "Old Share", routineId: "push-day", genres: ["hiphop"], energy: "driven", length: 30, createdAt: "2026-10-12",
       tracks: [track("One", "warm-up"), track("Two", "main"), track("Three", "cool-down")],
     });
-    const mix = (await readShare(id))!;
+    const { mix } = (await readShare(id))!;
     expect(mix.tracks.map((t) => t.title)).toEqual(["One", "Two", "Three"]);
     expect(mix.tracks.every((t) => !("phase" in t))).toBe(true);
   });

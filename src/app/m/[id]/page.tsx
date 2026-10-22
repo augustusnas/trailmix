@@ -15,13 +15,10 @@ import { Footer } from "./Footer";
 import { SharedPlayer } from "./SharedPlayer";
 import styles from "./shared.module.css";
 
-/** Placeholder until Milestone 4 supplies the sharer's first name from Google. */
-const SHARER_PLACEHOLDER = "Charles";
-
-const getMix = cache(readShare);
+const getShare = cache(readShare);
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const mix = await getMix((await params).id);
+  const mix = (await getShare((await params).id))?.mix;
   return {
     title: { absolute: mix ? `${mix.name}: a Trailmix` : "Trailmix" },
     robots: { index: false, follow: false },
@@ -33,8 +30,9 @@ export default async function SharedMix({ params }: { params: Promise<{ id: stri
   const h = await headers();
   const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
   if (!(await pageViewAllowed(ip))) return <Busy />; // E17 / N16
-  const mix = await getMix((await params).id);
-  if (!mix) notFound(); // E16: expired or mistyped
+  const shared = await getShare((await params).id);
+  if (!shared) notFound(); // E16: expired or mistyped
+  const { mix, sharedBy } = shared;
   const routine = getRoutine(mix.routineId)!;
 
   return (
@@ -43,7 +41,8 @@ export default async function SharedMix({ params }: { params: Promise<{ id: stri
         <div className="top-bar">
           <Wordmark color="var(--lime)" />
           <span className="mono" style={{ fontSize: "var(--t-mono-12)", letterSpacing: "0.16em" }}>
-            Shared by {SHARER_PLACEHOLDER}
+            {/* The sharer's Google first name; links from before sign-in don't have one. */}
+            {sharedBy ? `Shared by ${sharedBy}` : "Shared on Trailmix"}
           </span>
         </div>
         <Headline text={mix.name} size="shared" style={{ lineHeight: 0.88, letterSpacing: "-0.045em" }} />

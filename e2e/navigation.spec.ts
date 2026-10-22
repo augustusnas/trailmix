@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, signIn, stored, waitForMix } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, keepInYouTubeMusic, signIn, stored, stubYouTubeMusic, waitForMix } from "./helpers";
 
 test("F1: a fresh install taps through every screen in order", async ({ page }) => {
+  await stubYouTubeMusic(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Pick the terrain. We’ll bring the noise." })).toBeVisible();
 
@@ -30,7 +31,7 @@ test("F1: a fresh install taps through every screen in order", async ({ page }) 
 
   await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Keep it in YouTube Music");
-  await page.getByTestId("mix-action").click();
+  await keepInYouTubeMusic(page);
   await expect(page).toHaveURL(/\/saved\?routine=push-day$/);
   await expect(page.getByRole("heading", { name: "Press Play is ready to play." })).toBeVisible();
 
@@ -71,7 +72,7 @@ test.describe("once set up", () => {
     });
     await page.goto("/mix?routine=boxing-bag-rounds");
     await waitForMix(page);
-    await page.getByTestId("mix-action").click();
+    await keepInYouTubeMusic(page);
     await expect(page).toHaveURL(/\/saved\?routine=boxing-bag-rounds$/);
 
     await page.getByRole("button", { name: "Share with friends" }).click();
@@ -83,7 +84,7 @@ test.describe("once set up", () => {
     await expect(page.getByRole("link", { name: "Open in YouTube Music" })).toHaveAttribute("href", `https://music.youtube.com/playlist?list=${mix.playlistId}`);
     await page.goto(shared[0].url.replace("https://trailmix.augustusnas.com", ""));
     await expect(page.getByRole("heading", { name: "Gloves On, Volume Up" })).toBeVisible();
-    await expect(page.getByText("Shared by Charles")).toBeVisible();
+    await expect(page.getByText("Shared by Sam")).toBeVisible();
   });
 
   test("a missing or unknown routine goes back to Home, never a default", async ({ page }) => {

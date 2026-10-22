@@ -16,5 +16,5 @@ export async function POST(req: Request) {
   const mix = sanitizeMix(body?.mix);
   if (!mix || !getRoutine(mix.routineId)) return fail("invalid", 400);
   if (!(await shareAllowed(guest.who))) return fail("sharesDaily", 429);
-  return ok({ id: await storeShare(mix) });
+  return ok({ id: await storeShare(mix, { who: guest.who, firstName: guest.session.firstName }) });
 }

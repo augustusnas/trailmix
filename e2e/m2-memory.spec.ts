@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DEFAULT_PINS } from "../src/data/routines";
 import { DAMAGED } from "../src/app/reset/ResetScreen";
-import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, signIn, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, STORAGE_KEY, signIn, makeSharedMix, record, sawWelcome, seed, stored, waitForMix, watchForWelcome, keepInYouTubeMusic } from "./helpers";
 
 const pinIds = async (page: import("@playwright/test").Page) =>
   page.locator("button[data-routine]").evaluateAll((els) => els.map((e) => e.getAttribute("data-routine")));
@@ -241,7 +241,7 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   // Spotify users: the mix is stored and its page opens with Spotify first.
   await page.getByTestId("mix-action").click();
   await expect(page).toHaveURL(/\/m\/[\w-]{22}$/);
-  await expect(page.getByTestId("lead-app")).toContainText("Open in Spotify");
+  await expect(page.getByTestId("lead-app")).toContainText("Tracks open in Spotify");
   await page.goto("/saved?routine=push-day");
   await expect(page.getByTestId("saved-action")).toHaveText("Open in Spotify");
   await expect(page.getByRole("heading", { name: "Your mix is ready to play in Spotify, track by track." })).toBeVisible();
@@ -259,7 +259,7 @@ test("F20: chosen once, never asked again, used on The mix and Saved, changeable
   await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Open in Apple Music");
   await page.getByTestId("mix-action").click();
-  await expect(page.getByTestId("lead-app")).toContainText("Open in Apple Music");
+  await expect(page.getByTestId("lead-app")).toContainText("Tracks open in Apple Music");
 });
 
 test("YouTube Music labels", async ({ page }) => {
@@ -267,7 +267,7 @@ test("YouTube Music labels", async ({ page }) => {
   await page.goto("/mix?routine=boxing-bag-rounds");
   await waitForMix(page);
   await expect(page.getByTestId("mix-action")).toHaveText("Keep it in YouTube Music");
-  await page.getByTestId("mix-action").click();
+  await keepInYouTubeMusic(page);
   await expect(page.getByTestId("saved-action")).toHaveText("Open in YouTube Music");
 });
 
@@ -285,31 +285,30 @@ test.describe("shared mix page", () => {
     expect(new Set(widths).size).toBe(1);
 
     await buttons.nth(1).click();
-    await expect(page.getByTestId("lead-app")).toContainText("Open in Spotify");
+    await expect(page.getByTestId("lead-app")).toContainText("Tracks open in Spotify");
     await expect(page.locator("a.track").first()).toHaveAttribute("href", /open\.spotify\.com/);
     expect((await stored(page)).musicApp).toBe("spotify");
 
     await page.goto(`/m/${another}`); // their next shared mix leads with it
-    await expect(page.getByTestId("lead-app")).toContainText("Open in Spotify");
+    await expect(page.getByTestId("lead-app")).toContainText("Tracks open in Spotify");
     // not counted as having set up Trailmix
     expect((await stored(page)).onboarded).toBe(false);
   });
 
-  test("app remembered: it comes first and largest; picking another updates the memory", async ({ page, request }) => {
+  test("app remembered: it comes first; picking another updates the memory", async ({ page, request }) => {
     const { id } = await makeSharedMix(request);
     await seed(page, ONBOARDED); // a Trailmix user on YouTube Music
     await page.goto(`/m/${id}`);
     const lead = page.getByTestId("lead-app");
-    await expect(lead).toContainText("Open in YouTube Music");
+    await expect(lead).toContainText("Tracks open in YouTube Music");
     const others = page.getByRole("group", { name: "Other music apps" }).getByRole("button");
     await expect(others).toHaveText(["Spotify", "Apple Music"]);
-    const leadBox = (await lead.boundingBox())!;
-    const otherBox = (await others.first().boundingBox())!;
-    expect(leadBox.width * leadBox.height).toBeGreaterThan(otherBox.width * otherBox.height);
-    expect(leadBox.y).toBeLessThan(otherBox.y);
+    // No playlist saved: no big button (the brief removed it), just which app the tracks open in.
+    await expect(page.getByTestId("open-playlist")).toHaveCount(0);
+    expect((await lead.boundingBox())!.y).toBeLessThan((await others.first().boundingBox())!.y);
 
     await others.getByText("Apple Music").click();
-    await expect(lead).toContainText("Open in Apple Music");
+    await expect(lead).toContainText("Tracks open in Apple Music");
     expect((await stored(page)).musicApp).toBe("apple");
   });
 });

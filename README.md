@@ -29,6 +29,8 @@ Live at **https://trailmix.augustusnas.com**. Vercel deploys every push to `main
 | Library search rules | `src/lib/search.ts` |
 | Beta label on/off, live URL, credit, privacy contact email | `src/config/site.ts` |
 | Privacy page (keep it true when what is stored changes) | `src/app/privacy/page.tsx` |
+| Terms page; the Privacy · Terms links | `src/app/terms/page.tsx`, `src/components/LegalLinks.tsx` |
+| Contact email on Privacy and Terms (`CONTACT_EMAIL` in Vercel, else `src/config/site.ts`) | `src/config/contact.ts` |
 | Colours, fonts, shapes | `src/app/globals.css` (top of file) |
 | App icon (one source for every size) | `src/brand/AppIcon.tsx` |
 | Offline helper (service worker) | `src/app/sw.js/route.ts` |

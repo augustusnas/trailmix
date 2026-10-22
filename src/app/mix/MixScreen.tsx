@@ -160,7 +160,8 @@ function MixMaker({ routine, vibe }: { routine: Routine; vibe: VibeSettings }) {
     }
     setCurrentMix({ ...kept, playlistId: res.data.playlistId });
     if (res.data.missing.length) return setSaveStep({ kind: "partial", playlistId: res.data.playlistId, saved: res.data.saved, total: res.data.total }); // E6
-    router.push(routineHref("/saved", routine.id));
+    // Part D: one tap. Saved opens the new playlist in YouTube Music straight away; coming back shows Saved.
+    router.push(`${routineHref("/saved", routine.id)}&open=1`);
   };
 
   const openTrackList = async () => {

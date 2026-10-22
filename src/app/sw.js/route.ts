@@ -8,6 +8,9 @@ const VERSION = process.env.VERCEL_GIT_COMMIT_SHA ?? `local-${Date.now()}`;
 
 // Pages kept for offline use. They open instantly from the copy and refresh in the background.
 const SHELL_PAGES = ["/home", "/library", "/", "/listen", "/vibe", "/mix", "/saved"];
+// Except these, which change with sign-in: online they always come fresh (so the first open after
+// a deploy is never the old version); the copy is only for when the connection fails.
+const FRESH_PAGES = ["/", "/listen", "/mix", "/saved"];
 const SHELL_FILES = ["/manifest.webmanifest", "/icons/icon-180.png", "/icons/icon-192.png"];
 
 // Minimal service-worker types (the full "webworker" types clash with the page's DOM types).
@@ -21,7 +24,7 @@ type WorkerScope = {
   location: Location;
 };
 
-function worker(version: string, pages: string[], files: string[]) {
+function worker(version: string, pages: string[], files: string[], fresh: string[]) {
   const CACHE = `trailmix-${version}`;
   const sw = self as unknown as WorkerScope;
 
@@ -76,6 +79,17 @@ function worker(version: string, pages: string[], files: string[]) {
     return (await update) ?? offlinePage();
   }
 
+  async function networkFirst(event: FetchEvent, key: string) {
+    const cache = await caches.open(CACHE);
+    const timeout = new Promise<undefined>((done) => setTimeout(() => done(undefined), 4000));
+    const res = await Promise.race([fetch(event.request).catch(() => undefined), timeout]);
+    if (res?.ok && !res.redirected) {
+      event.waitUntil(cache.put(key, res.clone()));
+      return res;
+    }
+    return res ?? (await cache.match(key)) ?? offlinePage();
+  }
+
   function offlinePage() {
     return new Response(
       '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
@@ -97,7 +111,9 @@ function worker(version: string, pages: string[], files: string[]) {
     }
 
     if (request.mode === "navigate") {
-      if (pages.includes(url.pathname)) {
+      if (fresh.includes(url.pathname)) {
+        event.respondWith(networkFirst(event, url.pathname));
+      } else if (pages.includes(url.pathname)) {
         event.respondWith(staleWhileRevalidate(event, url.pathname));
       } else {
         event.respondWith(fetch(request).catch(async () => (await caches.match(request)) ?? offlinePage()));
@@ -107,7 +123,7 @@ function worker(version: string, pages: string[], files: string[]) {
 }
 
 export function GET() {
-  const body = `(${worker.toString()})(${JSON.stringify(VERSION)}, ${JSON.stringify(SHELL_PAGES)}, ${JSON.stringify(SHELL_FILES)});`;
+  const body = `(${worker.toString()})(${JSON.stringify(VERSION)}, ${JSON.stringify(SHELL_PAGES)}, ${JSON.stringify(SHELL_FILES)}, ${JSON.stringify(FRESH_PAGES)});`;
   return new Response(body, {
     headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" },
   });

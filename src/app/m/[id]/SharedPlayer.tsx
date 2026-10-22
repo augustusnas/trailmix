@@ -1,26 +1,46 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { MUSIC_APPS, type MusicApp } from "@/data/apps";
+import { playlistUrl } from "@/lib/mixClient";
 import type { Mix, MixTrack } from "@/lib/mixTypes";
+import { shareLink } from "@/lib/share";
 import { setMusicApp, useSaved } from "@/lib/store";
 import styles from "./shared.module.css";
 
 /**
- * Leads with the visitor's own music app (remembered on their phone only).
- * No app remembered yet → ask first, with three equal buttons.
+ * A kept mix leads with "Open the whole playlist": the real YouTube playlist, unlisted, so it opens
+ * for anyone, signed in or not. Each track opens in the visitor's own music app (remembered on their
+ * phone only); no app remembered yet → ask first, with three equal buttons.
  * Spotify and YouTube Music open a search for each song; Apple Music opens the exact song when
- * iTunes found it, otherwise a search. MILESTONE 4: YouTube Music opens the saved playlist.
+ * iTunes found it, otherwise a search.
  */
 export function SharedPlayer({ mix }: { mix: Mix }) {
   const saved = useSaved();
   const app = MUSIC_APPS.find((a) => a.id === saved?.musicApp);
-  const first = mix.tracks[0];
+  const [note, setNote] = useState("");
 
   return (
     <>
       <div className={styles.playIn}>
         <div className={styles.playInInner} data-testid="play-in">
+          {mix.playlistId && (
+            <>
+              <a
+                href={playlistUrl(mix.playlistId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cta cta--large"
+                style={{ background: "var(--orange)", color: "var(--ink)" }}
+                data-testid="open-playlist"
+              >
+                <span>Open the whole playlist</span>
+                <Icon name="arrowUpRight" size={22} />
+              </a>
+              <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35, paddingBottom: 8 }}>In YouTube Music. No sign-in needed.</p>
+            </>
+          )}
           {!saved ? null : !app ? (
             <>
               <h2 className={styles.ask}>Where do you listen?</h2>
@@ -34,23 +54,11 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
             </>
           ) : (
             <>
-              <p className="mono" style={{ letterSpacing: "0.14em" }}>
-                Play it in
+              <p className="mono" style={{ letterSpacing: "0.14em" }} data-testid="lead-app">
+                Tracks open in {app.name}
               </p>
-              <a
-                href={trackHref(app, first)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cta cta--large"
-                style={{ background: "var(--orange)", color: "var(--ink)" }}
-                data-testid="lead-app"
-              >
-                <span>{app.openAction}</span>
-                <Icon name="arrowUpRight" size={22} />
-              </a>
-              <p style={{ fontSize: "var(--t-15)", lineHeight: 1.35 }}>Then tap any track below to open it in {app.name}.</p>
               <p className="mono" style={{ letterSpacing: "0.14em", paddingTop: 8 }}>
-                Or play it in
+                Or open them in
               </p>
               <div className={styles.apps} role="group" aria-label="Other music apps">
                 {MUSIC_APPS.filter((a) => a.id !== app.id).map((a) => (
@@ -61,6 +69,17 @@ export function SharedPlayer({ mix }: { mix: Mix }) {
               </div>
             </>
           )}
+          <button
+            type="button"
+            className={styles.share}
+            onClick={async () => setNote((await shareLink(mix.shareId!, mix.name)) === "copied" ? "Link copied." : "")}
+          >
+            <Icon name="share" size={18} stroke={2.3} />
+            <span>Share with friends</span>
+          </button>
+          <p role="status" className="mono">
+            {note}
+          </p>
         </div>
       </div>
 

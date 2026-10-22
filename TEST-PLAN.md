@@ -39,7 +39,7 @@
 | F2 | Returning signed-in guest goes straight to Home |
 | F13 | Keep it creates an unlisted playlist named `Trailmix · <Routine> · <Fun name> · <Day Mon>`, tracks in mix order, description without phase wording |
 | F14 | Two keeps of the same routine on one day give two playlists |
-| F15 | Share gives one mix page link; signed out, it shows "Shared by <first name>", one list, the visitor's app leading, and "Open the whole playlist" only when a real playlist exists |
+| F15 | Share gives one mix page link; signed out, it shows "Shared by <first name>", one list, "Tracks open in <the visitor's app>", and "Open the whole playlist" only when a real playlist exists. A link shared before Keep it gets the playlist once the mix is kept. Share with friends is on the page too |
 | F20 | Spotify and Apple Music users see "Open in Spotify / Apple Music" and land on the track list with no Saved screen |
 | F21 | The chosen routine carries through every screen and the playlist name |
 | One tap | YouTube Music users: one tap on Keep it → saving progress → the playlist opens in the YouTube Music app; Saved shows on return |
@@ -55,6 +55,7 @@
 | *As built (B)* | Sign-in is written directly on Next.js (OAuth 2.0 with PKCE, `src/server/google.ts`), not Auth.js: no new package, same redirect address (`/api/auth/callback/google`). Settings: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `GUEST_EMAILS`. The session lasts 7 days, matching Testing mode; after that the next request gives E7. Part B keeps no Google tokens at all (basic profile only); Part C will store the YouTube token encrypted in Upstash. Test switch **E7** forces a run-out sign-in |
 | N14 | Units per save logged; fresh and cached figures reported |
 | Privacy | /privacy reflects sign-in, has no access-code wording, lists the Google data kept, and is linked from Welcome and the mix page |
+| Terms | /terms: beta, no warranty, YouTube's Terms of Service, how to delete your data, the contact email (`CONTACT_EMAIL`); linked next to Privacy everywhere |
 | N5, N8, N11 | Secret scan; screenshots at 320, 390 and 430px including the largest text size (new screens: sign-in, permission, saving, E5 to E8); accessibility scan |
 
 ### On my phone (installed app)
@@ -66,7 +67,8 @@
 - [ ] **Keep it (F13, one tap):** first time, the permission step; then one tap → the playlist opens in the YouTube Music app, named correctly, tracks in order.
 - [ ] **Saved on return:** come back to Trailmix → Saved is shown → Share with friends works.
 - [ ] **Spotify path (F20):** switch the music app to Spotify in the Library → Open in Spotify goes straight to the track list.
-- [ ] **Shared page (F15):** open a shared link in Safari → "Shared by Charles" (from Google), "Open the whole playlist" for a kept mix.
+- [ ] **Shared page (F15):** open a shared link in a private Safari window (signed out) → "Shared by Charles" (from Google), "Open the whole playlist" for a kept mix, opening the playlist in YouTube Music.
+- [ ] **Shared before kept:** share from Open the track list (E8) or the E5 box, then Keep it → the same link now shows "Open the whole playlist".
 - [ ] **E6 / E7:** force each with the test switches; the messages and recovery behave as written.
 - [ ] **Large text:** walk the new screens at the largest text size.
 
@@ -91,7 +93,7 @@
 | F12 | Remix | When I tap Remix, then a new list and name appear, no YouTube quota is used, and recent artists are avoided; no more than 2 tracks per artist | 3 |
 | F13 | Keep it | When I tap Keep it in YouTube Music, then an unlisted playlist named `Trailmix · <Routine> · <Fun name> · <Day Mon>` is created with the tracks in order, and it opens in the YouTube Music app | 4 |
 | F14 | New each time | Given I keep two mixes of the same routine on one day, then two separate playlists exist | 4 |
-| F15 | Share and mix page | Share gives one mix page link; opening it signed out shows "Shared by <first name>", one list, the visitor's app leading, and each track opening in that app; "Open the whole playlist" only for saved playlists | 3, 4 |
+| F15 | Share and mix page | Share gives one mix page link; opening it signed out shows "Shared by <first name>", one list, which app the tracks open in, and each track opening in that app; "Open the whole playlist" only for saved playlists (no big first-track button otherwise), also on links shared before Keep it | 3, 4 |
 | F16 | Install | When I add it to the home screen from Safari, then it opens full screen with the Trailmix icon and no browser bars | 1 |
 | F17 | Check-in | Given I kept a mix over an hour ago, when I open the app, then the check-in card shows its fun name; one tap records my answer, the card says "Noted", and it never asks about that mix again. Dismissing with × also stops it asking | 5 |
 | F18 | Freshness | Given 10 previous mixes, at least 70% of a new mix's tracks aren't in them, and the freshness percentage is recorded | 3 |

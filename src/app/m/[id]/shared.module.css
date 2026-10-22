@@ -73,3 +73,15 @@
 .appSmall {
   min-height: var(--tap);
 }
+
+/* Share with friends: under the apps, full width, growing with the text. */
+.share {
+  composes: app;
+  flex: none;
+  min-height: var(--tap);
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

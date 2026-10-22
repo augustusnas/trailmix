@@ -12,7 +12,7 @@ export const SHOW_BETA = true;
 export const CREDIT_NAME = "Augustus Nas";
 export const CREDIT_URL = "https://www.augustusnas.com";
 
-/** Who to contact about privacy, shown on /privacy. */
+/** Who to contact about privacy and terms, unless CONTACT_EMAIL is set (src/config/contact.ts). */
 export const CONTACT_EMAIL = "trailmix@augustusnas.com";
 
 export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";

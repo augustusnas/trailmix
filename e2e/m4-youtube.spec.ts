@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { FRIEND, SAYS_NO, signedInState } from "./auth";
-import { BOXING_VIBE, ONBOARDED, seed, stored, waitForMix } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, backFromYouTubeMusic, keepInYouTubeMusic, seed, stored, waitForMix } from "./helpers";
 
 // Part C: Keep it in YouTube Music saves a real playlist (F13, F14, E5, E6, E8). The test servers
 // use stand-ins for Google and YouTube. The usual test account has already given the YouTube
@@ -29,7 +29,7 @@ test("F13: Keep it saves the playlist, and Saved opens it in YouTube Music", asy
   const sent = page.waitForRequest("**/api/save");
   await page.getByTestId("mix-action").click();
   expect((await sent).postDataJSON().title).toBe(title!.replace(/ /g, " "));
-  await page.getByTestId("saved-action").waitFor();
+  await backFromYouTubeMusic(page);
   const mix = (await stored(page)).currentMix;
   expect(mix.playlistId).toMatch(/^PLfake/);
   await expect(
@@ -44,15 +44,13 @@ test("F14: keeping two mixes of the same routine on one day gives two playlists"
   page,
 }) => {
   await openMix(page);
-  await page.getByTestId("mix-action").click();
-  await page.getByTestId("saved-action").waitFor();
+  await keepInYouTubeMusic(page);
   const first = (await stored(page)).currentMix.playlistId;
   await page.goto("/mix?routine=boxing-bag-rounds");
   await waitForMix(page);
   await page.getByRole("button", { name: "Remix" }).click();
   await waitForMix(page);
-  await page.getByTestId("mix-action").click();
-  await page.getByTestId("saved-action").waitFor();
+  await keepInYouTubeMusic(page);
   const second = (await stored(page)).currentMix.playlistId;
   expect(second).toMatch(/^PLfake/);
   expect(second).not.toBe(first);
@@ -73,7 +71,7 @@ test("E6: a partial save says how many went in, and Retry adds the rest", async 
   const retry = page.waitForRequest("**/api/save");
   await box.getByRole("button", { name: "Retry" }).click();
   expect((await retry).postDataJSON().retryOf).toBe(playlistId);
-  await page.getByTestId("saved-action").waitFor();
+  await backFromYouTubeMusic(page);
   expect((await stored(page)).currentMix.playlistId).toBe(playlistId);
 });
 
@@ -90,7 +88,7 @@ test.describe("the first Keep it asks for the YouTube permission", () => {
       /Trailmix needs permission to add this playlist to your YouTube account\./,
     );
     await box.getByRole("link", { name: "Continue to Google" }).click();
-    await page.getByTestId("saved-action").waitFor();
+    await backFromYouTubeMusic(page);
     expect((await stored(page)).currentMix.playlistId).toMatch(/^PLfake/);
     // Next time: no permission step.
     await page.goto("/mix?routine=boxing-bag-rounds");
@@ -98,7 +96,7 @@ test.describe("the first Keep it asks for the YouTube permission", () => {
     await page.getByRole("button", { name: "Remix" }).click();
     await waitForMix(page);
     await page.getByTestId("mix-action").click();
-    await page.getByTestId("saved-action").waitFor();
+    await backFromYouTubeMusic(page);
   });
 
   test.describe("E8: saying no", () => {

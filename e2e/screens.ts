@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { BOXING_VIBE, ONBOARDED, makeSharedMix, record, seed, waitForMix } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, makeSharedMix, record, seed, waitForMix, backFromYouTubeMusic } from "./helpers";
 
 export type Screen = {
   name: string;
@@ -134,7 +134,7 @@ export const SCREENS: Screen[] = [
   },
   { name: "saved", path: "/mix?routine=boxing-bag-rounds", state: onboarded(), setup: async (page) => {
       await keep(page);
-      await page.getByTestId("saved-action").waitFor();
+      await backFromYouTubeMusic(page);
     } },
   {
     name: "saved-spotify",

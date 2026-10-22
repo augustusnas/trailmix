@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOG } from "../src/server/fakes";
 import { TEST_AUTH_SECRET, sessionValue, signedIn } from "./auth";
-import { BOXING_VIBE, ONBOARDED, makeSharedMix, seed, stored, waitForMix } from "./helpers";
+import { BOXING_VIBE, ONBOARDED, keepInYouTubeMusic, makeSharedMix, seed, stored, waitForMix } from "./helpers";
 
 const switchOn = (page: Page, v: string) => page.addInitScript((x) => sessionStorage.setItem("trailmix-test-switch", x), v);
 const switchOff = (page: Page) => page.evaluate(() => sessionStorage.removeItem("trailmix-test-switch"));
@@ -288,8 +288,7 @@ test.describe("making mixes", () => {
     await page.goto("/mix?routine=boxing-bag-rounds");
     await waitForMix(page);
     const first = await titles(page);
-    await page.getByTestId("mix-action").click();
-    await page.getByTestId("saved-action").waitFor();
+    await keepInYouTubeMusic(page);
     const recent = (await stored(page)).recentMixes;
     expect(recent).toHaveLength(1);
     expect(recent[0]).toMatchObject({ name: "Gloves On, Volume Up", routineId: "boxing-bag-rounds" });
@@ -335,8 +334,7 @@ test("F18: given 10 previous mixes, at least 70% of a new mix is new, and its fr
   const now = await titles(page);
   const fresh = now.filter((t) => !previous.has(t)).length / now.length;
   expect(fresh).toBeGreaterThanOrEqual(0.7);
-  await page.getByTestId("mix-action").click();
-  await page.getByTestId("saved-action").waitFor();
+  await keepInYouTubeMusic(page);
   const kept = (await stored(page)).recentMixes[0];
   expect(kept.freshness).toBe(Math.round(fresh * 100));
 });
@@ -364,15 +362,12 @@ test.describe("shared mix pages", () => {
     await page.goto(`/m/${id}`);
     const q = (t: { title: string; artist: string }) => encodeURIComponent(`${t.artist} ${t.title}`);
     const hrefs = () => page.locator("a.track").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
-    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", `https://music.youtube.com/search?q=${q(mix.tracks[0])}`);
     expect(await hrefs()).toEqual(mix.tracks.map((t) => `https://music.youtube.com/search?q=${q(t)}`));
 
     await page.getByRole("group", { name: "Other music apps" }).getByRole("button", { name: "Spotify" }).click();
-    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", /^https:\/\/open\.spotify\.com\/search\//);
     expect(await hrefs()).toEqual(mix.tracks.map((t) => `https://open.spotify.com/search/${q(t)}`));
 
     await page.getByRole("group", { name: "Other music apps" }).getByRole("button", { name: "Apple Music" }).click();
-    await expect(page.getByTestId("lead-app")).toHaveAttribute("href", /^https:\/\/music\.apple\.com\//);
     const exact = mix.tracks.filter((t) => t.appleUrl);
     expect(exact.length).toBeGreaterThan(0);
     expect(exact.length).toBeLessThan(mix.tracks.length);
@@ -415,8 +410,7 @@ test("N5: no key reaches the browser (pages, scripts, or API answers)", async ({
   await seed(page, { ...ONBOARDED, vibes: BOXING_VIBE });
   await page.goto("/mix?routine=boxing-bag-rounds");
   await waitForMix(page);
-  await page.getByTestId("mix-action").click();
-  await page.getByTestId("saved-action").waitFor();
+  await keepInYouTubeMusic(page);
   await page.goto(`/m/${(await stored(page)).currentMix.shareId}`);
   await page.waitForLoadState("networkidle");
   for (const b of bodies) for (const k of keys) expect(b).not.toContain(k);
